@@ -9,7 +9,7 @@ const serverURL = isDevelopment
 
 // axios automatically sets the headers content type for api requests
 const api = axios.create({
-  // baseURL: `${serverURL}/api`,
+  baseURL: `${serverURL}/api`,
   withCredentials: true, // tells the browser to send cookies, authorization headers or TLS client certificates when making a CORS.
 });
 
