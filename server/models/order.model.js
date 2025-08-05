@@ -36,6 +36,7 @@ const orderSchema = new Schema(
     },
     status: {
       type: String,
+      // enum allows only specific values for the status field
       enum: ["pending", "processing", "shipped", "delivered"],
       default: "pending",
     },

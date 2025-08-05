@@ -202,8 +202,8 @@ const placeOrder = async (req, res) => {
     // Get populated order details for response
     const populatedOrder = await orderModel
       .findById(newOrder[0]._id)
-      .populate("products.productId")
-      .populate("user", "email username")
+      .populate({ path: "products.productId" }) // is there is no select then evey thing is selected
+      .populate({ path: "user", select: "email username" })
       .session(session);
 
     res.status(201).json({

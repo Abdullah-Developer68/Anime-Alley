@@ -54,7 +54,6 @@ async function cleanupExpiredReservations() {
     }
 
     await mongoSession.commitTransaction();
-    // console.log(`[CLEANUP] Cleaned up ${expiredReservations.length} expired reservations`);
   } catch (error) {
     await mongoSession.abortTransaction();
     console.error("[CLEANUP] Error cleaning up expired reservations:", error);
@@ -66,7 +65,6 @@ async function cleanupExpiredReservations() {
 
 // Schedule cleanup to run every day at 3:00 AM (1 hour after user cleanup)
 cron.schedule("0 3 * * *", async () => {
-  // console.log("[CLEANUP] Starting expired reservations cleanup...");
   try {
     await cleanupExpiredReservations();
   } catch (error) {
