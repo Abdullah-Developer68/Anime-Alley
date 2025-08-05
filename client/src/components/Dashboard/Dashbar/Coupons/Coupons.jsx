@@ -62,45 +62,46 @@ const Coupons = () => {
     }
   };
 
+  const refreshStats = async () => {
+    setLoading(true);
+    setError("");
+    if (!user?.email) return;
+    try {
+      const res = await api.getCouponStats(user.email);
+      if (res.data.success) {
+        setStats(res.data);
+      } else {
+        setStats({ activeCoupons: 0, totalUsage: 0, totalDiscount: 0 });
+      }
+    } catch (error) {
+      console.error("Failed to fetch coupon stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Fetch stats only on mount and when refresh is clicked
+  useEffect(() => {
+    setLoading(true);
+    refreshStats();
+  }, [user?.email]);
+
+  // Load coupons on mount and when page changes
   useEffect(() => {
     loadCoupons(currPage);
   }, [currPage, user?.email]);
 
+  // Reload data when reloadDataType changes (when user makes edit or delete actions)
   useEffect(() => {
     if (reloadDataType === "coupons") {
       loadCoupons(currPage);
       dispatch(setReloadData(null));
+      refreshStats();
     }
   }, [reloadDataType]);
 
-  // Fetch stats only on mount and when refresh is clicked
-  useEffect(() => {
-    if (user?.email) {
-      setLoading(true);
-      api
-        .getCouponStats(user.email)
-        .then((res) => {
-          if (res.data.success) setStats(res.data);
-        })
-        .catch(() =>
-          setStats({ activeCoupons: 0, totalUsage: 0, totalDiscount: 0 })
-        )
-        .finally(() => setLoading(false));
-    }
-  }, [user?.email]);
-
   // Handler for refresh button
   const handleRefreshStats = () => {
-    setLoading(true);
-    api
-      .getCouponStats(user.email)
-      .then((res) => {
-        if (res.data.success) setStats(res.data);
-      })
-      .catch(() =>
-        setStats({ activeCoupons: 0, totalUsage: 0, totalDiscount: 0 })
-      )
-      .finally(() => setLoading(false));
+    refreshStats();
   };
 
   const handlePg = (value) => {

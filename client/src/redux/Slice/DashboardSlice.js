@@ -13,7 +13,7 @@ function loadModalState() {
 
 // default state of the dashboard slice
 const initialState = {
-  reloadData: null, // Can be 'products', 'users', 'orders', etc.
+  reloadData: null, // Can be 'products', 'users', 'orders', 'coupons' etc.
   updatedProfilePic: null, // Store updated profile picture URL
   productDeleteModalState: {
     isOpen: false,
