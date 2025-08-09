@@ -44,11 +44,8 @@ app.get("/", (req, res) => {
   res.send("Backend is running!");
 });
 
-// Only start an HTTP server in non-serverless environments
-if (!process.env.VERCEL && process.env.NODE_ENV !== "production") {
-  app.listen(port, () => {
-    console.log(`Server is running at: http://localhost:${port}`);
-  });
-}
+app.listen(port, () => {
+  console.log(`Server is running at: http://localhost:${port}`);
+});
 
 module.exports = app; // <-- Add this line for Vercel
