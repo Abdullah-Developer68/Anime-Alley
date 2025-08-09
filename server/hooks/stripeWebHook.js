@@ -12,12 +12,25 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const webHookSecretKey = process.env.STRIPE_WEBHOOK_SECRET;
 const processedSessions = new Set(); // In-memory store for processed sessions
 
+async function waitForMongooseConnected(timeoutMs = 30000) {
+  const start = Date.now();
+  while (mongoose.connection.readyState !== 1) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(
+        `MongoDB not connected after ${timeoutMs}ms (state: ${mongoose.connection.readyState})`
+      );
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 const processSuccessfulPayment = async (StripeSession) => {
   console.log("Webhook: Starting payment processing");
   console.log("Mongoose connection state:", mongoose.connection.readyState);
   // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
 
-  await dbConnect(); // Wait for database connection to be established
+  await dbConnect(); // Start/connect if needed
+  await waitForMongooseConnected(); // Ensure we are fully connected before starting a session
   console.log("After dbConnect call, state:", mongoose.connection.readyState);
 
   const mongoSession = await mongoose.startSession(); // Should work now
