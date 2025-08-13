@@ -39,8 +39,7 @@ const dbConnect = async () => {
     socketTimeoutMS: 60000,
     // Close idle connections on the server side
     maxIdleTimeMS: 120000,
-    // Keep TCP connection alive between invocations
-    keepAlive: true,
+    // keepAlive option removed in MongoDB Node driver v6; default behavior keeps sockets alive
     // Recommended for Atlas
     retryWrites: true,
   };
