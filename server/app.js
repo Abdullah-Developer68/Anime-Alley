@@ -1,5 +1,4 @@
 const express = require("express");
-const dbConnect = require("./config/dbConnect.js");
 const dotenv = require("dotenv");
 const passport = require("./config/passport/passport.js");
 
