@@ -9,8 +9,6 @@ const path = require("path"); // Use path module for file paths
 const port = process.env.PORT;
 const app = express();
 
-dbConnect();
-
 // Stripe webhook must be registered before any body parser middleware because Stripe webhooks
 // must use raw body parsing while regular API routes use JSON body parsing to handle requests
 //  and so that is why it is not in strip.routes.js

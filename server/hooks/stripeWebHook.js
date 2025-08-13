@@ -210,7 +210,7 @@ const processSuccessfulPayment = async (StripeSession) => {
 };
 
 const handleStripeWebhook = async (req, res) => {
-  await dbConnect(); // Wait for database connection to be established
+  // Do NOT connect to DB yet; first verify signature to avoid expensive work on invalid calls
   const sig = req.headers["stripe-signature"];
   let event;
 
@@ -227,11 +227,19 @@ const handleStripeWebhook = async (req, res) => {
     const StripeSession = event.data.object;
 
     try {
-      await processSuccessfulPayment(StripeSession);
+      // Acknowledge immediately and process asynchronously to avoid timeouts on cold starts
+      res.status(200).json({ received: true });
+      // Process in background (best-effort). In serverless, this runs within the same invocation
+      // but after response is sent. Consider moving to a queue/background function for stronger guarantees.
+      processSuccessfulPayment(StripeSession).catch((error) => {
+        console.error("Async processing error:", error);
+      });
+      return; // prevent fall-through to final res.json
     } catch (error) {
       console.error("❌ Error processing payment:", error);
       console.error("Error stack:", error.stack);
-      return res.status(500).json({ error: "Payment processing failed" });
+      // We already acknowledged above; just log the error.
+      return;
     }
   }
 
@@ -280,6 +288,7 @@ const handleStripeWebhook = async (req, res) => {
     }
   }
 
+  // For other events, acknowledge quickly
   res.json({ received: true });
 };
 

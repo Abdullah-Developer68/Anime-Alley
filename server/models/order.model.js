@@ -8,6 +8,14 @@ const orderSchema = new Schema(
       required: true,
       unique: true,
     },
+    // Present for Stripe payments to ensure idempotency across retries
+    stripeSessionId: {
+      type: String,
+      index: true, // will be promoted to partial unique for Stripe payments later
+      required: function () {
+        return this.paymentMethod === "stripe";
+      },
+    },
     products: [
       {
         productId: {
