@@ -82,10 +82,6 @@ const productSchema = new mongoose.Schema({
       return this.category === "toys";
     },
   },
-
-  // sold: {
-  //   type: Number,
-  // },
 });
 
 // Add text index on searchable fields

@@ -9,7 +9,7 @@ const reservationSchema = new Schema({
   },
   userId: {
     type: Schema.Types.ObjectId,
-    ref: "User",
+    ref: "users",
     required: false, // Will be required for new carts
     index: true,
   },
