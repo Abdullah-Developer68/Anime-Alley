@@ -9,13 +9,14 @@ const Logout = () => {
 
   const handleLogout = async () => {
     try {
-      localStorage.clear(); // Clear all local storage data
       if (user.googleId) {
         // Google OAuth logout
         api.googleLogout();
+        localStorage.clear(); // Clear all local storage data, but after the server deletes the cookie because of domain issue on vercel cookies can not be shared in monorepo so i am using localStorage to handle tokens if this is cleard before the token is sent to the server before logout then the token will remain on the client side and the server wont expire it
       } else {
         // Regular auth logout
         await api.logout();
+        localStorage.clear(); // Clear all local storage data
         setUser(null); // Clear user state for making routes protected again
         navigate("/login");
       }
