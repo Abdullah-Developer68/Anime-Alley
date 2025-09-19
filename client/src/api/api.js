@@ -40,14 +40,14 @@ api.interceptors.response.use(
       clearAllUserData();
 
       // Only redirect to login if we're not already on login/signup pages
-      const currentPath = window.location.pathname;
-      if (
-        !currentPath.includes("/login") &&
-        !currentPath.includes("/signup") &&
-        !currentPath.includes("/auth/google")
-      ) {
-        window.location.href = "/login";
-      }
+      // const currentPath = window.location.pathname;
+      // if (
+      //   !currentPath.includes("/login") &&
+      //   !currentPath.includes("/signup") &&
+      //   !currentPath.includes("/auth/google")
+      // ) {
+      //   window.location.href = "/login";
+      // }
     }
     return Promise.reject(error);
   }
