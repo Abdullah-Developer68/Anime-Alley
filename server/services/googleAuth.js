@@ -128,7 +128,8 @@ const LogoutFromGoogle = async (req, res) => {
       expires: new Date(0),
       maxAge: 0,
     };
-
+    console.log("Clearing cookie with options:", clearCookieOptions);
+    // Clear the JWT cookie
     res.cookie("token", "", clearCookieOptions);
 
     // Redirect to client after clearing JWT cookie
