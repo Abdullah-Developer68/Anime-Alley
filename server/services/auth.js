@@ -234,14 +234,16 @@ const login = async (req, res) => {
 };
 
 const logout = (req, res) => {
+  console.log("Logout initiated");
   dbConnect();
   try {
     // Clear JWT cookie (works for both local and Google auth)
     res.cookie("token", "", getClearCookieOptions()); // Use dedicated clear cookie options
-
+    console.log("Cookie cleared successfully");
     res.status(200).json({
       success: true,
       message: "Logged out successfully",
+      timestamp: Date.now(), // Makes each response unique so that the browser doesn't cache it
     });
   } catch (error) {
     console.error("Logout Error:", error.message);
