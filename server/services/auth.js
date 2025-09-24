@@ -38,6 +38,23 @@ const getCookieOptions = () => {
   };
 };
 
+// Separate function for clearing cookies to avoid maxAge conflicts
+const getClearCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    path: "/",
+    maxAge: 0, // Immediately expire
+    // ...(isProduction &&
+    //   process.env.COOKIE_DOMAIN && {
+    //     domain: process.env.COOKIE_DOMAIN,
+    //   }),
+  };
+};
+
 const makNSenOTP = async (req, res) => {
   dbConnect();
   const { email } = req.body;
@@ -220,13 +237,7 @@ const logout = (req, res) => {
   dbConnect();
   try {
     // Clear JWT cookie (works for both local and Google auth)
-    const clearCookieOptions = {
-      ...getCookieOptions(),
-      expires: new Date(0),
-      maxAge: 0,
-    };
-
-    res.cookie("token", "", clearCookieOptions); // token gets cleared as it is given a data in the past
+    res.cookie("token", "", getClearCookieOptions()); // Use dedicated clear cookie options
 
     res.status(200).json({
       success: true,

@@ -35,6 +35,23 @@ const getCookieOptions = () => {
   };
 };
 
+// Separate function for clearing cookies to avoid maxAge conflicts
+const getClearCookieOptions = () => {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  return {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    path: "/",
+    maxAge: 0, // Immediately expire
+    // ...(isProduction &&
+    //   process.env.COOKIE_DOMAIN && {
+    //     domain: process.env.COOKIE_DOMAIN,
+    //   }),
+  };
+};
+
 /**
  * Step 1: Initial Authentication
  * Initiates the Google OAuth flow by redirecting to the consent screen.
@@ -123,11 +140,7 @@ const handleGoogleCallback = (req, res, next) => {
 const LogoutFromGoogle = async (req, res) => {
   try {
     // Pure JWT logout - same as main logout function
-    const clearCookieOptions = {
-      ...getCookieOptions(),
-      expires: new Date(0),
-      maxAge: 0,
-    };
+    const clearCookieOptions = getClearCookieOptions();
     console.log("Clearing cookie with options:", clearCookieOptions);
     // Clear the JWT cookie
     res.cookie("token", "", clearCookieOptions);
