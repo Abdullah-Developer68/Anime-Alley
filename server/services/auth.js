@@ -234,12 +234,16 @@ const login = async (req, res) => {
 };
 
 const logout = (req, res) => {
-  console.log("Logout initiated");
   dbConnect();
   try {
     // Clear JWT cookie (works for both local and Google auth)
     res.cookie("token", "", getClearCookieOptions()); // Use dedicated clear cookie options
-    console.log("Cookie cleared successfully");
+
+    // because the browser was constantly caching the logout function
+    // the cookie never got cleared and because of that the token from
+    // the client side was never deleted and after every refresh the user
+    // was being logged back in. Making every request unique solved this issue
+    // but in the req header we can also tell the browser to not cache this request
     res.status(200).json({
       success: true,
       message: "Logged out successfully",
