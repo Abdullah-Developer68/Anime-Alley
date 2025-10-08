@@ -43,7 +43,7 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// All cart routes require authentication
+// All cart routes require authentication (middleware applied here)
 router.use(verifyToken);
 
 router.post("/", getCart);

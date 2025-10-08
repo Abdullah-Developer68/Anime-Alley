@@ -225,14 +225,10 @@ const handleStripeWebhook = async (req, res) => {
     const StripeSession = event.data.object;
 
     try {
-      // Acknowledge immediately and process asynchronously to avoid timeouts on cold starts
-      // res.status(200).json({ received: true }); // received: true -> tells stripe that you have sent the data to our server successfully
-      // Process in background (best-effort). In serverless, this runs within the same invocation
-      // but after response is sent. Consider moving to a queue/background function for stronger guarantees.
       processSuccessfulPayment(StripeSession).catch((error) => {
         console.error("Async processing error:", error);
       });
-      res.status(200).json({ received: true });
+      res.status(200).json({ received: true }); // received: true -> tells stripe that the data sent by them has been processed successfully
       return; // prevent fall-through to final res.json
     } catch (error) {
       console.error("Error processing payment:", error);
