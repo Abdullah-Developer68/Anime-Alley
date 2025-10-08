@@ -225,15 +225,23 @@ const handleStripeWebhook = async (req, res) => {
     const StripeSession = event.data.object;
 
     try {
-      processSuccessfulPayment(StripeSession).catch((error) => {
-        console.error("Async processing error:", error);
-      });
-      res.status(200).json({ received: true }); // received: true -> tells stripe that the data sent by them has been processed successfully
-      return; // prevent fall-through to final res.json
+      // CRITICAL: Establish DB connection FIRST with longer timeout
+      console.log("Connecting to MongoDB...");
+      await dbConnect();
+      console.log("MongoDB connected successfully");
+      
+      // Now process payment
+      await processSuccessfulPayment(StripeSession);
+      
+      // Only send 200 after everything succeeds
+      res.status(200).json({ received: true }); // tells stripe that the data sent by your server via webhook has been processed
+      return;
     } catch (error) {
       console.error("Error processing payment:", error);
       console.error("Error stack:", error.stack);
-      // We already acknowledged above; just log the error.
+      
+      // Send 500 so Stripe retries
+      res.status(500).json({ error: error.message });
       return;
     }
   }
