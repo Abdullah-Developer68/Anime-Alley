@@ -80,9 +80,9 @@ const processSuccessfulPayment = async (StripeSession) => {
       .session(mongoSession);
     if (!user) {
       await mongoSession.abortTransaction();
-      console.error(`❌ No user found with email: ${userEmail}`);
+      console.error(`No user found with email: ${userEmail}`);
       console.error(
-        `📧 Session customer email: ${StripeSession.customer_details?.email}`
+        `Session customer email: ${StripeSession.customer_details?.email}`
       );
       throw new Error(`No user found with email: ${userEmail}`);
     }
@@ -92,7 +92,7 @@ const processSuccessfulPayment = async (StripeSession) => {
       StripeSession.customer_details?.email &&
       StripeSession.customer_details.email !== userEmail
     ) {
-      console.warn(`⚠️ Email mismatch detected:`);
+      console.warn(`Email mismatch detected:`);
       console.warn(
         `   Session customer email: ${StripeSession.customer_details.email}`
       );
@@ -100,10 +100,8 @@ const processSuccessfulPayment = async (StripeSession) => {
       console.warn(`   Using metadata email for consistency`);
     }
 
-    console.log(`✅ User found: ${user.email} (ID: ${user._id})`);
-    console.log(
-      `🔐 Email validation passed - authenticated user matches order`
-    );
+    console.log(`User found: ${user.email} (ID: ${user._id})`);
+    console.log(`Email validation passed - authenticated user matches order`);
 
     // Create order from reservation data matching your Order model structure
     const orderData = {
@@ -127,13 +125,13 @@ const processSuccessfulPayment = async (StripeSession) => {
     };
 
     console.log(
-      "📝 Creating order with data:",
+      "Creating order with data:",
       JSON.stringify(orderData, null, 2)
     );
     const order = new orderModel(orderData);
-    console.log("💾 Saving order to database...");
+    console.log("Saving order to database...");
     const savedOrder = await order.save({ session: mongoSession });
-    console.log("✅ Order saved with ID:", savedOrder._id);
+    console.log("Order saved with ID:", savedOrder._id);
 
     // Handle coupon usage if coupon was used
     if (couponCode) {
@@ -191,18 +189,18 @@ const processSuccessfulPayment = async (StripeSession) => {
     await reservationModel.deleteOne({ cartId }, { session: mongoSession });
 
     // Commit the transaction
-    console.log("🔄 Committing transaction...");
+    console.log("Committing transaction...");
     await mongoSession.commitTransaction();
-    console.log("✅ Transaction committed successfully");
+    console.log("Transaction committed successfully");
 
     console.log(
-      `✅ Order ${savedOrder.orderID} created successfully for cart ${cartId}`
+      `Order ${savedOrder.orderID} created successfully for cart ${cartId}`
     );
   } catch (error) {
     // Remove from processed set if transaction fails
     processedSessions.delete(StripeSession.id);
     await mongoSession.abortTransaction();
-    console.error("❌ Transaction failed for cart:", cartId, error);
+    console.error("Transaction failed for cart:", cartId, error);
     throw error;
   } finally {
     mongoSession.endSession();
@@ -228,15 +226,16 @@ const handleStripeWebhook = async (req, res) => {
 
     try {
       // Acknowledge immediately and process asynchronously to avoid timeouts on cold starts
-      res.status(200).json({ received: true }); // received: true -> tells stripe that you have sent the data to our server successfully
+      // res.status(200).json({ received: true }); // received: true -> tells stripe that you have sent the data to our server successfully
       // Process in background (best-effort). In serverless, this runs within the same invocation
       // but after response is sent. Consider moving to a queue/background function for stronger guarantees.
       processSuccessfulPayment(StripeSession).catch((error) => {
         console.error("Async processing error:", error);
       });
+      res.status(200).json({ received: true });
       return; // prevent fall-through to final res.json
     } catch (error) {
-      console.error("❌ Error processing payment:", error);
+      console.error("Error processing payment:", error);
       console.error("Error stack:", error.stack);
       // We already acknowledged above; just log the error.
       return;
@@ -255,15 +254,15 @@ const handleStripeWebhook = async (req, res) => {
       // Log the failed payment but keep reservation intact
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
-      console.log(`💳 Payment failed for cart: ${cartId}, user: ${userEmail}`);
+      console.log(`Payment failed for cart: ${cartId}, user: ${userEmail}`);
       console.log(
-        `🛒 Reservation preserved - user can still pay with Cash on Delivery`
+        `Reservation preserved - user can still pay with Cash on Delivery`
       );
 
       // Just log the failure - don't modify reservation model
-      console.log(`📝 Payment failure logged for tracking: ${event.type}`);
+      console.log(`Payment failure logged for tracking: ${event.type}`);
     } catch (error) {
-      console.error("❌ Error logging failed payment:", error);
+      console.error("Error logging failed payment:", error);
       // Don't throw error - this shouldn't block webhook processing
     }
   }
@@ -277,13 +276,13 @@ const handleStripeWebhook = async (req, res) => {
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
       console.log(
-        `⏰ Checkout session expired for cart: ${cartId}, user: ${userEmail}`
+        `Checkout session expired for cart: ${cartId}, user: ${userEmail}`
       );
       console.log(
-        `🛒 Reservation preserved - will be auto-cleaned by cleanup script after 2 days`
+        `Reservation preserved - will be auto-cleaned by cleanup script after 2 days`
       );
     } catch (error) {
-      console.error("❌ Error logging expired session:", error);
+      console.error("Error logging expired session:", error);
       // Don't throw error - this shouldn't block webhook processing
     }
   }
