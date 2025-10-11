@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const verifyTokenMiddleware = require("../../middlewares/custom/auth.middleware.js");
 const {
   placeOrder,
   getOrderHistory,
@@ -8,6 +9,9 @@ const {
   updateOrder,
   getOrderStats,
 } = require("../../controllers/order.controller.js");
+
+// All order routes require authentication
+router.use(verifyTokenMiddleware);
 
 // POST
 router.post("/placeOrder", placeOrder);

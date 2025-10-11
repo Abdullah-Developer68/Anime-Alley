@@ -2,15 +2,11 @@ const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
 const reservationSchema = new Schema({
-  cartId: {
-    type: String,
-    required: false, // Make optional for backward compatibility
-    index: true,
-  },
   userId: {
     type: Schema.Types.ObjectId,
     ref: "users",
-    required: false, // Will be required for new carts
+    required: true, // Required for authenticated users
+    unique: true, // One cart per user
     index: true,
   },
   products: [

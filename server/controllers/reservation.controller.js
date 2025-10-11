@@ -11,10 +11,10 @@ const reserveStock = async (req, res) => {
   mongoSession.startTransaction();
   try {
     const userId = req.user.id; // Get userId from verified token
-    const { cartId, productId, variant, quantity } = req.body;
+    const { productId, variant, quantity } = req.body;
 
-    // cartId, productId, and quantity are required
-    if (!cartId || !productId || !quantity) {
+    // productId and quantity are required
+    if (!productId || !quantity) {
       await mongoSession.abortTransaction();
       return res
         .status(400)
@@ -188,31 +188,18 @@ const reserveStock = async (req, res) => {
       }
     }
 
-    // Upsert reservation - prioritize userId over cartId for authenticated users
+    // Upsert reservation - authenticated users only
     let reservation;
 
-    if (userId) {
-      // For authenticated users, use userId to find/create reservation
-      reservation = await reservationModel
-        .findOne({ userId })
-        .session(mongoSession);
+    reservation = await reservationModel
+      .findOne({ userId })
+      .session(mongoSession);
 
-      if (!reservation) {
-        reservation = new reservationModel({
-          userId,
-          cartId,
-          products: [],
-        });
-      }
-    } else {
-      // For unauthenticated users, use cartId
-      reservation = await reservationModel
-        .findOne({ cartId })
-        .session(mongoSession);
-
-      if (!reservation) {
-        reservation = new reservationModel({ cartId, products: [] });
-      }
+    if (!reservation) {
+      reservation = new reservationModel({
+        userId,
+        products: [],
+      });
     }
 
     // Find if product already reserved
@@ -275,8 +262,10 @@ const decrementReservationStock = async (req, res) => {
 
   try {
     mongoSession.startTransaction();
-    const { cartId, productId, variant, quantity } = req.body;
-    if (!cartId || !productId || !quantity || !variant) {
+    const userId = req.user.id; // Get userId from verified token
+    const { productId, variant, quantity } = req.body;
+
+    if (!productId || !quantity || !variant) {
       await mongoSession.abortTransaction();
       return res
         .status(400)
@@ -284,7 +273,7 @@ const decrementReservationStock = async (req, res) => {
     }
 
     let reservation = await reservationModel
-      .findOne({ cartId })
+      .findOne({ userId })
       .session(mongoSession);
 
     if (!reservation) {
@@ -416,7 +405,6 @@ const getCart = async (req, res) => {
     res.json({
       success: true,
       cartItems,
-      cartId: reservation.cartId || reservation._id.toString(),
     });
   } catch (error) {
     console.error("Error fetching cart:", error);

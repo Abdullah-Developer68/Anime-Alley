@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/api";
-import { getOrCreateCartId } from "../../utils/cartId";
 import {
   setCartItems,
   addToCartLocal,
@@ -35,14 +34,7 @@ export const addToCartAsync = createAsyncThunk(
   "cart/addToCartAsync",
   async ({ product, variant, quantity }, { dispatch, rejectWithValue }) => {
     try {
-      const cartId = getOrCreateCartId();
-
-      const res = await api.reserveStock(
-        cartId,
-        product._id,
-        variant,
-        quantity
-      );
+      const res = await api.reserveStock(product._id, variant, quantity);
 
       if (res.data.success) {
         dispatch(

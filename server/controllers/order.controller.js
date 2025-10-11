@@ -13,23 +13,11 @@ const placeOrder = async (req, res) => {
   try {
     session.startTransaction();
 
-    const {
-      cartId,
-      couponCode,
-      userInfo,
-      deliveryAddress,
-      paymentMethod,
-      userId,
-    } = req.body;
-
-    if (!cartId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "cartId is required" });
-    }
+    const userId = req.user.id; // Get userId from verified token
+    const { couponCode, userInfo, deliveryAddress, paymentMethod } = req.body;
 
     // Validate essential order information
-    if (!userInfo?.email || !deliveryAddress || !paymentMethod || !userId) {
+    if (!userInfo?.email || !deliveryAddress || !paymentMethod) {
       return res.status(400).json({
         success: false,
         message:
@@ -74,13 +62,8 @@ const placeOrder = async (req, res) => {
     const SHIPPING_COST = 5;
 
     // === RESERVATION PROCESSING ===
-    // For authenticated users, prioritize userId over cartId
-    let reservation;
-    if (userId) {
-      reservation = await Reservation.findOne({ userId }).session(session);
-    } else {
-      reservation = await Reservation.findOne({ cartId }).session(session);
-    }
+    // Find reservation by userId from verified token
+    const reservation = await Reservation.findOne({ userId }).session(session);
 
     if (
       !reservation ||
@@ -197,7 +180,7 @@ const placeOrder = async (req, res) => {
 
     // === RESERVATION CLEANUP  ===
 
-    await Reservation.deleteOne({ cartId }).session(session);
+    await Reservation.deleteOne({ userId }).session(session);
 
     // Get populated order details for response
     const populatedOrder = await orderModel

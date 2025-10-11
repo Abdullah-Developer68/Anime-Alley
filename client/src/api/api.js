@@ -111,7 +111,6 @@ api.placeOrder = (
   userInfo,
   deliveryAddress,
   paymentMethod,
-  cartId,
   userId
 ) => {
   return api.post("/order/placeOrder", {
@@ -119,7 +118,6 @@ api.placeOrder = (
     userInfo,
     deliveryAddress,
     paymentMethod,
-    cartId,
     userId,
   });
 };
@@ -221,13 +219,12 @@ api.exportData = (dataType, email, format) => {
 };
 
 // --- API'S FOR STOCK MANAGEMENT
-api.reserveStock = (cartId, productId, variant, quantity) => {
-  return api.post("/reserveStock", { cartId, productId, variant, quantity });
+api.reserveStock = (productId, variant, quantity) => {
+  return api.post("/reserveStock", { productId, variant, quantity });
 };
 
-api.decrementReservationStock = (cartId, productId, variant, quantity) => {
+api.decrementReservationStock = (productId, variant, quantity) => {
   return api.post("/decrementReservationStock", {
-    cartId,
     productId,
     variant,
     quantity,

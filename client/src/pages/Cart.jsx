@@ -15,7 +15,6 @@ import {
   decrementReservationStockAsync,
   incrementReservationStockAsync,
 } from "../redux/Thunk/cartThunks";
-import { getOrCreateCartId } from "../utils/cartId";
 import StripeButton from "../components/Cart/StripeButton";
 import { useState, useEffect, useCallback } from "react";
 import api from "../api/api";
@@ -114,7 +113,6 @@ const Cart = () => {
         const paymentData = {
           couponCode,
           deliveryAddress,
-          cartId: getOrCreateCartId(),
         };
         await processStripePayment(paymentData);
         return; // Stripe will handle the redirect
@@ -133,8 +131,7 @@ const Cart = () => {
         userInfo,
         deliveryAddress,
         paymentMethod,
-        getOrCreateCartId(), // gets or creates a cart ID
-        userInfo?.id // send userId for server to find the correct cart
+        userInfo?.id // Use userId instead of cartId
       );
 
       // Clear the loading timer since API call completed
