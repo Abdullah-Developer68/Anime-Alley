@@ -5,12 +5,14 @@ const jwt = require("jsonwebtoken");
 
 const getUsers = async (req, res) => {
   dbConnect();
-  const { viewerEmail, currPage, searchQuery = "", role } = req.query;
-
+  // The user object has other details such as role as well but we will still verify it from the database for high security
+  const viewerEmail = req.user.email;
+  // This is sent from the frontend (searching constraints)
+  const { currPage, searchQuery = "", role = "allUsers" } = req.query;
   // Validate required parameters
-  if (!viewerEmail || !currPage || !role) {
+  if (!currPage) {
     return res.status(400).json({
-      message: "Viewers Email, role and current page are required!",
+      message: "Current page is required!",
     });
   }
 
@@ -29,12 +31,7 @@ const getUsers = async (req, res) => {
     const page = parseInt(currPage, 10) || 1;
     const startIndex = (page - 1) * usersPerPage;
 
-    // Get the total count of all users
-    const totalUsers = await userModel.countDocuments();
-
-    // Calculate total pages
-    const totalPages = Math.ceil(totalUsers / usersPerPage);
-
+    // Build query filter
     let query = {};
     if (role !== "allUsers") {
       query.role = role;
@@ -48,10 +45,15 @@ const getUsers = async (req, res) => {
         query.$text = { $search: searchQuery };
       }
     }
+
+    // Get total count of filtered users
+    const totalUsers = await userModel.countDocuments(query);
+    const totalPages = Math.ceil(totalUsers / usersPerPage);
+
     let requiredUsers;
     requiredUsers = await userModel
       .find(query)
-      .select("-password")
+      .select("-password -otp -otpExpiry")
       .sort({ createdAt: -1 })
       .skip(startIndex)
       .limit(usersPerPage);
@@ -90,15 +92,15 @@ const getUsers = async (req, res) => {
 const deleteUser = async (req, res) => {
   dbConnect();
   try {
+    // Id of the user who is to be deleted
     const { userId } = req.params;
-    const { editorEmail } = req.body;
+    // Get editor info from verified token
+    const editorEmail = req.user.email;
+    const editorId = req.user.userid;
 
     // Validate required parameters
     if (!userId) {
       return res.status(400).json({ message: "User ID is required." });
-    }
-    if (!editorEmail) {
-      return res.status(400).json({ message: "editor's Email is required." });
     }
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
@@ -111,11 +113,7 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
     // Prevent self-deletion
-    if (
-      editor.email &&
-      userToDelete.email &&
-      editor.email === userToDelete.email
-    ) {
+    if (userToDelete._id.toString() === editorId.toString()) {
       return res.status(403).json({ message: "You cannot delete yourself." });
     }
     // Users cannot delete anyone
@@ -151,7 +149,8 @@ const deleteUser = async (req, res) => {
           .json({ message: "Cannot delete the last superAdmin." });
       }
     }
-    const result = await userModel.findByIdAndDelete(userId);
+    // Proceed to delete the user
+    await userModel.findByIdAndDelete(userId);
     res.status(200).json({
       success: true,
       message: `User with ID: ${userId} has been deleted.`,
@@ -168,18 +167,37 @@ const deleteUser = async (req, res) => {
 const updateUser = async (req, res) => {
   dbConnect();
   try {
+    // This is the id of the user to be updated
     const { userId } = req.params;
-    const { username, email, role, password, editorEmail } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required." });
+    }
+
+    // These are the fields of the user to be updated
+    const { username, email, role, password } = req.body;
+    // This is the email of the editor (admin making the change) from the token
+    const editorEmail = req.user.email;
+    const editorId = req.user.userid;
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
+
     if (!editor) {
       return res.status(404).json({ message: "Editor not found." });
     }
+    if (editor.role !== "admin" && editor.role !== "superAdmin") {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update users." });
+    }
+
     // Get the user being updated
     const userToUpdate = await userModel.findById(userId);
+
     if (!userToUpdate) {
       return res.status(404).json({ message: "User not found." });
     }
+
     // Allow users to update themselves (except their own role)
     if (editor._id.toString() === userToUpdate._id.toString()) {
       if (role && role !== userToUpdate.role) {
@@ -276,17 +294,14 @@ const updateUser = async (req, res) => {
 };
 
 const checkUserRole = async (req, res) => {
-  dbConnect();
   try {
-    const { email } = req.query;
-    if (!email) {
-      return res.status(400).json({ message: "email is required." });
-    }
-    const user = await userModel.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found." });
-    }
-    return res.status(200).json({ success: true, role: user.role });
+    // Get role from verified token (no DB query needed)
+    const userRole = req.user.role;
+
+    return res.status(200).json({ 
+      success: true, 
+      role: userRole 
+    });
   } catch (error) {
     console.error("Error checking user role:", error);
     return res.status(500).json({
