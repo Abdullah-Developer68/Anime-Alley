@@ -208,10 +208,9 @@ api.verifyCouponCode = (couponCode) => {
 
 // --- EXPORT API ---
 
-api.exportData = (dataType, email, format) => {
+api.exportData = (dataType, format) => {
   return api.get(`/export/${dataType}`, {
     params: {
-      email,
       format,
     },
     responseType: "blob", // Important for handling file downloads

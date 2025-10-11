@@ -1,5 +1,4 @@
 import { useSelector, useDispatch } from "react-redux";
-import useAuth from "../../Hooks/UseAuth";
 import api from "../../api/api";
 import assets from "../../assets/asset";
 import { closeExportModal } from "../../redux/Slice/DashboardSlice";
@@ -8,16 +7,15 @@ const ExportModal = () => {
   const { isOpen, dataType } = useSelector(
     (state) => state.dashboard.exportModalState
   );
-  const { user } = useAuth();
   const dispatch = useDispatch();
 
   if (!isOpen) return null;
 
   const handleExport = async (format) => {
-    if (!dataType || !user?.email) return;
+    if (!dataType) return;
 
     try {
-      const response = await api.exportData(dataType, user.email, format);
+      const response = await api.exportData(dataType, format);
       const url = window.URL.createObjectURL(new Blob([response.data])); // Wraps the binary file in a blob and creates a downloadable link to that blob.
       const link = document.createElement("a"); // <a> tag.
       link.href = url; // Sets the href of the link to the blob URL.

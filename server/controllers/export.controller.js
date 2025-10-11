@@ -9,13 +9,16 @@ const dbConnect = require("../config/dbConnect.js");
 const exportData = async (req, res) => {
   dbConnect();
   const { dataType } = req.params;
-  const { email, format } = req.query;
+  const { format } = req.query;
 
-  // --- Validation and Authorization ---
-  if (!email || !format || !dataType) {
+  // Extract email from verified JWT token (set by verifyTokenMiddleware)
+  const email = req.user.email;
+
+  // --- Validation ---
+  if (!format || !dataType) {
     return res
       .status(400)
-      .json({ message: "Email, format, and data type are required!" });
+      .json({ message: "Format and data type are required!" });
   }
 
   const config = dataConfigs[dataType]; // selects appropriate config(user, product, coupon, order) based on dataType
@@ -24,13 +27,7 @@ const exportData = async (req, res) => {
   }
 
   try {
-    const adminUser = await userModel.findOne({ email });
-    if (
-      !adminUser ||
-      (adminUser.role !== "admin" && adminUser.role !== "superAdmin")
-    ) {
-      return res.status(403).json({ message: "User is not authorized!" });
-    }
+    // No need to check role again - requireAdmin middleware already verified admin/superAdmin role
 
     // --- File Generation ---
     if (format === "excel") {
