@@ -44,7 +44,7 @@ const Orders = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.getAllOrdersList(user.email, page);
+      const res = await api.getAllOrdersList(page);
       if (res.data.success) {
         setOrders(res.data.currPageOrders);
         setTotalPages(res.data.totalPages);

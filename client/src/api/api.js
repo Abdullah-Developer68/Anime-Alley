@@ -122,10 +122,9 @@ api.placeOrder = (
   });
 };
 
-api.getAllOrdersList = (email, currPage) => {
+api.getAllOrdersList = (currPage) => {
   return api.get("/order/allOrdersList", {
     params: {
-      email,
       currPage,
     },
   });

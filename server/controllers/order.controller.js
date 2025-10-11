@@ -283,13 +283,13 @@ const getOrderHistory = async (req, res) => {
 
 const allOrdersList = async (req, res) => {
   dbConnect();
-  const { email, currPage } = req.query;
+  const { currPage } = req.query;
+  const email = req.user.email; // Get email from authenticated user token
 
-  if (!email || !currPage) {
-    return res
-      .status(400)
-      .json({ message: "Email and current page are required!" });
+  if (!currPage) {
+    return res.status(400).json({ message: "Current page is required!" });
   }
+
   const user = await userModel.findOne({ email });
   // Check if user exists and is either admin or superAdmin
   if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
