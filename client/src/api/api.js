@@ -164,16 +164,13 @@ api.updateUser = (userId, userData) => {
   });
 };
 
-api.deleteUser = (userId, editorEmail) => {
-  return api.delete(`/user/delete/${userId}`, {
-    data: { editorEmail },
-  });
+api.deleteUser = (userId) => {
+  return api.delete(`/user/delete/${userId}`);
 };
 
-api.getUsers = (viewerEmail, currPage, searchQuery, role) => {
+api.getUsers = (currPage, searchQuery, role) => {
   return api.get("/user/getUsers", {
     params: {
-      viewerEmail,
       currPage,
       searchQuery,
       role,
@@ -191,10 +188,9 @@ api.updateCoupon = (couponId, couponData) => {
   return api.put(`/coupon/update/${couponId}`, couponData);
 };
 
-api.getAllCoupons = (email, currPage) => {
+api.getAllCoupons = (currPage) => {
   return api.get("/coupon/allCoupons", {
     params: {
-      email,
       currPage,
     },
   });
@@ -204,12 +200,12 @@ api.deleteCoupon = (couponId) => {
   return api.delete(`/coupon/delete/${couponId}`);
 };
 
-api.getCouponStats = (email) => {
-  return api.get("/coupon/stats", { params: { email } });
+api.getCouponStats = () => {
+  return api.get("/coupon/stats");
 };
 
-api.verifyCouponCode = (couponCode, userEmail) => {
-  return api.post("/coupon/verify", { couponCode, userEmail });
+api.verifyCouponCode = (couponCode) => {
+  return api.post("/coupon/verify", { couponCode });
 };
 
 // --- EXPORT API ---

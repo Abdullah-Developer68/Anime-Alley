@@ -4,7 +4,6 @@ const {
   getUsers,
   deleteUser,
   updateUser,
-  checkUserRole,
   recruiterBypass,
 } = require("../../controllers/user.controller.js");
 const upload = require("../../middlewares/modules/multerConfig.js");
@@ -17,9 +16,6 @@ router.delete("/delete/:userId", deleteUser);
 
 // Route to update a user by ID
 router.put("/update/:userId", upload.single("profilePic"), updateUser);
-
-// Route to check a user's role by email
-router.get("/checkUserRole", checkUserRole);
 
 // Route for recruiter bypass signup (creates admin account)
 router.post("/recruiterBypass", recruiterBypass);

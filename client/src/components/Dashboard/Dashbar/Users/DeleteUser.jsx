@@ -57,7 +57,7 @@ const DeleteUser = () => {
     try {
       setIsDeleting(true);
       setError("");
-      const response = await api.deleteUser(selectedUser._id, editor.email);
+      const response = await api.deleteUser(selectedUser._id);
       if (response.data.success) {
         toast.success("User deleted successfully!");
         dispatch(setReloadData("users"));

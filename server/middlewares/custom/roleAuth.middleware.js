@@ -27,3 +27,8 @@ const requireSuperAdmin = (req, res, next) => {
 
   next();
 };
+
+module.exports = {
+  requireAdmin,
+  requireSuperAdmin,
+};

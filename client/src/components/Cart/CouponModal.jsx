@@ -104,10 +104,7 @@ const CouponModal = () => {
         return;
       }
       // verify coupon
-      const response = await api.verifyCouponCode(
-        couponInput.trim(),
-        userInfo.email
-      );
+      const response = await api.verifyCouponCode(couponInput.trim());
 
       // closes the loader
       clearTimeout(loadingTimer);

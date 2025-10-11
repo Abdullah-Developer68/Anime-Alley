@@ -5,12 +5,10 @@ import {
   setReloadData,
   closeCouponCreateModal,
 } from "../../../../redux/Slice/DashboardSlice";
-import useAuth from "../../../../Hooks/UseAuth";
 import { toast } from "react-toastify";
 
 const CreateCoupon = () => {
   const dispatch = useDispatch();
-  const { user } = useAuth();
   const [form, setForm] = useState({
     couponCode: "",
     discountPercentage: "",
@@ -28,7 +26,6 @@ const CreateCoupon = () => {
     setFormError("");
     try {
       const payload = {
-        email: user.email,
         couponCode: form.couponCode,
         discountPercentage: form.discountPercentage,
         expiryDate: form.expiryDate,

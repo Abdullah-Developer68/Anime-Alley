@@ -81,11 +81,10 @@ const Users = () => {
     search = submittedSearch,
     roleVal = submittedRole
   ) => {
-    if (!user?.email) return;
     setLoading(true);
     setError("");
     try {
-      const res = await api.getUsers(user.email, page, search, roleVal);
+      const res = await api.getUsers(page, search, roleVal);
       if (res.data.success) {
         setUsers(res.data.requiredUsers);
         setTotalPages(res.data.totalPages);

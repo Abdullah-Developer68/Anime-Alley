@@ -4,7 +4,17 @@ const dbConnect = require("../config/dbConnect.js");
 
 const checkCoupon = async (req, res) => {
   dbConnect();
-  const { couponCode, userEmail } = req.body;
+
+  // Get email from verified token
+  const userEmail = req.user.email;
+  const { couponCode } = req.body;
+
+  if (!couponCode) {
+    return res.status(400).json({
+      success: false,
+      message: "Coupon code is required",
+    });
+  }
 
   try {
     // Find the coupon
@@ -67,18 +77,21 @@ const checkCoupon = async (req, res) => {
 
 const getAllCoupons = async (req, res) => {
   dbConnect();
-  const { email, currPage } = req.query;
+
+  // Get email from verified token
+  const viewerEmail = req.user.email;
+  const { currPage } = req.query;
 
   // Validate required parameters
-  if (!email || !currPage) {
-    return res
-      .status(400)
-      .json({ message: "Email and current page are required!" });
+  if (!currPage) {
+    return res.status(400).json({
+      message: "Current page is required!",
+    });
   }
 
   try {
-    // Check if the requesting user is an admin or superAdmin
-    const adminUser = await userModel.findOne({ email });
+    // Verify admin role from database (ultra-secure)
+    const adminUser = await userModel.findOne({ email: viewerEmail });
     if (
       !adminUser ||
       (adminUser.role !== "admin" && adminUser.role !== "superAdmin")
@@ -123,6 +136,7 @@ const getAllCoupons = async (req, res) => {
 
 const deleteCoupon = async (req, res) => {
   dbConnect();
+
   try {
     const { couponId } = req.params;
 
@@ -151,6 +165,7 @@ const deleteCoupon = async (req, res) => {
 
 const updateCoupon = async (req, res) => {
   dbConnect();
+
   try {
     const { couponId } = req.params;
     const { discountPercentage, expiryDate } = req.body;
@@ -185,20 +200,26 @@ const updateCoupon = async (req, res) => {
 
 const createCoupon = async (req, res) => {
   dbConnect();
+
   try {
-    const { email, couponCode, discountPercentage, expiryDate } = req.body;
-    if (!email || !couponCode || !discountPercentage) {
+    // Get email from verified token
+    const email = req.user.email;
+    const { couponCode, discountPercentage, expiryDate } = req.body;
+
+    if (!couponCode || !discountPercentage) {
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields." });
     }
-    // Check admin
+
+    // Verify admin role from database (ultra-secure)
     const user = await userModel.findOne({ email });
     if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
       return res
         .status(403)
         .json({ success: false, message: "User is not authorized!" });
     }
+
     // Check for existing coupon with same code
     const existing = await couponModel.findOne({ couponCode });
     if (existing) {
@@ -212,6 +233,7 @@ const createCoupon = async (req, res) => {
         await couponModel.deleteOne({ _id: existing._id });
       }
     }
+
     // Create new coupon
     const newCoupon = await couponModel.create({
       couponCode,
@@ -234,15 +256,17 @@ const createCoupon = async (req, res) => {
 
 const getCouponStats = async (req, res) => {
   dbConnect();
+
   try {
-    const { email } = req.query;
-    if (!email) {
-      return res.status(400).json({ message: "Email is required!" });
-    }
+    // Get email from verified token
+    const email = req.user.email;
+
+    // Verify admin role from database (ultra-secure)
     const user = await userModel.findOne({ email });
     if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
       return res.status(403).json({ message: "User is not authorized!" });
     }
+
     const now = new Date();
     const activeCoupons = await couponModel.countDocuments({
       expiryDate: { $gt: now },
@@ -256,6 +280,7 @@ const getCouponStats = async (req, res) => {
       (sum, c) => sum + (c.lifeTimeDiscount || 0),
       0
     );
+
     res.status(200).json({
       success: true,
       activeCoupons,

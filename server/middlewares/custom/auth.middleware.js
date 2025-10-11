@@ -27,7 +27,7 @@ const verifyTokenMiddleware = async (req, res, next) => {
 
     // Attach the decoded data (userInfo) to the request object
     req.user = {
-      userId: decoded.id,
+      id: decoded.userid,
       email: decoded.email,
       username: decoded.username,
       role: decoded.role,

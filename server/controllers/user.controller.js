@@ -293,24 +293,6 @@ const updateUser = async (req, res) => {
   }
 };
 
-const checkUserRole = async (req, res) => {
-  try {
-    // Get role from verified token (no DB query needed)
-    const userRole = req.user.role;
-
-    return res.status(200).json({ 
-      success: true, 
-      role: userRole 
-    });
-  } catch (error) {
-    console.error("Error checking user role:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error.",
-    });
-  }
-};
-
 // Recruiter Bypass - Create admin account without verification
 const recruiterBypass = async (req, res) => {
   await dbConnect();
@@ -407,6 +389,5 @@ module.exports = {
   getUsers,
   deleteUser,
   updateUser,
-  checkUserRole,
   recruiterBypass,
 };

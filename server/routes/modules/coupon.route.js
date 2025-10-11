@@ -1,5 +1,9 @@
 const express = require("express");
 const router = express.Router();
+const verifyTokenMiddleware = require("../../middlewares/custom/auth.middleware.js");
+const {
+  requireAdmin,
+} = require("../../middlewares/custom/roleAuth.middleware.js");
 const {
   checkCoupon,
   getAllCoupons,
@@ -9,15 +13,17 @@ const {
   getCouponStats,
 } = require("../../controllers/coupon.controller.js");
 
-router.post("/verify", checkCoupon);
-router.get("/allCoupons", getAllCoupons);
-router.delete("/delete/:couponId", deleteCoupon);
+// Public route - authenticated users can verify coupons
+router.post("/verify", verifyTokenMiddleware, checkCoupon);
 
-// Route to update a coupon by ID
-router.put("/update/:couponId", updateCoupon);
+// Protected routes - require authentication
+router.use(verifyTokenMiddleware);
 
-router.post("/createCoupon", createCoupon);
-
-router.get("/stats", getCouponStats);
+// Admin-only routes
+router.get("/allCoupons", requireAdmin, getAllCoupons);
+router.delete("/delete/:couponId", requireAdmin, deleteCoupon);
+router.put("/update/:couponId", requireAdmin, updateCoupon);
+router.post("/createCoupon", requireAdmin, createCoupon);
+router.get("/stats", requireAdmin, getCouponStats);
 
 module.exports = router;

@@ -47,7 +47,7 @@ const Coupons = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.getAllCoupons(user.email, page);
+      const res = await api.getAllCoupons(page);
       if (res.data.success) {
         setCoupons(res.data.allCoupons);
         setTotalPages(res.data.totalPages);
@@ -67,7 +67,7 @@ const Coupons = () => {
     setError("");
     if (!user?.email) return;
     try {
-      const res = await api.getCouponStats(user.email);
+      const res = await api.getCouponStats();
       if (res.data.success) {
         setStats(res.data);
       } else {

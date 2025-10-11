@@ -145,7 +145,6 @@ const EditUser = () => {
       if (profilePic) {
         payload.profilePic = profilePic;
       }
-      payload.editorEmail = editor.email;
       const res = await api.updateUser(selectedUser._id, payload);
       if (res.data.success) {
         toast.success("User updated successfully!");
