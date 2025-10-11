@@ -13,13 +13,13 @@ const {
   getCouponStats,
 } = require("../../controllers/coupon.controller.js");
 
-// Public route - authenticated users can verify coupons
-router.post("/verify", verifyTokenMiddleware, checkCoupon);
+// Apply authentication to all routes
+router.use(verifyTokenMiddleware); // 1st middleware
 
-// Protected routes - require authentication
-router.use(verifyTokenMiddleware);
+// Public route - any authenticated user can verify coupons
+router.post("/verify", checkCoupon);
 
-// Admin-only routes
+// Admin-only routes - require admin role (2nd middleware)
 router.get("/allCoupons", requireAdmin, getAllCoupons);
 router.delete("/delete/:couponId", requireAdmin, deleteCoupon);
 router.put("/update/:couponId", requireAdmin, updateCoupon);

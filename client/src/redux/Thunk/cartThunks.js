@@ -14,14 +14,7 @@ export const loadCartFromServer = createAsyncThunk(
   "cart/loadFromServer",
   async (_, { dispatch, rejectWithValue }) => {
     try {
-      // Get user info to send userId
-      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-
-      if (!userInfo || !userInfo.id) {
-        return rejectWithValue("User not logged in");
-      }
-
-      const response = await api.getCart(userInfo.id);
+      const response = await api.getCart();
 
       if (response.data.success) {
         dispatch(setCartItems(response.data.cartItems));
@@ -42,16 +35,13 @@ export const addToCartAsync = createAsyncThunk(
   "cart/addToCartAsync",
   async ({ product, variant, quantity }, { dispatch, rejectWithValue }) => {
     try {
-      // Get user info and cartId
-      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
       const cartId = getOrCreateCartId();
 
       const res = await api.reserveStock(
         cartId,
         product._id,
         variant,
-        quantity,
-        userInfo?.id // Send userId from frontend
+        quantity
       );
 
       if (res.data.success) {

@@ -221,13 +221,8 @@ api.exportData = (dataType, email, format) => {
 };
 
 // --- API'S FOR STOCK MANAGEMENT
-api.reserveStock = (cartId, productId, variant, quantity, userId) => {
-  const requestBody = { cartId, productId, variant, quantity };
-  // Include userId if provided
-  if (userId) {
-    requestBody.userId = userId;
-  }
-  return api.post("/reserveStock", requestBody);
+api.reserveStock = (cartId, productId, variant, quantity) => {
+  return api.post("/reserveStock", { cartId, productId, variant, quantity });
 };
 
 api.decrementReservationStock = (cartId, productId, variant, quantity) => {
@@ -240,8 +235,8 @@ api.decrementReservationStock = (cartId, productId, variant, quantity) => {
 };
 
 // --- CART API'S ---
-api.getCart = (userId) => {
-  return api.post("/cart", { userId });
+api.getCart = () => {
+  return api.post("/cart");
 };
 
 api.updateCartItem = (productId, variant, newQuantity) => {

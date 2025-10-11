@@ -10,7 +10,8 @@ const reserveStock = async (req, res) => {
   const mongoSession = await mongoose.startSession();
   mongoSession.startTransaction();
   try {
-    const { cartId, productId, variant, quantity, userId } = req.body;
+    const userId = req.user.id; // Get userId from verified token
+    const { cartId, productId, variant, quantity } = req.body;
 
     // cartId, productId, and quantity are required
     if (!cartId || !productId || !quantity) {
@@ -380,14 +381,7 @@ const decrementReservationStock = async (req, res) => {
 const getCart = async (req, res) => {
   dbConnect();
   try {
-    const { userId } = req.body; // Get userId from request body
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "User ID is required to fetch cart",
-      });
-    }
+    const userId = req.user.id; // Get userId from verified token
 
     // Find user's cart reservation
     const reservation = await reservationModel
@@ -440,7 +434,7 @@ const updateCartItem = async (req, res) => {
 
   try {
     session.startTransaction();
-    const userId = req.user.userid;
+    const userId = req.user.id;
     const { productId, variant, newQuantity } = req.body;
 
     const reservation = await reservationModel
@@ -557,7 +551,7 @@ const removeFromCart = async (req, res) => {
 
   try {
     session.startTransaction();
-    const userId = req.user.userid;
+    const userId = req.user.id;
     const { productId, variant } = req.body;
 
     const reservation = await reservationModel
@@ -636,7 +630,7 @@ const clearCart = async (req, res) => {
 
   try {
     session.startTransaction();
-    const userId = req.user.userid;
+    const userId = req.user.id;
 
     const reservation = await reservationModel
       .findOne({ userId })
