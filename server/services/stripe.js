@@ -1,5 +1,4 @@
 const Stripe = require("stripe");
-const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 const reservationModel = require("../models/reservation.model.js");
 const dbConnect = require("../config/dbConnect.js");
@@ -12,55 +11,22 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const createCheckoutSession = async (req, res) => {
   await dbConnect();
 
-  // Extract user email from JWT token (authentication required)
-  let authenticatedUserEmail;
+  // Extract user info from verified JWT token (set by verifyTokenMiddleware)
+  const userId = req.user.id;
+  const authenticatedUserEmail = req.user.email;
 
-  try {
-    // First, try to get token from Authorization header (localStorage method)
-    const authHeader = req.headers.authorization;
-    let token;
-
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      token = authHeader.substring(7);
-    } else {
-      // Fallback to cookie-based token
-      token = req.cookies.token;
-    }
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required for checkout",
-      });
-    }
-
-    // Verify and decode the JWT token
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
-    authenticatedUserEmail = decoded.email;
-
-    if (!authenticatedUserEmail) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authentication token - no email found",
-      });
-    }
-
-    console.log(`🔐 Authenticated user email: ${authenticatedUserEmail}`);
-  } catch (error) {
-    console.error("JWT verification error:", error.message);
-    return res.status(401).json({
-      success: false,
-      message: "Invalid or expired authentication token",
-    });
-  }
+  console.log(
+    `🔐 Authenticated user: ${authenticatedUserEmail} (ID: ${userId})`
+  );
 
   const { paymentData } = req.body;
-  const { cartId, couponCode, deliveryAddress } = paymentData;
+  const { couponCode, deliveryAddress } = paymentData;
   const shippingCost = 5;
+
   try {
-    // Find reservation by cartId field, not by _id
+    // Find reservation by userId from verified token
     const reservation = await reservationModel
-      .findOne({ cartId })
+      .findOne({ userId })
       .populate("products.productId");
 
     if (
@@ -139,7 +105,7 @@ const createCheckoutSession = async (req, res) => {
       customer_email: authenticatedUserEmail,
 
       metadata: {
-        cartId: cartId,
+        userId: userId.toString(), // Use userId from verified token
         couponCode: couponCode || "",
         userEmail: authenticatedUserEmail, // Use authenticated email
         discountAmount: discountAmount || "0",

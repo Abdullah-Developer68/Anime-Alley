@@ -48,7 +48,7 @@ const processSuccessfulPayment = async (StripeSession) => {
     }
 
     const {
-      cartId,
+      userId,
       couponCode,
       originalTotal,
       finalTotal,
@@ -58,16 +58,16 @@ const processSuccessfulPayment = async (StripeSession) => {
       userEmail: metadataUserEmail,
     } = StripeSession.metadata;
 
-    // Find the reservation
+    // Find the reservation by userId from verified token
     const reservation = await reservationModel
-      .findOne({ cartId })
+      .findOne({ userId })
       .populate("products.productId")
       .session(mongoSession);
 
     if (!reservation) {
       await mongoSession.abortTransaction();
-      console.error(`No reservation found for cart: ${cartId}`);
-      throw new Error(`No reservation found for cart: ${cartId}`);
+      console.error(`No reservation found for user: ${userId}`);
+      throw new Error(`No reservation found for user: ${userId}`);
     }
 
     // Extract user email for user identification
@@ -186,7 +186,7 @@ const processSuccessfulPayment = async (StripeSession) => {
     }
 
     // Delete reservation after successful order creation
-    await reservationModel.deleteOne({ cartId }, { session: mongoSession });
+    await reservationModel.deleteOne({ userId }, { session: mongoSession });
 
     // Commit the transaction
     console.log("Committing transaction...");
@@ -194,13 +194,13 @@ const processSuccessfulPayment = async (StripeSession) => {
     console.log("Transaction committed successfully");
 
     console.log(
-      `Order ${savedOrder.orderID} created successfully for cart ${cartId}`
+      `Order ${savedOrder.orderID} created successfully for user ${userId}`
     );
   } catch (error) {
     // Remove from processed set if transaction fails
     processedSessions.delete(StripeSession.id);
     await mongoSession.abortTransaction();
-    console.error("Transaction failed for cart:", cartId, error);
+    console.error("Transaction failed for user:", userId, error);
     throw error;
   } finally {
     mongoSession.endSession();
@@ -229,17 +229,17 @@ const handleStripeWebhook = async (req, res) => {
       console.log("Connecting to MongoDB...");
       await dbConnect();
       console.log("MongoDB connected successfully");
-      
+
       // Now process payment
       await processSuccessfulPayment(StripeSession);
-      
+
       // Only send 200 after everything succeeds
       res.status(200).json({ received: true }); // tells stripe that the data sent by your server via webhook has been processed
       return;
     } catch (error) {
       console.error("Error processing payment:", error);
       console.error("Error stack:", error.stack);
-      
+
       // Send 500 so Stripe retries
       res.status(500).json({ error: error.message });
       return;
@@ -252,13 +252,13 @@ const handleStripeWebhook = async (req, res) => {
     event.type === "payment_intent.payment_failed"
   ) {
     const session = event.data.object;
-    const { cartId, userEmail: metadataUserEmail } = session.metadata || {};
+    const { userId, userEmail: metadataUserEmail } = session.metadata || {};
 
     try {
       // Log the failed payment but keep reservation intact
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
-      console.log(`Payment failed for cart: ${cartId}, user: ${userEmail}`);
+      console.log(`Payment failed for user: ${userId}, email: ${userEmail}`);
       console.log(
         `Reservation preserved - user can still pay with Cash on Delivery`
       );
@@ -274,13 +274,13 @@ const handleStripeWebhook = async (req, res) => {
   // Handle expired sessions - Just log, don't delete reservations
   if (event.type === "checkout.session.expired") {
     const session = event.data.object;
-    const { cartId, userEmail: metadataUserEmail } = session.metadata || {};
+    const { userId, userEmail: metadataUserEmail } = session.metadata || {};
 
     try {
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
       console.log(
-        `Checkout session expired for cart: ${cartId}, user: ${userEmail}`
+        `Checkout session expired for user: ${userId}, email: ${userEmail}`
       );
       console.log(
         `Reservation preserved - will be auto-cleaned by cleanup script after 2 days`
