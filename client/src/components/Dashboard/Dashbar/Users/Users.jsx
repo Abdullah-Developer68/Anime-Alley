@@ -99,19 +99,15 @@ const Users = () => {
     }
   };
 
-  // Load users on page or submitted search/role change
+  // Load users on page/search/role change or when reload is triggered
   useEffect(() => {
     loadUsers(currPage, submittedSearch, submittedRole);
-  }, [currPage, submittedSearch, submittedRole, user?.email]);
 
-  // Reload users when reloadDataType === 'users'
-  useEffect(() => {
+    // Reset reloadDataType if it was 'users'
     if (reloadDataType === "users") {
-      loadUsers(currPage, submittedSearch, submittedRole);
-      // Reset reloadDataType to null
       dispatch({ type: "dashboard/setReloadData", payload: null });
     }
-  }, [reloadDataType]);
+  }, [currPage, submittedSearch, submittedRole, user?.email, reloadDataType]);
 
   const handlePg = (value) => {
     let newPage;
