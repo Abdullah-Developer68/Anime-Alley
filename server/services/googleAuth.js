@@ -110,7 +110,8 @@ const handleGoogleCallback = (req, res, next) => {
           profilePic: user.profilePic,
           role: user.role,
         },
-        process.env.JWT_KEY
+        process.env.JWT_KEY,
+        { expiresIn: "7d" }
       );
 
       // Set JWT token in cookie as fallback (same as local auth)

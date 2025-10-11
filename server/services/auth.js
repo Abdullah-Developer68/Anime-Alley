@@ -125,7 +125,8 @@ const signUp = async (req, res) => {
         profilePic: user.profilePic,
         role: user.role,
       },
-      secretKey
+      secretKey,
+      { expiresIn: "7d" }
     );
 
     // Set cookie as fallback (for compatibility)
@@ -206,7 +207,8 @@ const login = async (req, res) => {
         profilePic: userExist.profilePic,
         role: userExist.role,
       },
-      secretKey
+      secretKey,
+      { expiresIn: "7d" }
     );
 
     // Set cookie as fallback (for compatibility)
