@@ -16,7 +16,7 @@ const {
   otpVerifyLimiter,
   loginLimiter,
   signupLimiter,
-} = require("../../middlewares/custom/rateLimit.middleware.js");
+} = require("../../middlewares/custom/rateLimiters.middleware.js");
 
 router.post("/send-otp", otpSendLimiter, makNSenOTP); // creates in auth.js and sends via sendOTP in utils
 router.post("/verify-otp", otpVerifyLimiter, verifyOTP);
