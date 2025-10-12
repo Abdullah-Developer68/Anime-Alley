@@ -7,10 +7,10 @@ const {
   recruiterBypass,
 } = require("../../controllers/user.controller.js");
 const upload = require("../../middlewares/modules/multerConfig.js");
-const verifyTokenMiddleware = require("../../middlewares/custom/auth.middleware.js");
 const {
+  verifyTokenMiddleware,
   requireAdmin,
-} = require("../../middlewares/custom/roleAuth.middleware.js");
+} = require("../../middlewares/custom/auth.middleware.js");
 
 // Route for recruiter bypass signup (creates admin account) - No authentication required
 router.post("/recruiterBypass", recruiterBypass);

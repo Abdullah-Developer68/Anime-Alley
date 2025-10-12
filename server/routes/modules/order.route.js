@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const verifyTokenMiddleware = require("../../middlewares/custom/auth.middleware.js");
 const {
+  verifyTokenMiddleware,
   requireAdmin,
-} = require("../../middlewares/custom/roleAuth.middleware.js");
+} = require("../../middlewares/custom/auth.middleware.js");
 const {
   placeOrder,
   getOrderHistory,
