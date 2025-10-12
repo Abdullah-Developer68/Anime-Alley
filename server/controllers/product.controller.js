@@ -168,30 +168,6 @@ const getProducts = async (req, res) => {
   }
 };
 
-const findProducts = async (req, res) => {
-  dbConnect();
-  const { searchQuery } = req.query;
-
-  if (!searchQuery) {
-    return res.status(400).json({ message: "bad request" });
-  }
-
-  //based on name
-  const products = await productModel.find({
-    $text: { $search: searchQuery },
-  });
-
-  if (!products) {
-    return res.status(500).json({ message: "error searching for products!" });
-  }
-
-  if (products.length === 0) {
-    return res.status(404).json({ message: "No products were found!" });
-  }
-
-  res.status(200).json({ products, message: "products have been sent!" });
-};
-
 const createProduct = async (req, res) => {
   dbConnect();
   try {

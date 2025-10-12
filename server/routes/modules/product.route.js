@@ -4,6 +4,9 @@ const verifyTokenMiddleware = require("../../middlewares/custom/auth.middleware.
 const {
   requireAdmin,
 } = require("../../middlewares/custom/roleAuth.middleware.js");
+const {
+  productSearchLimiter,
+} = require("../../middlewares/custom/rateLimiters.middleware.js");
 const upload = require("../../middlewares/modules/multerConfig.js");
 const {
   getProducts,
@@ -14,7 +17,7 @@ const {
 } = require("../../controllers/product.controller.js");
 
 // Public route - anyone can view products
-router.get("/getProducts", getProducts);
+router.get("/getProducts", productSearchLimiter, getProducts);
 
 // Protected route - authenticated users can verify stock
 router.get("/verifyStock", verifyTokenMiddleware, verifyStock);

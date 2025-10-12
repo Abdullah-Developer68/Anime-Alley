@@ -50,9 +50,31 @@ const signupLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limiter for search endpoint
+const productSearchLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: (req) => {
+    const constraints = JSON.parse(req.query.productConstraints || "{}");
+
+    // Higher limit for simple browsing (no search)
+    if (!constraints.searchQuery) {
+      return 100; // 100 requests/min for browsing
+    }
+
+    // Stricter limit for text search (expensive DB queries)
+    return 30; // 30 requests/min for searching
+  },
+  message: {
+    success: false,
+    message: "Too many requests. Please slow down.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 module.exports = {
   otpSendLimiter,
   otpVerifyLimiter,
   loginLimiter,
   signupLimiter,
+  productSearchLimiter,
 };
