@@ -147,7 +147,7 @@ const FilterBar = () => {
   };
 
   return (
-    <div className="w-[280px] h-[820px] lg:h-[900px] bg-black/95 backdrop-blur-sm p-6 shadow-xl border border-white/10 rounded-lg overflow-y-auto">
+    <div className="w-[280px] h-[820px] lg:h-[900px] bg-black/95 backdrop-blur-sm p-6 shadow-xl border border-white/10 rounded-r-lg overflow-y-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Filter header with close icon */}
         <div className="flex justify-between items-center">
