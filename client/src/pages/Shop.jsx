@@ -9,7 +9,7 @@ const Shop = () => {
   return (
     <>
       {/* Main Content */}
-      <div className="flex mt-[65px]">
+      <div className="flex mt-[63px]">
         <div
           className={`absolute ${
             openFilterBar ? "left-0" : "-left-72"

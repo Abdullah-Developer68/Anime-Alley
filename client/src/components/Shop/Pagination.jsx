@@ -15,8 +15,8 @@ const Pagination = () => {
           key={i}
           className={`h-8 w-8 mx-1 flex items-center justify-center rounded-full ${
             currentPage === i
-              ? "bg-red-600 text-black cursor-pointer"
-              : "bg-white text-gray-700 hover:bg-red-400 cursor-pointer"
+              ? "bg-white text-black cursor-pointer"
+              : "bg-gray-600 text-white hover:bg-gray-500 cursor-pointer"
           } transition-colors duration-300 text-sm font-medium`}
           onClick={() => dispatch(updateCurrPage(i))}
         >
@@ -30,7 +30,7 @@ const Pagination = () => {
   return (
     <div className="flex items-center justify-center my-8">
       <button
-        className="h-8 px-4 ml-2 flex items-center justify-center rounded-full bg-gray-500 border-gray-300 cursor-pointer"
+        className="h-8 px-4 ml-2 flex items-center justify-center rounded-full bg-gray-300 hover:bg-white border-gray-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         disabled={currentPage === 1}
         onClick={() => dispatch(updateCurrPage(currentPage - 1))}
       >
@@ -40,7 +40,7 @@ const Pagination = () => {
       <div className="flex items-center">{renderPageNumbers()}</div>
 
       <button
-        className="h-8 px-4 ml-2 flex items-center justify-center rounded-full bg-gray-500 border-gray-300 cursor-pointer"
+        className="h-8 px-4 ml-2 flex items-center justify-center rounded-full bg-gray-300 hover:bg-white border-gray-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         disabled={currentPage === totalPages}
         onClick={() => dispatch(updateCurrPage(currentPage + 1))}
       >

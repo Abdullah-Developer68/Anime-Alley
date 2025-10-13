@@ -103,7 +103,7 @@ const CreateCoupon = () => {
         </div>
         <button
           type="submit"
-          className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 rounded transition-colors"
+          className="w-full bg-gray-300 hover:bg-white text-black font-bold py-2 rounded transition-colors"
         >
           Create
         </button>

@@ -298,14 +298,14 @@ const EditUser = () => {
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-white hover:bg-white/10 rounded-lg cursor-pointer"
+              className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg cursor-pointer"
               disabled={isSaving}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-black rounded-lg cursor-pointer"
+              className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg cursor-pointer"
               disabled={isSaving || allControlsDisabled}
             >
               {isSaving ? "Saving..." : "Save"}

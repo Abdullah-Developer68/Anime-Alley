@@ -16,7 +16,7 @@ const Cards = ({ product }) => {
   return (
     <div
       key={product._id}
-      className="group bg-gradient-to-b bg-black rounded-lg overflow-hidden border border-white/10 hover:border-pink-500/30 transition-all duration-300 shadow-lg max-w-[200px]"
+      className="group bg-gradient-to-b bg-black rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-all duration-300 shadow-lg max-w-[200px]"
     >
       {/* Product Image */}
       <div className="aspect-[3/4] overflow-hidden">
@@ -41,13 +41,13 @@ const Cards = ({ product }) => {
 
         {/* Price and Add to Cart */}
         <div className="flex justify-between items-center">
-          <p className="text-black p-1 rounded-md font-bold text-xs bg-yellow-500">
+          <p className="text-black p-1 rounded-md font-bold text-xs bg-gray-300">
             {product.price} $
           </p>
           {/* Add to Cart Button with product._id as the url parameter */}
           <Link to={`/shop/:${product._id}`}>
             <button
-              className="cursor-pointer p-1 rounded-md bg-pink-500 text-black text-xs font-medium hover:shadow-lg hover:shadow-pink-500/25 transition-all duration-300"
+              className="cursor-pointer p-1 rounded-md bg-gray-300 hover:bg-white text-black text-xs font-medium transition-all duration-300"
               onClick={() => {
                 sendProductData(); // Call the function to send product data to Redux store
               }}

@@ -98,13 +98,13 @@ const EditCoupon = () => {
         <div className="flex justify-end gap-4 mt-6">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-white hover:bg-white/10 rounded-lg cursor-pointer"
+            className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-black rounded-lg cursor-pointer"
+            className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg cursor-pointer"
             disabled={isSaving}
           >
             {isSaving ? "Saving..." : "Save"}

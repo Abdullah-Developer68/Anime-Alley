@@ -160,11 +160,11 @@ const ProductDescription = () => {
         <div className="fixed top-12 md:top-14 lg:top-16 w-full z-50 bg-black/50 backdrop-blur-md border-b border-white/10">
           <div className="container mx-auto px-4 py-3">
             {/* Back button */}
-            <button className="flex items-center gap-2 text-white/70 hover:text-pink-500 transition-colors cursor-pointer">
+            <button className="flex items-center gap-2 text-white/70 hover:text-white transition-colors cursor-pointer">
               <img
                 src={assets.prevBtn}
                 alt=""
-                className="w-4 bg-yellow-500 rounded-full p-1"
+                className="w-4 bg-gray-300 rounded-full p-1"
               />
               Back
             </button>
@@ -286,7 +286,7 @@ const ProductDescription = () => {
               </div>
               <button
                 onClick={handleAddToCart}
-                className="px-8 py-4 bg-pink-500 text-black rounded-xl font-medium hover:shadow-xl hover:shadow-pink-500/20 transition-all duration-300 cursor-pointer"
+                className="px-8 py-4 bg-gray-300 hover:bg-white text-black rounded-xl font-medium transition-all duration-300 cursor-pointer"
               >
                 Add to Cart
               </button>

@@ -141,7 +141,7 @@ const Users = () => {
         <div className="flex gap-2">
           <button
             onClick={() => dispatch(openExportModal("users"))}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-black cursor-pointer rounded-lg transition-colors"
+            className="px-4 py-2 bg-gray-300 hover:bg-white text-black cursor-pointer rounded-lg transition-colors"
           >
             Export
           </button>
@@ -178,7 +178,7 @@ const Users = () => {
           </option>
         </select>
         <button
-          className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-black rounded-lg transition-colors"
+          className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors"
           onClick={() => {
             setSubmittedSearch(searchQuery);
             setSubmittedRole(role);
@@ -240,7 +240,7 @@ const Users = () => {
                     <td className="px-6 py-4">
                       <div className="flex justify-start gap-2">
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
                           title="Edit"
                           onClick={() => handleEditClick(u)}
                         >
@@ -251,7 +251,7 @@ const Users = () => {
                           />
                         </button>
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
                           title="Delete"
                           onClick={() => handleDelete(u)}
                         >
@@ -354,8 +354,8 @@ const Users = () => {
               onClick={() => handlePg(index + 1)}
               className={`px-3 py-1 rounded-lg ${
                 currPage === index + 1
-                  ? "text-black bg-pink-500"
-                  : "text-white bg-white/5 hover:bg-white/10"
+                  ? "text-black bg-white"
+                  : "text-white bg-gray-600 hover:bg-gray-500"
               } transition-colors`}
             >
               {index + 1}

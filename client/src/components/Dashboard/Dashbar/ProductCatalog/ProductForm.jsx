@@ -956,13 +956,13 @@ const ProductForm = () => {
             <button
               type="button"
               onClick={handleClose}
-              className="w-full cursor-pointer sm:w-auto px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors text-sm sm:text-base"
+              className="w-full cursor-pointer sm:w-auto px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors text-sm sm:text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="w-full sm:w-auto cursor-pointer px-4 py-2 bg-pink-500 hover:bg-pink-600 text-black rounded-lg transition-colors text-sm sm:text-base font-medium"
+              className="w-full sm:w-auto cursor-pointer px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors text-sm sm:text-base font-medium"
             >
               Save
             </button>

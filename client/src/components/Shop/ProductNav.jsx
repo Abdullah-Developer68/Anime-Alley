@@ -28,7 +28,7 @@ const ProductNav = () => {
           >
             <img src={category.icon} alt={category.name} className="w-8 h-8" />
             {/* Hover Tooltip */}
-            <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-pink-500 text-black px-3 py-1 rounded-lg text-sm whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+            <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-white text-black px-3 py-1 rounded-lg text-sm whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
               {category.name.toUpperCase()}
               {/* Triangle pointer */}
               <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black/90 rotate-45"></div>

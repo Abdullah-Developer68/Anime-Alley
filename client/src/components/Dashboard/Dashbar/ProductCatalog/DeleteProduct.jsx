@@ -180,7 +180,7 @@ const DeleteProduct = () => {
         <div className="flex gap-3">
           <button
             onClick={handleClose}
-            className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition-colors cursor-pointer"
+            className="flex-1 px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors cursor-pointer"
             disabled={isDeleting}
           >
             Cancel
