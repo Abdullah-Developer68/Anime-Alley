@@ -102,6 +102,12 @@ const deleteUser = async (req, res) => {
     if (!userId) {
       return res.status(400).json({ message: "User ID is required." });
     }
+
+    // Validata ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid User ID format." });
+    }
+
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
     if (!editor) {
