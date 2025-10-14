@@ -1,15 +1,25 @@
-const cron = require("node-cron");
 const userModel = require("../models/user.model.js");
 
-// Runs every day at 2:00 AM
-cron.schedule("0 2 * * *", async () => {
+/**
+ * Cleanup Unverified Users
+ * Deletes users with role "verifying" that were created more than 7 days ago
+ * This function is now called via API endpoint by Vercel Cron Jobs
+ */
+async function cleanupUnverifiedUsers() {
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
   try {
     const result = await userModel.deleteMany({
       role: "verifying",
       createdAt: { $lt: oneWeekAgo },
     });
+
+    console.log(`[CLEANUP] Deleted ${result.deletedCount} unverified users`);
+    return result;
   } catch (err) {
     console.error("[CLEANUP] Error deleting unverified users:", err);
+    throw err;
   }
-});
+}
+
+module.exports = cleanupUnverifiedUsers;

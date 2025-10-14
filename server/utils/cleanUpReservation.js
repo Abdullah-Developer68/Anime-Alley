@@ -1,4 +1,3 @@
-const cron = require("node-cron");
 const reservationModel = require("../models/reservation.model.js");
 const productModel = require("../models/product.model.js");
 const mongoose = require("mongoose");
@@ -63,13 +62,7 @@ async function cleanupExpiredReservations() {
   }
 }
 
-// Schedule cleanup to run every day at 3:00 AM (1 hour after user cleanup)
-cron.schedule("0 3 * * *", async () => {
-  try {
-    await cleanupExpiredReservations();
-  } catch (error) {
-    console.error("[CLEANUP] Failed to cleanup expired reservations:", error);
-  }
-});
+// Note: This function is now called via API endpoint by Vercel Cron Jobs
+// The cron scheduling has been moved to vercel.json configuration
 
 module.exports = cleanupExpiredReservations;

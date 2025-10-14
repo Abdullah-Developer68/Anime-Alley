@@ -13,10 +13,14 @@
         "dest": "/app.js"
       }
     ],
-     "crons": [
-    {
-      "path": "/api/hello",
-      "schedule": "0 5 * * *"
-    }
-  ]
+    "crons": [
+      {
+        "path": "/api/cleanup/users",
+        "schedule": "0 2 * * *"
+      },
+      {
+        "path": "/api/cleanup/reservations",
+        "schedule": "0 3 * * *"
+      }
+    ]
   }

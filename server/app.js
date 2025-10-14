@@ -22,9 +22,8 @@ app.post(
 // Import middlewares and executes them
 require("./middlewares/index.middleware.js")(app);
 
-// Automatic clean up scripts using cron
-require("./utils/cleanUpUsers.js"); // automaically cleans unverified users that were created a Week Ago
-require("./utils/cleanUpReservation.js"); // automatically cleans up expired reservations
+// Note: Cleanup utilities are now handled by Vercel Cron Jobs
+// See vercel.json for cron configuration that calls /api/cleanup/* endpoints
 
 // Custom middlewares
 app.use(passport.initialize()); // Still needed for Google OAuth
