@@ -95,9 +95,11 @@ const deleteUser = async (req, res) => {
   try {
     // Id of the user who is to be deleted
     const { userId } = req.params;
+
     // Get editor info from verified token
     const editorEmail = req.user.email;
-    const editorId = req.user.userid;
+    const editorId = req.user.id;
+    console.log(editorId);
 
     // Validate required parameters
     if (!userId) {
@@ -156,8 +158,15 @@ const deleteUser = async (req, res) => {
           .json({ message: "Cannot delete the last superAdmin." });
       }
     }
-    // Proceed to delete the user
-    await userModel.findByIdAndDelete(userId);
+    // Proceed to delete the user (This returns the deleted document)
+    const isDeleted = await userModel.findByIdAndDelete(userId);
+    console.log("isDeleted:", isDeleted);
+    if (!isDeleted) {
+      return res
+        .status(404)
+        .json({ message: "User not found or already deleted." });
+    }
+
     res.status(200).json({
       success: true,
       message: `User with ID: ${userId} has been deleted.`,
@@ -166,7 +175,9 @@ const deleteUser = async (req, res) => {
     console.error("Error deleting user:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message:
+        `This is coming from the catch: ${error.message}` ||
+        "Internal server error.",
     });
   }
 };
@@ -185,7 +196,7 @@ const updateUser = async (req, res) => {
     const { username, email, role, password } = req.body;
     // This is the email of the editor (admin making the change) from the token
     const editorEmail = req.user.email;
-    const editorId = req.user.userid;
+    const editorId = req.user.id;
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
 
