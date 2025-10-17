@@ -29,21 +29,40 @@
       }
     ]
   }
-  ```
+```
 
-2. Vercel Functions: 
-    - Vercel deploys the controllers as edge functions and they are serverless as well.
-    - Edge Funtions are serverless functions that are distributed across multiple mini-servers across the world.
-    - Such a Network is called an Edge Network.
+2. Vercel Functions:
 
-3. Why dbConnect in every controller? :
+   - Vercel deploys the controllers as edge functions and they are serverless as well.
+   - Edge Funtions are serverless functions that are distributed across multiple mini-servers across the world.
+   - Such a Network is called an Edge Network.
+
+3. How this express.js app is deployed and run on Vercel :
+
+   - This backend has been deployed as a single serverless function as when the request arrives, Vercel imports the whole backend from app.js and creates a handler function for execution and in that handler function. Hence, the whole backend runs as a serverless function.
+
+   Pros :
+
+   - Instances/Containers are created per Backend not per ( controller function / api ).
+   - After one function is called and shifts from the cold start state to warm state. This shifts the state of the whole app to warm.
+
+   Cons :
+
+   - The Cold start is shared, but is longer as no individual api is being setup but the whole app.
+   - Cost can be reduced for small to medium apps, but not for larger traffic apps. ( Read docs )
+
+4. How Next.js backends are deployed on Vercel :
+
+5. Why dbConnect in every controller? :
 
 // CONTINUE THE TOUGHT THE CONTENT BELOW IS A SEPERATE THING
 
 ---
+
 # Serverless Cleanup Service - Complete Documentation
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [What Changed](#what-changed)
 3. [Architecture](#architecture)
@@ -65,6 +84,7 @@
 This document describes the refactoring of cleanup utilities from node-cron (which requires a persistent server) to Vercel Cron Jobs (serverless-compatible).
 
 ### Key Changes
+
 - Removed node-cron dependency
 - Created HTTP endpoints for cleanup operations
 - Configured Vercel Cron Jobs to trigger cleanup via HTTP requests
@@ -78,6 +98,7 @@ This document describes the refactoring of cleanup utilities from node-cron (whi
 ### Before (Node-Cron - Not Serverless Compatible)
 
 **Problem:**
+
 - Used node-cron for scheduling
 - Required persistent server process running 24/7
 - Didn't work with Vercel's serverless functions
@@ -85,6 +106,7 @@ This document describes the refactoring of cleanup utilities from node-cron (whi
 - Poor error visibility
 
 **Code Example:**
+
 ```javascript
 const cron = require("node-cron");
 
@@ -99,6 +121,7 @@ require("./utils/cleanUpUsers.js"); // Loaded on app start
 ### After (Vercel Cron Jobs - Serverless Compatible)
 
 **Benefits:**
+
 - Works with serverless architecture
 - Each cron job is an independent function invocation
 - HTTP endpoints for manual testing and monitoring
@@ -106,6 +129,7 @@ require("./utils/cleanUpUsers.js"); // Loaded on app start
 - Cost-effective (pay per invocation)
 
 **Code Example:**
+
 ```javascript
 // Controller with HTTP endpoint
 const cleanupUnverifiedUsers = async (req, res) => {
@@ -178,6 +202,7 @@ MongoDB Database
 ### New Files Created
 
 1. **server/controllers/cleanup.controller.js**
+
    - Purpose: HTTP controllers for cleanup operations
    - Functions:
      - `cleanupUnverifiedUsers()` - Controller for user cleanup
@@ -194,20 +219,24 @@ MongoDB Database
 ### Modified Files
 
 1. **server/utils/cleanUpUsers.js**
+
    - Removed: node-cron import and scheduling
    - Added: Exportable function that returns result
    - Added: Better error handling and logging
 
 2. **server/utils/cleanUpReservation.js**
+
    - Removed: node-cron import and scheduling
    - Note: Function already exportable, minimal changes
 
 3. **server/app.js**
+
    - Removed: require("./utils/cleanUpUsers.js")
    - Removed: require("./utils/cleanUpReservation.js")
    - Added: Comment explaining new architecture
 
 4. **server/routes/index.routes.js**
+
    - Added: Import of cleanup routes
    - Added: router.use("/cleanup", cleanupRoutes)
 
@@ -227,6 +256,7 @@ MongoDB Database
 **Purpose:** Deletes users with role "verifying" that were created more than 7 days ago
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -237,6 +267,7 @@ MongoDB Database
 ```
 
 **Error Response (500):**
+
 ```json
 {
   "success": false,
@@ -252,6 +283,7 @@ MongoDB Database
 **Purpose:** Restores product stock from reservations older than 2 days and deletes the reservations
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -261,6 +293,7 @@ MongoDB Database
 ```
 
 **Error Response (500):**
+
 ```json
 {
   "success": false,
@@ -276,6 +309,7 @@ MongoDB Database
 **Purpose:** Verifies that the cleanup service is responsive and database is connected
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -290,6 +324,7 @@ MongoDB Database
 ```
 
 **Error Response (503):**
+
 ```json
 {
   "success": false,
@@ -337,10 +372,12 @@ Located in `server/vercel.json`:
 ### Schedule Explanation
 
 **User Cleanup:** `0 2 * * *`
+
 - Runs daily at 2:00 AM UTC
 - Deletes users with role "verifying" older than 7 days
 
 **Reservation Cleanup:** `0 3 * * *`
+
 - Runs daily at 3:00 AM UTC (1 hour after user cleanup)
 - Restores stock from reservations older than 2 days
 - Deletes expired reservations
@@ -358,6 +395,7 @@ Located in `server/vercel.json`:
 ```
 
 **Examples:**
+
 - `0 2 * * *` - Every day at 2:00 AM
 - `0 */6 * * *` - Every 6 hours
 - `0 0 * * 0` - Every Sunday at midnight
@@ -370,12 +408,14 @@ Located in `server/vercel.json`:
 ### Local Development Testing
 
 Start your development server:
+
 ```bash
 cd server
 npm run dev
 ```
 
 Test the endpoints manually:
+
 ```bash
 # Test user cleanup
 curl -X POST http://localhost:3000/api/cleanup/users
@@ -390,6 +430,7 @@ curl http://localhost:3000/api/cleanup/health
 ### Production Testing (After Deployment)
 
 Test on Vercel:
+
 ```bash
 # Replace with your actual domain
 curl -X POST https://your-app.vercel.app/api/cleanup/users
@@ -400,17 +441,20 @@ curl https://your-app.vercel.app/api/cleanup/health
 ### Testing with Vercel CLI
 
 Install Vercel CLI:
+
 ```bash
 npm install -g vercel
 ```
 
 Login and link project:
+
 ```bash
 vercel login
 vercel link
 ```
 
 Run locally with Vercel environment:
+
 ```bash
 vercel dev
 ```
@@ -432,14 +476,14 @@ Update `server/routes/modules/cleanup.route.js`:
 const verifyCronSecret = (req, res, next) => {
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;
-  
+
   if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
     return res.status(401).json({
       success: false,
-      message: "Unauthorized: Invalid cron secret"
+      message: "Unauthorized: Invalid cron secret",
     });
   }
-  
+
   next();
 };
 
@@ -450,6 +494,7 @@ router.use(verifyCronSecret);
 #### Step 2: Add Environment Variable
 
 In Vercel Dashboard:
+
 1. Go to Project Settings
 2. Navigate to Environment Variables
 3. Add variable:
@@ -502,8 +547,8 @@ Vercel will automatically deploy when you push to your main branch (if connected
 2. Select your project
 3. Navigate to Settings > Cron Jobs
 4. Verify both cron jobs appear:
-   - /api/cleanup/users - 0 2 * * *
-   - /api/cleanup/reservations - 0 3 * * *
+   - /api/cleanup/users - 0 2 \* \* \*
+   - /api/cleanup/reservations - 0 3 \* \* \*
 
 ### Step 4: Monitor First Deployment
 
@@ -533,11 +578,13 @@ git push origin main
 If your README lists node-cron in the tech stack, update it:
 
 **Change from:**
+
 ```markdown
 - Node-Cron
 ```
 
 **Change to:**
+
 ```markdown
 - Vercel Cron Jobs
 ```
@@ -561,7 +608,7 @@ After the scheduled time (2:00 AM and 3:00 AM UTC):
 2. Navigate to Deployments
 3. Select your deployment
 4. Click on Functions tab
-5. Filter by /api/cleanup/*
+5. Filter by /api/cleanup/\*
 6. View execution logs
 
 ### Console Log Format
@@ -609,17 +656,20 @@ Expected response: 200 OK with JSON body
 
 **Cause:** Vercel Cron Jobs require the Pro plan
 
-**Solution:** 
+**Solution:**
+
 - Upgrade to Vercel Pro ($20/month)
 - Or use alternative scheduling (GitHub Actions, external cron service)
 
 ### Issue: Function timeout
 
 **Cause:** Operation takes too long
+
 - Hobby plan: 10-second timeout
 - Pro plan: 60-second timeout
 
 **Solution:**
+
 - Optimize database queries
 - Add indexes to MongoDB collections
 - Process in smaller batches
@@ -630,6 +680,7 @@ Expected response: 200 OK with JSON body
 **Cause:** MongoDB connection string incorrect or network issue
 
 **Solution:**
+
 - Verify MONGODB_URI in Vercel environment variables
 - Check MongoDB Atlas network access settings
 - Ensure IP whitelist includes 0.0.0.0/0 for Vercel functions
@@ -640,6 +691,7 @@ Expected response: 200 OK with JSON body
 **Cause:** Endpoint returns error but no alerts configured
 
 **Solution:**
+
 - Check Function logs in Vercel Dashboard
 - Enable error notifications in Vercel settings
 - Add try-catch blocks with detailed logging
@@ -650,6 +702,7 @@ Expected response: 200 OK with JSON body
 **Cause:** MongoDB session or transaction error
 
 **Solution:**
+
 - Ensure MongoDB is replica set (required for transactions)
 - Check for network interruptions
 - Verify all operations in transaction are supported
@@ -660,6 +713,7 @@ Expected response: 200 OK with JSON body
 **Cause:** Product category logic error
 
 **Solution:**
+
 - Verify product category values match: "comics", "clothes", "shoes" vs "toys"
 - Check variant names match exactly
 - Review MongoDB schema for stock fields
@@ -769,26 +823,31 @@ Expected response: 200 OK with JSON body
 ## Benefits of Serverless Architecture
 
 ### Cost Efficiency
+
 - No persistent server running 24/7
 - Pay only for execution time
 - Automatic scaling (no over-provisioning)
 
 ### Reliability
+
 - Built-in retries for failed executions
 - Multiple availability zones
 - Vercel handles infrastructure
 
 ### Scalability
+
 - Each invocation is independent
 - No resource contention
 - Handles traffic spikes automatically
 
 ### Maintainability
+
 - Clean separation of concerns
 - HTTP endpoints for testing
 - Easy to monitor and debug
 
 ### Developer Experience
+
 - Simple deployment (git push)
 - No server configuration needed
 - Built-in logging and monitoring
@@ -800,15 +859,18 @@ Expected response: 200 OK with JSON body
 ### Vercel Function Limitations
 
 1. **Execution Time Limits:**
+
    - Hobby plan: 10 seconds
    - Pro plan: 60 seconds
    - Enterprise: Custom
 
 2. **Memory Limits:**
+
    - Default: 1024 MB
    - Can be increased in vercel.json
 
 3. **Stateless:**
+
    - No persistent memory between invocations
    - Global variables reset on each invocation
    - Use database for state management
@@ -821,6 +883,7 @@ Expected response: 200 OK with JSON body
 ### MongoDB Transaction Requirements
 
 Transactions require:
+
 - MongoDB 4.0 or higher
 - Replica set deployment (not standalone)
 - MongoDB Atlas clusters support transactions by default
@@ -837,11 +900,11 @@ Transactions require:
 
 ### Endpoints Summary
 
-| Method | Endpoint | Purpose | Schedule |
-|--------|----------|---------|----------|
-| POST | /api/cleanup/users | Delete unverified users (>7 days) | Daily @ 2:00 AM UTC |
-| POST | /api/cleanup/reservations | Restore stock & delete expired reservations (>2 days) | Daily @ 3:00 AM UTC |
-| GET | /api/cleanup/health | Health check | Manual/Monitoring |
+| Method | Endpoint                  | Purpose                                               | Schedule            |
+| ------ | ------------------------- | ----------------------------------------------------- | ------------------- |
+| POST   | /api/cleanup/users        | Delete unverified users (>7 days)                     | Daily @ 2:00 AM UTC |
+| POST   | /api/cleanup/reservations | Restore stock & delete expired reservations (>2 days) | Daily @ 3:00 AM UTC |
+| GET    | /api/cleanup/health       | Health check                                          | Manual/Monitoring   |
 
 ### Deployment Checklist
 
@@ -891,4 +954,3 @@ vercel --prod
 **Last Updated:** October 14, 2025  
 **Author:** GitHub Copilot  
 **Status:** Ready for Production Deployment
-
