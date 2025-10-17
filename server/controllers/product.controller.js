@@ -66,7 +66,7 @@ const generateProductID = async (category) => {
 };
 
 const getProducts = async (req, res) => {
-  dbConnect();
+  // dbConnect(); commented out for testing purposes if all the express.js app is imported by vercel and a handler function is created then database connection will be persisted across the app once it establishes in a single controller. This once has been commented out for testing
   try {
     // Destructure the productConstraints from the request query
     const { productConstraints } = req.query;
