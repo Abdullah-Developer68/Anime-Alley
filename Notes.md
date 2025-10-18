@@ -53,7 +53,21 @@
 
 4. How Next.js backends are deployed on Vercel :
 
-5. Why dbConnect in every controller? :
+   - In Next.js to write the APIs there is a specific structure one has to follow and that is to declare them in the api folder and only one funtion can be created per route. On Vercel, these API end points are deployed as individual components with their own context and runtime.
+
+  Prop : 
+
+   - Each API is a serverless function, so the initial cold start for a request is faster as only that specific API loads.
+   - It can be cheper for bigger projects (View docs)
+  
+  Cons :
+
+   - After one API shifts from the cold start state to warm state the rest of the app does not as the context is not shared. The rest of the functions will experience individually.
+  
+  # Important Note :
+     - Even Express.js can be deployed like Next.js as individual serverless functions instead of wrapping the whole app as a single serverless function by changing the structure.
+     - Like creating the controllers in the API folder ( view docs )
+1. Why dbConnect in every controller? :
 
 // CONTINUE THE TOUGHT THE CONTENT BELOW IS A SEPERATE THING
 
