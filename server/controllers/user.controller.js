@@ -243,7 +243,7 @@ const updateUser = async (req, res) => {
             .status(403)
             .json({ message: "Admins cannot change user roles." });
         }
-      }
+      } 
       // SuperAdmin can update users and admins, but not other superAdmins
       if (editor.role === "superAdmin") {
         if (userToUpdate.role === "superAdmin") {
