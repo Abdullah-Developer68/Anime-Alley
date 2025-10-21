@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const dbConnect = require("../config/dbConnect.js");
 
 const reserveStock = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   // Start a MongoDB session to track/record multiple operations as a single transaction.
   // This allows us to commit all changes together or roll them back entirely if any operation fails.
   const mongoSession = await mongoose.startSession();
@@ -95,7 +95,7 @@ const reserveStock = async (req, res) => {
         updated = await productModel.updateOne(
           { _id: productId, [`stock.${variant}`]: { $gte: availableQuantity } },
           { $inc: update },
-          { session: mongoSession } // attach the session to the operation
+          { session: mongoSession }, // attach the session to the operation
         );
 
         // If 0 documents were modified, it means stock was changed by an other user during a transaction
@@ -162,7 +162,7 @@ const reserveStock = async (req, res) => {
         updated = await productModel.updateOne(
           { _id: productId, stock: { $gte: availableQuantity } },
           { $inc: { stock: -availableQuantity } },
-          { session: mongoSession } // attach the session to the operation
+          { session: mongoSession }, // attach the session to the operation
         );
         // If 0 documents were modified, it means stock was changed by an other user during a transaction
         if (updated.modifiedCount > 0) {
@@ -204,7 +204,7 @@ const reserveStock = async (req, res) => {
 
     // Find if product already reserved
     const prodIdx = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant
+      (p) => p.productId.toString() === productId && p.variant === variant,
     );
 
     // If index is found, increment quantity, else add new product
@@ -257,7 +257,7 @@ const reserveStock = async (req, res) => {
 
 // USED IN CART.JSX FOR DECREMENTING RESERVATION STOCK
 const decrementReservationStock = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const mongoSession = await mongoose.startSession();
 
   try {
@@ -284,7 +284,7 @@ const decrementReservationStock = async (req, res) => {
     }
     // Find if product is in reservation
     const prodIdx = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant
+      (p) => p.productId.toString() === productId && p.variant === variant,
     );
     // product not found in reservation
     if (prodIdx === -1) {
@@ -316,14 +316,14 @@ const decrementReservationStock = async (req, res) => {
       await productModel.updateOne(
         { _id: productId },
         { $inc: update },
-        { session: mongoSession }
+        { session: mongoSession },
       );
       newStock = (product.stock[variant] || 0) + quantity;
     } else {
       await productModel.updateOne(
         { _id: productId },
         { $inc: { stock: quantity } },
-        { session: mongoSession }
+        { session: mongoSession },
       );
       newStock = product.stock + quantity;
     }
@@ -368,7 +368,7 @@ const decrementReservationStock = async (req, res) => {
 
 // Get user's cart items from server
 const getCart = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     const userId = req.user.id; // Get userId from verified token
 
@@ -399,7 +399,7 @@ const getCart = async (req, res) => {
           itemQuantity: item.quantity,
           stock: product.stock,
         };
-      })
+      }),
     );
 
     res.json({
@@ -417,7 +417,7 @@ const getCart = async (req, res) => {
 
 // Update cart item quantity
 const updateCartItem = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const session = await mongoose.startSession();
 
   try {
@@ -438,7 +438,7 @@ const updateCartItem = async (req, res) => {
     }
 
     const productIndex = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant
+      (p) => p.productId.toString() === productId && p.variant === variant,
     );
 
     if (productIndex === -1) {
@@ -480,7 +480,7 @@ const updateCartItem = async (req, res) => {
         await productModel.updateOne(
           { _id: productId },
           { $inc: stockUpdate },
-          { session }
+          { session },
         );
       } else {
         // Decreasing quantity - release stock
@@ -492,7 +492,7 @@ const updateCartItem = async (req, res) => {
         await productModel.updateOne(
           { _id: productId },
           { $inc: stockUpdate },
-          { session }
+          { session },
         );
       }
     }
@@ -534,7 +534,7 @@ const updateCartItem = async (req, res) => {
 
 // Remove item from cart
 const removeFromCart = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const session = await mongoose.startSession();
 
   try {
@@ -555,7 +555,7 @@ const removeFromCart = async (req, res) => {
     }
 
     const productIndex = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant
+      (p) => p.productId.toString() === productId && p.variant === variant,
     );
 
     if (productIndex === -1) {
@@ -578,7 +578,7 @@ const removeFromCart = async (req, res) => {
     await productModel.updateOne(
       { _id: productId },
       { $inc: stockUpdate },
-      { session }
+      { session },
     );
 
     // Remove from reservation
@@ -613,7 +613,7 @@ const removeFromCart = async (req, res) => {
 
 // Clear entire cart
 const clearCart = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const session = await mongoose.startSession();
 
   try {
@@ -645,7 +645,7 @@ const clearCart = async (req, res) => {
       await productModel.updateOne(
         { _id: item.productId },
         { $inc: stockUpdate },
-        { session }
+        { session },
       );
     }
 

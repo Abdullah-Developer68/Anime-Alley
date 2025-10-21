@@ -3,7 +3,7 @@ const userModel = require("../models/user.model.js");
 const dbConnect = require("../config/dbConnect.js");
 
 const checkCoupon = async (req, res) => {
-  dbConnect();
+  await dbConnect();
 
   // Get email from verified token
   const userEmail = req.user.email;
@@ -48,7 +48,7 @@ const checkCoupon = async (req, res) => {
 
     // Check if coupon was already used
     const isCouponUsed = user.couponCodeUsed.some(
-      (usedCoupon) => usedCoupon._id.toString() === coupon._id.toString()
+      (usedCoupon) => usedCoupon._id.toString() === coupon._id.toString(),
     );
 
     if (isCouponUsed) {
@@ -76,7 +76,7 @@ const checkCoupon = async (req, res) => {
 };
 
 const getAllCoupons = async (req, res) => {
-  dbConnect();
+  await dbConnect();
 
   // Get email from verified token
   const viewerEmail = req.user.email;
@@ -135,7 +135,7 @@ const getAllCoupons = async (req, res) => {
 };
 
 const deleteCoupon = async (req, res) => {
-  dbConnect();
+  await dbConnect();
 
   try {
     const { couponId } = req.params;
@@ -164,7 +164,7 @@ const deleteCoupon = async (req, res) => {
 };
 
 const updateCoupon = async (req, res) => {
-  dbConnect();
+  await dbConnect();
 
   try {
     const { couponId } = req.params;
@@ -177,7 +177,7 @@ const updateCoupon = async (req, res) => {
     const updatedCoupon = await couponModel.findByIdAndUpdate(
       couponId,
       { discountPercentage, expiryDate },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedCoupon) {
@@ -199,7 +199,7 @@ const updateCoupon = async (req, res) => {
 };
 
 const createCoupon = async (req, res) => {
-  dbConnect();
+  await dbConnect();
 
   try {
     // Get email from verified token
@@ -255,7 +255,7 @@ const createCoupon = async (req, res) => {
 };
 
 const getCouponStats = async (req, res) => {
-  dbConnect();
+  await dbConnect();
 
   try {
     // Get email from verified token
@@ -274,11 +274,11 @@ const getCouponStats = async (req, res) => {
     const allCoupons = await couponModel.find();
     const totalUsage = allCoupons.reduce(
       (sum, c) => sum + (c.totalUsage || 0),
-      0
+      0,
     );
     const totalDiscount = allCoupons.reduce(
       (sum, c) => sum + (c.lifeTimeDiscount || 0),
-      0
+      0,
     );
 
     res.status(200).json({

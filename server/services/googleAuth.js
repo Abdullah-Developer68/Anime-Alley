@@ -81,8 +81,8 @@ const initiateGoogleAuth = (req, res, next) => {
  * 3. Creates/updates user session if there is one
  * 4. Establishes authentication state
  */
-const handleGoogleCallback = (req, res, next) => {
-  dbConnect();
+const handleGoogleCallback = async (req, res, next) => {
+  await dbConnect();
   const clientUrl =
     process.env.NODE_ENV === "production"
       ? process.env.CLIENT_URL
@@ -111,7 +111,7 @@ const handleGoogleCallback = (req, res, next) => {
           role: user.role,
         },
         process.env.JWT_KEY,
-        { expiresIn: "7d" }
+        { expiresIn: "7d" },
       );
 
       // Set JWT token in cookie as fallback (same as local auth)
@@ -119,7 +119,7 @@ const handleGoogleCallback = (req, res, next) => {
 
       // Redirect to client with token as query parameter for localStorage storage
       return res.redirect(
-        `${clientUrl}/auth/google/success?token=${encodeURIComponent(token)}`
+        `${clientUrl}/auth/google/success?token=${encodeURIComponent(token)}`,
       );
     } catch (tokenError) {
       console.error("JWT token creation error:", tokenError);

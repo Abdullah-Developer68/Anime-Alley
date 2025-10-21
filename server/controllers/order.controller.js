@@ -7,7 +7,7 @@ const mongoose = require("mongoose");
 const dbConnect = require("../config/dbConnect.js");
 
 const placeOrder = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const session = await mongoose.startSession();
 
   try {
@@ -96,7 +96,7 @@ const placeOrder = async (req, res) => {
       if (!product) {
         // throws an error and moves onto executing the catch block skipping the rest of the try block
         throw new Error(
-          `Product not found for ID: ${item.productId}. Order cannot be processed.`
+          `Product not found for ID: ${item.productId}. Order cannot be processed.`,
         );
       }
 
@@ -152,7 +152,7 @@ const placeOrder = async (req, res) => {
             lifeTimeDiscount: discount, // Use server-calculated discount
           },
         },
-        { session }
+        { session },
       );
 
       // Add coupon to user's couponCodeUsed array with session
@@ -162,7 +162,7 @@ const placeOrder = async (req, res) => {
           {
             $addToSet: { couponCodeUsed: couponDoc._id },
           },
-          { session }
+          { session },
         );
       }
     }
@@ -175,7 +175,7 @@ const placeOrder = async (req, res) => {
       {
         $push: { orders: newOrder[0]._id },
       },
-      { session }
+      { session },
     );
 
     // === RESERVATION CLEANUP  ===
@@ -212,7 +212,7 @@ const placeOrder = async (req, res) => {
 };
 
 const getOrderHistory = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const { email, currPage } = req.query;
 
   // Validate user email and current page
@@ -282,7 +282,7 @@ const getOrderHistory = async (req, res) => {
 };
 
 const allOrdersList = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const { currPage } = req.query;
   const email = req.user.email; // Get email from authenticated user token
 
@@ -338,7 +338,7 @@ const allOrdersList = async (req, res) => {
 };
 
 const deleteOrder = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     const { orderId } = req.params;
 
@@ -369,7 +369,7 @@ const deleteOrder = async (req, res) => {
 };
 
 const updateOrder = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     const { orderId } = req.params;
     const { status } = req.body;
@@ -381,7 +381,7 @@ const updateOrder = async (req, res) => {
     const updatedOrder = await orderModel.findByIdAndUpdate(
       orderId,
       { status },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
 
     if (!updatedOrder) {
@@ -404,7 +404,7 @@ const updateOrder = async (req, res) => {
 
 // Controller to get order stats by status
 const getOrderStats = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     const stats = await orderModel.aggregate([
       { $group: { _id: "$status", count: { $sum: 1 } } },

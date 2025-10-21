@@ -66,7 +66,8 @@ const generateProductID = async (category) => {
 };
 
 const getProducts = async (req, res) => {
-  dbConnect();
+  await dbConnect();
+  console.log("executed before connecting to the database.");
   try {
     // Destructure the productConstraints from the request query
     const { productConstraints } = req.query;
@@ -106,19 +107,19 @@ const getProducts = async (req, res) => {
       if (category === "comics") {
         // Use case-insensitive regex matching for genres
         const genreRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i")
+          (type) => new RegExp(`^${type}$`, "i"),
         );
         query.genres = { $in: genreRegexArray };
       } else if (category === "clothes" || category === "shoes") {
         // Use case-insensitive regex matching for merchType
         const merchTypeRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i")
+          (type) => new RegExp(`^${type}$`, "i"),
         );
         query.merchType = { $in: merchTypeRegexArray };
       } else if (category === "toys") {
         // Use case-insensitive regex matching for toyType
         const toyTypeRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i")
+          (type) => new RegExp(`^${type}$`, "i"),
         );
         query.toyType = { $in: toyTypeRegexArray };
       }
@@ -169,7 +170,7 @@ const getProducts = async (req, res) => {
 };
 
 const createProduct = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     // Cloudinary returns the URL in req.file.path
     const imageUrl = req.file ? req.file.path : null;
@@ -266,7 +267,7 @@ const createProduct = async (req, res) => {
 };
 
 const updateProduct = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     let imageUrl;
     if (req.file) {
@@ -348,7 +349,7 @@ const updateProduct = async (req, res) => {
     const updatedProduct = await productModel.findOneAndUpdate(
       { productID: productData.productID },
       productData,
-      { new: true }
+      { new: true },
     );
 
     res.status(200).json({
@@ -366,7 +367,7 @@ const updateProduct = async (req, res) => {
 };
 
 const verifyStock = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     const { itemName, selectedVariant, itemQuantity } = req.query;
 
@@ -429,7 +430,7 @@ const verifyStock = async (req, res) => {
 };
 
 const deleteProduct = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const { productID } = req.body;
 
   if (!productID) {

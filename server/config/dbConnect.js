@@ -12,7 +12,7 @@ const dbConnect = async () => {
       isConnected = true;
       console.log(
         "Connecting to MongoDB:",
-        process.env.MONGODB_URI ? "URI found" : "URI NOT FOUND"
+        process.env.MONGODB_URI ? "URI found" : "URI NOT FOUND",
       );
     }
   } catch (error) {

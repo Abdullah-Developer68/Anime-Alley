@@ -56,7 +56,7 @@ const getClearCookieOptions = () => {
 };
 
 const makNSenOTP = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const { email } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry
@@ -84,7 +84,7 @@ const makNSenOTP = async (req, res) => {
 };
 
 const verifyOTP = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const { email, otp } = req.body;
   const user = await userModel.findOne({ email, role: "verifying" });
   if (!user || user.otp !== otp || user.otpExpiry < new Date()) {
@@ -95,7 +95,7 @@ const verifyOTP = async (req, res) => {
 };
 
 const signUp = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     const { email, password, username } = req.body;
     // Find user with role verifying
@@ -126,7 +126,7 @@ const signUp = async (req, res) => {
         role: user.role,
       },
       secretKey,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     // Set cookie as fallback (for compatibility)
@@ -155,7 +155,7 @@ const signUp = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     const { email, password } = req.body;
 
@@ -208,7 +208,7 @@ const login = async (req, res) => {
         role: userExist.role,
       },
       secretKey,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     // Set cookie as fallback (for compatibility)
@@ -235,8 +235,8 @@ const login = async (req, res) => {
   }
 };
 
-const logout = (req, res) => {
-  dbConnect();
+const logout = async (req, res) => {
+  await dbConnect();
   try {
     // Clear JWT cookie (works for both local and Google auth)
     res.cookie("token", "", getClearCookieOptions()); // Use dedicated clear cookie options
@@ -262,7 +262,7 @@ const logout = (req, res) => {
 
 //  helps to stay logged in even after refreshing the page
 const verifyToken = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     // Use utility function to extract token from Authorization header or cookies
     const token = extractToken(req);

@@ -7,7 +7,7 @@ const {
 const dbConnect = require("../config/dbConnect.js");
 
 const exportData = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   const { dataType } = req.params;
   const { format } = req.query;
 

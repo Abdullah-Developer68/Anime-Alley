@@ -13,12 +13,7 @@ const webHookSecretKey = process.env.STRIPE_WEBHOOK_SECRET;
 const processedSessions = new Set(); // In-memory store for processed sessions
 
 const processSuccessfulPayment = async (StripeSession) => {
-  console.log("Webhook: Starting payment processing");
-  console.log("Mongoose connection state:", mongoose.connection.readyState);
-  // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-
   await dbConnect(); // Wait for database connection to be established
-  console.log("After dbConnect call, state:", mongoose.connection.readyState);
 
   const mongoSession = await mongoose.startSession(); // Should work now
 
@@ -82,7 +77,7 @@ const processSuccessfulPayment = async (StripeSession) => {
       await mongoSession.abortTransaction();
       console.error(`No user found with email: ${userEmail}`);
       console.error(
-        `Session customer email: ${StripeSession.customer_details?.email}`
+        `Session customer email: ${StripeSession.customer_details?.email}`,
       );
       throw new Error(`No user found with email: ${userEmail}`);
     }
@@ -94,14 +89,11 @@ const processSuccessfulPayment = async (StripeSession) => {
     ) {
       console.warn(`Email mismatch detected:`);
       console.warn(
-        `   Session customer email: ${StripeSession.customer_details.email}`
+        `   Session customer email: ${StripeSession.customer_details.email}`,
       );
       console.warn(`   Metadata email: ${userEmail}`);
       console.warn(`   Using metadata email for consistency`);
     }
-
-    console.log(`User found: ${user.email} (ID: ${user._id})`);
-    console.log(`Email validation passed - authenticated user matches order`);
 
     // Create order from reservation data matching your Order model structure
     const orderData = {
@@ -124,14 +116,9 @@ const processSuccessfulPayment = async (StripeSession) => {
       orderDate: new Date(),
     };
 
-    console.log(
-      "Creating order with data:",
-      JSON.stringify(orderData, null, 2)
-    );
     const order = new orderModel(orderData);
-    console.log("Saving order to database...");
+
     const savedOrder = await order.save({ session: mongoSession });
-    console.log("Order saved with ID:", savedOrder._id);
 
     // Handle coupon usage if coupon was used
     if (couponCode) {
@@ -148,7 +135,7 @@ const processSuccessfulPayment = async (StripeSession) => {
               lifeTimeDiscount: discountAmount,
             },
           },
-          { session: mongoSession }
+          { session: mongoSession },
         );
 
         // Add coupon to user's used coupons array (prevent reuse)
@@ -161,7 +148,7 @@ const processSuccessfulPayment = async (StripeSession) => {
                 orders: savedOrder._id,
               },
             },
-            { session: mongoSession }
+            { session: mongoSession },
           );
         } else {
           // Just add the order if coupon already used
@@ -170,7 +157,7 @@ const processSuccessfulPayment = async (StripeSession) => {
             {
               $push: { orders: savedOrder._id },
             },
-            { session: mongoSession }
+            { session: mongoSession },
           );
         }
       }
@@ -181,7 +168,7 @@ const processSuccessfulPayment = async (StripeSession) => {
         {
           $push: { orders: savedOrder._id },
         },
-        { session: mongoSession }
+        { session: mongoSession },
       );
     }
 
@@ -189,13 +176,8 @@ const processSuccessfulPayment = async (StripeSession) => {
     await reservationModel.deleteOne({ userId }, { session: mongoSession });
 
     // Commit the transaction
-    console.log("Committing transaction...");
-    await mongoSession.commitTransaction();
-    console.log("Transaction committed successfully");
 
-    console.log(
-      `Order ${savedOrder.orderID} created successfully for user ${userId}`
-    );
+    await mongoSession.commitTransaction();
   } catch (error) {
     // Remove from processed set if transaction fails
     processedSessions.delete(StripeSession.id);
@@ -226,9 +208,7 @@ const handleStripeWebhook = async (req, res) => {
 
     try {
       // CRITICAL: Establish DB connection FIRST with longer timeout
-      console.log("Connecting to MongoDB...");
       await dbConnect();
-      console.log("MongoDB connected successfully");
 
       // Now process payment
       await processSuccessfulPayment(StripeSession);
@@ -260,7 +240,7 @@ const handleStripeWebhook = async (req, res) => {
 
       console.log(`Payment failed for user: ${userId}, email: ${userEmail}`);
       console.log(
-        `Reservation preserved - user can still pay with Cash on Delivery`
+        `Reservation preserved - user can still pay with Cash on Delivery`,
       );
 
       // Just log the failure - don't modify reservation model
@@ -280,10 +260,10 @@ const handleStripeWebhook = async (req, res) => {
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
       console.log(
-        `Checkout session expired for user: ${userId}, email: ${userEmail}`
+        `Checkout session expired for user: ${userId}, email: ${userEmail}`,
       );
       console.log(
-        `Reservation preserved - will be auto-cleaned by cleanup script after 2 days`
+        `Reservation preserved - will be auto-cleaned by cleanup script after 2 days`,
       );
     } catch (error) {
       console.error("Error logging expired session:", error);

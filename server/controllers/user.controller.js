@@ -5,7 +5,7 @@ const dbConnect = require("../config/dbConnect.js");
 const jwt = require("jsonwebtoken");
 
 const getUsers = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   // The user object has other details such as role as well but we will still verify it from the database for high security
   const viewerEmail = req.user.email;
   // This is sent from the frontend (searching constraints)
@@ -91,7 +91,7 @@ const getUsers = async (req, res) => {
 };
 
 const deleteUser = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     // Id of the user who is to be deleted
     const { userId } = req.params;
@@ -183,7 +183,7 @@ const deleteUser = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-  dbConnect();
+  await dbConnect();
   try {
     // This is the id of the user to be updated
     const { userId } = req.params;
@@ -243,7 +243,7 @@ const updateUser = async (req, res) => {
             .status(403)
             .json({ message: "Admins cannot change user roles." });
         }
-      } 
+      }
       // SuperAdmin can update users and admins, but not other superAdmins
       if (editor.role === "superAdmin") {
         if (userToUpdate.role === "superAdmin") {
@@ -363,7 +363,7 @@ const recruiterBypass = async (req, res) => {
         role: savedUser.role,
       },
       jwtSecret,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     // Prepare user data for response (exclude password)
