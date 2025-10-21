@@ -67,7 +67,13 @@
   # Important Note :
      - Even Express.js can be deployed like Next.js as individual serverless functions instead of wrapping the whole app as a single serverless function by changing the structure.
      - Like creating the controllers in the API folder ( view docs )
+     
 1. Why dbConnect in every controller? :
+     - In a VPS based deployment when we call dbConnect while having await in it in the app.js file it the app.listen does not start until the database connection has been made even if await is used which guarantee that the controllers will have access to the database when the request arrives, but in case of a serverless environment Vercel imports our whole app using this code
+     ```js 
+     module.exports = app; // <-- Add this line for Vercel
+     ``` 
+     and creates a handler function. The handler function does not wait for the database connection to be made it starts building and executes if the database connection is made before the handler function gets created then the controllers will have access to the database when the request arrives, but if the handler function gets created and then the database connection is made the controllers won't have access to it. If the database is near the server then the database connection can be made faster then in the case if the database is far away from the server, but to make sure that every controller has access to the database we call dbConnect in every controller.
 
 // CONTINUE THE TOUGHT THE CONTENT BELOW IS A SEPERATE THING
 
