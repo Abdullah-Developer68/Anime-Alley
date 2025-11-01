@@ -1,4 +1,5 @@
-import { useSelector, useDispatch } from "react-redux";
+/* eslint-disable react/prop-types */
+import { useDispatch } from "react-redux";
 import { transferFilterData } from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
 
@@ -95,7 +96,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
                     className="w-3 h-3 opacity-70"
                   />
                   <span className="truncate max-w-[120px] sm:max-w-[200px]">
-                    "{searchQuery}"
+                    {searchQuery}
                   </span>
                 </div>
               );
