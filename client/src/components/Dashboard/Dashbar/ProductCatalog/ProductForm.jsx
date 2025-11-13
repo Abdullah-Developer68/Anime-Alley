@@ -17,7 +17,7 @@ const ProductForm = () => {
   const [error, setError] = useState(null);
 
   // Debug: Log render and state
-  console.log("RENDER", previewImage, selectedFile);
+  // console.log("RENDER", previewImage, selectedFile);
 
   //redux
   const dispatch = useDispatch();
