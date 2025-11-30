@@ -1,4 +1,4 @@
-# Anime Alley ⛩️
+# Anime Store ⛩️
 
 A full-stack MERN e-commerce app for anime fans. 🛍️ Features a storefront for customers and a powerful admin dashboard for business management.
 
