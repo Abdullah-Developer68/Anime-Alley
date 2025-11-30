@@ -1,0 +1,26 @@
+
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "app.js",
+        "use": "@vercel/node"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "/app.js"
+      }
+    ],
+    "crons": [
+      {
+        "path": "/api/cleanup/users",
+        "schedule": "0 2 * * *"
+      },
+      {
+        "path": "/api/cleanup/reservations",
+        "schedule": "0 3 * * *"
+      }
+    ]
+  }
