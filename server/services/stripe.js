@@ -15,9 +15,6 @@ const createCheckoutSession = async (req, res) => {
   const userId = req.user.id;
   const authenticatedUserEmail = req.user.email;
 
-  console.log(
-    `🔐 Authenticated user: ${authenticatedUserEmail} (ID: ${userId})`
-  );
 
   const { paymentData } = req.body;
   const { couponCode, deliveryAddress } = paymentData;

@@ -17,6 +17,9 @@ const Cards = ({ product }) => {
     <div
       key={product._id}
       className="group bg-gradient-to-b bg-black rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-all duration-300 shadow-lg max-w-[200px]"
+      onClick={() => {
+        sendProductData(); // Call the function to send product data to Redux store
+      }}
     >
       {/* Product Image */}
       <div className="aspect-[3/4] overflow-hidden">
