@@ -93,7 +93,7 @@ const getProducts = async (req, res) => {
 
     // Add price filter if price exists
     if (price) {
-      query.price = { $gte: price };
+      query.price = { $lte: price };
     }
 
     // Add filter to the query of the respective category
