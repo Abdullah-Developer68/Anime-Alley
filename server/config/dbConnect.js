@@ -1,3 +1,5 @@
+// --- This is suitable for a VPS based deployement for not for serverless ---
+
 // const mongoose = require("mongoose");
 // const dotenv = require("dotenv");
 // //loads variables from .env
@@ -51,7 +53,10 @@ const dbConnect = async () => {
       serverSelectionTimeoutMS: 10000, // 10 seconds to select server
       socketTimeoutMS: 45000, // 45 seconds socket timeout
     };
-
+    // mongoose.connect resolves when the first handshake is complete, not when the connection is fully ready so using
+    // await does not stop executing of the code until the connection is fully established it only waits until the initial handshake is done
+    // hence because of this in the first method the mongodb was buffering mongoose.startSession() because connection
+    // was not ready and after 10000ms it was timing out and the webhook was failing.
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
       console.log("MongoDB connected successfully");
       return mongoose;
