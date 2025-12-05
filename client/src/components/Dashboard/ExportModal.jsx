@@ -60,7 +60,7 @@ const ExportModal = () => {
           </button>
           <button
             onClick={() => handleExport("pdf")}
-            className="w-full cursor-pointer text-left px-4 py-3 text-sm bg-gray-300 hover:bg-white text-black flex items-center justify-between gap-3 transition-colors rounded-lg"
+            className="w-full cursor-pointer text-left px-4 py-5 text-sm bg-gray-300 hover:bg-white text-black flex items-center justify-between gap-3 transition-colors rounded-lg"
           >
             <span>Export as PDF</span>
             <img

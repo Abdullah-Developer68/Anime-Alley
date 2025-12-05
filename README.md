@@ -1,54 +1,54 @@
-# Anime Alley ⛩️
+# Anime Alley
 
-A full-stack MERN e-commerce app for anime fans. 🛍️ Features a storefront for customers and a powerful admin dashboard for business management.
+A full-stack MERN e-commerce app for anime fans. Features a storefront for customers and a powerful admin dashboard for business management.
 
 ## Features
 
-### 🛍️ For Customers
+### For Customers
 
-- 🔐 **Secure Auth**: Sign up with Email/Password (OTP verified) or Google.
-- 🛍️ **Dynamic Shopping**: Browse products, filter by category, and search with ease.
-- 🛒 **Advanced Cart**: A persistent cart that reserves your items during your session.
-- 🎟️ **Coupon System**: Apply valid coupon codes at checkout for discounts.
-- 💳 **Dual Payments**: Choose between Cash on Delivery (COD) or secure online payment with Stripe.
-- 📜 **Order History**: View your complete purchase history and track order status.
-- 📱 **Responsive UI**: A clean, modern design that works perfectly on desktop and mobile.
+- **Secure Auth**: Sign up with Email/Password (OTP verified) or Google.
+- **Dynamic Shopping**: Browse products, filter by category, and search with ease.
+- **Advanced Cart**: A persistent cart that reserves your items during your session.
+- **Coupon System**: Apply valid coupon codes at checkout for discounts.
+- **Dual Payments**: Choose between Cash on Delivery (COD) or secure online payment with Stripe.
+- **Order History**: View your complete purchase history and track order status.
+- **Responsive UI**: A clean, modern design that works perfectly on desktop and mobile.
 
-### ⚙️ For Admins
+### For Admins
 
 A secure, role-based dashboard to manage the entire platform.
 
-- 👨‍👩‍👧‍👦 **User Management**: View, search, and manage all registered users.
-- 📦 **Product Management**: Full CRUD (Create, Read, Update, Delete) for all products.
-- 🎟️ **Coupon Management**: Create new coupons, view stats, and track performance.
-- 🚚 **Order Management**: View all orders and update their status (e.g., Processing, Shipped).
-- 📊 **Data Export**: Export Users, Products, Orders, and Coupons to **Excel (.xlsx)** & **PDF (.pdf)**.
+- **User Management**: View, search, and manage all registered users.
+- **Product Management**: Full CRUD (Create, Read, Update, Delete) for all products.
+- **Coupon Management**: Create new coupons, view stats, and track performance.
+- **Order Management**: View all orders and update their status (e.g., Processing, Shipped).
+- **Data Export**: Export Users, Products, Orders, and Coupons to **Excel (.xlsx)** & **PDF (.pdf)**.
 
-## Tech Stack 🛠️
+## Tech Stack
 
-- **Frontend** 🚀
+- **Frontend**
 
-  - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" width="24" valign="middle" /> React
-  - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/redux/redux-original.svg" width="24" valign="middle" /> Redux Toolkit
-  - <img src="https://reactrouter.com/favicon-light.png" width="24" valign="middle" /> React Router
-  - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/tailwindcss/tailwindcss-original.svg" width="24" valign="middle" /> Tailwind CSS
-  - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vitejs/vitejs-original.svg" width="24" valign="middle" /> Vite
-  - <img src="https://axios-http.com/assets/logo.svg" width="24" valign="middle" /> Axios
-  - <img src="https://react-hook-form.com/images/logo/react-hook-form-logo-only.png" width="24" valign="middle" /> React Hook Form
+  - React
+  - Redux Toolkit
+  - React Router
+  - Tailwind CSS
+  - Vite
+  - Axios
+  - React Hook Form
 
 - **Backend**
-  - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg" width="24" valign="middle" /> Node.js
-  - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/express/express-original.svg" width="24" valign="middle" /> Express.js
-  - <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg" width="24" valign="middle" /> MongoDB
-  - 🦆 Mongoose
-  - <img src="https://www.passportjs.org/images/logo.svg" width="24" valign="middle" /> Passport.js (Google OAuth)
-  - <img src="https://jwt.io/img/pic_logo.svg" width="24" valign="middle" /> JSON Web Tokens (JWT)
-  - 🔒 Bcrypt
-  - 💳 Stripe API
-  - 📤 Multer
-  - 🕒 Node-Cron
+  - Node.js
+  - Express.js
+  - MongoDB
+  - Mongoose
+  - Passport.js (Google OAuth)
+  - JSON Web Tokens (JWT)
+  - Bcrypt
+  - Stripe API
+  - Multer
+  - Node-Cron
 
-## Architecture 🏗️
+## Architecture
 
 This project utilizes a full-stack **Model-View-Controller (MVC)** architecture to create a clear separation between the data, user interface, and control logic.
 
@@ -57,7 +57,7 @@ This project utilizes a full-stack **Model-View-Controller (MVC)** architecture 
 
 This structure is implemented within a monorepo containing separate `client` and `server` directories.
 
-### 📂 Backend Structure (`/server`)
+### Backend Structure (`/server`)
 
 The backend follows an MVC-like pattern to ensure a clean and scalable architecture.
 
@@ -74,7 +74,7 @@ The backend follows an MVC-like pattern to ensure a clean and scalable architect
 └── server.js         # Main server entry point
 ```
 
-### 📂 Frontend Structure (`/client`)
+### Frontend Structure (`/client`)
 
 The frontend is a React-based Single Page Application (SPA) built with Vite, featuring a clear, component-based structure.
 
