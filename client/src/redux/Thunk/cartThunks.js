@@ -138,7 +138,6 @@ export const clearCartAsync = createAsyncThunk(
   }
 );
 
-// Legacy thunks for backward compatibility
 export const decrementReservationStockAsync = createAsyncThunk(
   "cart/decrementReservationStockAsync",
   async ({ id, variant }, { dispatch, getState, rejectWithValue }) => {
