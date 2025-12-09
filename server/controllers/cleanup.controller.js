@@ -1,24 +1,15 @@
-const userModel = require("../models/user.model.js");
-const cleanupExpiredReservations = require("../utils/cleanUpReservation.js");
+const cleanupUnverifiedUsers = require("../cron jobs/cleanUpUsers.js");
+const cleanupExpiredReservations = require("../cron jobs/cleanUpReservation.js");
 const dbConnect = require("../config/dbConnect.js");
 
 /**
- * Cleanup Unverified Users
- * Deletes users with role "verifying" that were created more than 7 days ago
- * This should be called by a Vercel Cron Job
+ * Cleanup Unverified Users Controller
+ * HTTP endpoint wrapper for the cleanup utility function
  */
-const cleanupUnverifiedUsers = async (req, res) => {
+const cleanupUnverifiedUsersController = async (req, res) => {
   try {
     await dbConnect();
-
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-    const result = await userModel.deleteMany({
-      role: "verifying",
-      createdAt: { $lt: oneWeekAgo },
-    });
-
-    console.log(`[CLEANUP] Deleted ${result.deletedCount} unverified users`);
+    const result = await cleanupUnverifiedUsers();
 
     return res.status(200).json({
       success: true,
@@ -37,14 +28,12 @@ const cleanupUnverifiedUsers = async (req, res) => {
 };
 
 /**
- * Cleanup Expired Reservations
- * Restores product stock from reservations older than 2 days
- * This should be called by a Vercel Cron Job
+ * Cleanup Expired Reservations Controller
+ * HTTP endpoint wrapper for the cleanup utility function
  */
-const cleanupReservations = async (req, res) => {
+const cleanupReservationsController = async (req, res) => {
   try {
     await dbConnect();
-
     await cleanupExpiredReservations();
 
     console.log("[CLEANUP] Successfully cleaned up expired reservations");
@@ -64,35 +53,7 @@ const cleanupReservations = async (req, res) => {
   }
 };
 
-/**
- * Health Check Endpoint for Cron Jobs
- * Verifies that the cleanup service is responsive
- */
-const healthCheck = async (req, res) => {
-  try {
-    await dbConnect();
-
-    return res.status(200).json({
-      success: true,
-      message: "Cleanup service is healthy",
-      timestamp: new Date().toISOString(),
-      services: {
-        database: "connected",
-        users: "ready",
-        reservations: "ready",
-      },
-    });
-  } catch (error) {
-    return res.status(503).json({
-      success: false,
-      message: "Cleanup service is unhealthy",
-      error: error.message,
-    });
-  }
-};
-
 module.exports = {
-  cleanupUnverifiedUsers,
-  cleanupReservations,
-  healthCheck,
+  cleanupUnverifiedUsersController,
+  cleanupReservationsController,
 };
