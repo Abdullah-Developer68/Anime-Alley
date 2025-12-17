@@ -15,7 +15,7 @@ const processedSessions = new Set(); // In-memory store for processed sessions
 const processSuccessfulPayment = async (StripeSession) => {
   await dbConnect(); // Wait for database connection to be established
 
-  const mongoSession = await mongoose.startSession(); // Should work now
+  const mongoSession = await mongoose.startSession();
 
   // Prevent double processing
   if (processedSessions.has(StripeSession.id)) {
@@ -32,7 +32,7 @@ const processSuccessfulPayment = async (StripeSession) => {
     // Check if order already exists for this session
     const existingOrder = await orderModel
       .findOne({
-        stripeSessionId: StripeSession.id,
+        stripeSessionID: StripeSession.id,
       })
       .session(mongoSession);
 
@@ -77,7 +77,7 @@ const processSuccessfulPayment = async (StripeSession) => {
       await mongoSession.abortTransaction();
       console.error(`No user found with email: ${userEmail}`);
       console.error(
-        `Session customer email: ${StripeSession.customer_details?.email}`,
+        `Session customer email: ${StripeSession.customer_details?.email}`
       );
       throw new Error(`No user found with email: ${userEmail}`);
     }
@@ -89,7 +89,7 @@ const processSuccessfulPayment = async (StripeSession) => {
     ) {
       console.warn(`Email mismatch detected:`);
       console.warn(
-        `   Session customer email: ${StripeSession.customer_details.email}`,
+        `   Session customer email: ${StripeSession.customer_details.email}`
       );
       console.warn(`   Metadata email: ${userEmail}`);
       console.warn(`   Using metadata email for consistency`);
@@ -98,7 +98,7 @@ const processSuccessfulPayment = async (StripeSession) => {
     // Create order from reservation data matching your Order model structure
     const orderData = {
       orderID: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      stripeSessionId: StripeSession.id, // Add this field
+      stripeSessionID: StripeSession.id, // Add this field
       products: reservation.products.map((item) => ({
         productId: item.productId._id,
         quantity: item.quantity,
@@ -135,7 +135,7 @@ const processSuccessfulPayment = async (StripeSession) => {
               lifeTimeDiscount: discountAmount,
             },
           },
-          { session: mongoSession },
+          { session: mongoSession }
         );
 
         // Add coupon to user's used coupons array (prevent reuse)
@@ -148,7 +148,7 @@ const processSuccessfulPayment = async (StripeSession) => {
                 orders: savedOrder._id,
               },
             },
-            { session: mongoSession },
+            { session: mongoSession }
           );
         } else {
           // Just add the order if coupon already used
@@ -157,7 +157,7 @@ const processSuccessfulPayment = async (StripeSession) => {
             {
               $push: { orders: savedOrder._id },
             },
-            { session: mongoSession },
+            { session: mongoSession }
           );
         }
       }
@@ -168,7 +168,7 @@ const processSuccessfulPayment = async (StripeSession) => {
         {
           $push: { orders: savedOrder._id },
         },
-        { session: mongoSession },
+        { session: mongoSession }
       );
     }
 
@@ -207,8 +207,8 @@ const handleStripeWebhook = async (req, res) => {
     const StripeSession = event.data.object;
 
     try {
-      // CRITICAL: Establish DB connection FIRST with longer timeout
-      await dbConnect();
+      // // CRITICAL: Establish DB connection FIRST with longer timeout
+      // await dbConnect();
 
       // Now process payment
       await processSuccessfulPayment(StripeSession);
@@ -240,7 +240,7 @@ const handleStripeWebhook = async (req, res) => {
 
       console.log(`Payment failed for user: ${userId}, email: ${userEmail}`);
       console.log(
-        `Reservation preserved - user can still pay with Cash on Delivery`,
+        `Reservation preserved - user can still pay with Cash on Delivery`
       );
 
       // Just log the failure - don't modify reservation model
@@ -260,10 +260,10 @@ const handleStripeWebhook = async (req, res) => {
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
       console.log(
-        `Checkout session expired for user: ${userId}, email: ${userEmail}`,
+        `Checkout session expired for user: ${userId}, email: ${userEmail}`
       );
       console.log(
-        `Reservation preserved - will be auto-cleaned by cleanup script after 2 days`,
+        `Reservation preserved - will be auto-cleaned by cleanup script after 2 days`
       );
     } catch (error) {
       console.error("Error logging expired session:", error);

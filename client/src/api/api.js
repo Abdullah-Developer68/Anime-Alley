@@ -147,6 +147,10 @@ api.getOrderHistory = (userInfo, currPage) => {
   });
 };
 
+api.verifyOrder = (stripeSessionID) => {
+  return api.get("/order/verifyOrder", { params: { stripeSessionID } });
+};
+
 // --- USER API'S ---
 
 api.updateUser = (userId, userData) => {

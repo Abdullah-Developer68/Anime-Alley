@@ -96,7 +96,7 @@ const placeOrder = async (req, res) => {
       if (!product) {
         // throws an error and moves onto executing the catch block skipping the rest of the try block
         throw new Error(
-          `Product not found for ID: ${item.productId}. Order cannot be processed.`,
+          `Product not found for ID: ${item.productId}. Order cannot be processed.`
         );
       }
 
@@ -152,7 +152,7 @@ const placeOrder = async (req, res) => {
             lifeTimeDiscount: discount, // Use server-calculated discount
           },
         },
-        { session },
+        { session }
       );
 
       // Add coupon to user's couponCodeUsed array with session
@@ -162,7 +162,7 @@ const placeOrder = async (req, res) => {
           {
             $addToSet: { couponCodeUsed: couponDoc._id },
           },
-          { session },
+          { session }
         );
       }
     }
@@ -175,7 +175,7 @@ const placeOrder = async (req, res) => {
       {
         $push: { orders: newOrder[0]._id },
       },
-      { session },
+      { session }
     );
 
     // === RESERVATION CLEANUP  ===
@@ -381,7 +381,7 @@ const updateOrder = async (req, res) => {
     const updatedOrder = await orderModel.findByIdAndUpdate(
       orderId,
       { status },
-      { new: true, runValidators: true },
+      { new: true, runValidators: true }
     );
 
     if (!updatedOrder) {
@@ -419,6 +419,20 @@ const getOrderStats = async (req, res) => {
   }
 };
 
+// This is used when the payment is made through stripe
+const verifyOrder = async (req, res) => {
+  await dbConnect();
+  const { stripeSessionID } = req.query;
+  // Find if the recent order has been saved to the database
+  const order = await orderModel.findOne({ stripeSessionID });
+
+  if (order) {
+    return res.json({ success: true });
+  } else {
+    res.json({ success: false });
+  }
+};
+
 module.exports = {
   placeOrder,
   getOrderHistory,
@@ -426,4 +440,5 @@ module.exports = {
   deleteOrder,
   updateOrder,
   getOrderStats,
+  verifyOrder,
 };
