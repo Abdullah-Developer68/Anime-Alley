@@ -32,12 +32,8 @@ const Cart = () => {
   const deliveryAddress = useSelector((state) => state.cart.deliveryAddress);
   const paymentMethod = useSelector((state) => state.cart.paymentMethod);
   // Individual coupon and payment state selectors
-  const couponApplied = useSelector((state) => state.cart.couponApplied);
   const couponCode = useSelector((state) => state.cart.couponCode);
-  const discountedPrice = useSelector((state) => state.cart.discountedPrice);
-  const finalTotal = useSelector((state) => state.cart.finalTotal);
-  const originalTotal = useSelector((state) => state.cart.originalTotal);
-  const discountAmount = useSelector((state) => state.cart.discountAmount);
+
   const shouldProceedWithOrder = useSelector(
     (state) => state.cart.shouldProceedWithOrder
   );
@@ -71,7 +67,7 @@ const Cart = () => {
   const subtotal = calculateSubtotal();
 
   // Update final cost
-  const updateFinalCost = () => {
+  const updateFinalCost = useCallback(() => {
     if (cartItems.length === 0) {
       dispatch(resetCoupon());
       return;
@@ -79,12 +75,12 @@ const Cart = () => {
 
     const totalBeforeDiscount = subtotal + shippingCost;
     dispatch(setFinalTotal(totalBeforeDiscount));
-  };
+  }, [cartItems, subtotal, shippingCost, dispatch]);
 
   // Update final cost when cart changes
   useEffect(() => {
     updateFinalCost();
-  }, [cartItems, subtotal, shippingCost, dispatch]);
+  }, [cartItems, subtotal, shippingCost, updateFinalCost, dispatch]);
 
   // Open coupon modal before placing order
   const handlePlaceOrderClick = () => {
@@ -108,7 +104,7 @@ const Cart = () => {
     );
   };
 
-  // Order placement after coupon modal
+  // Order placement after coupon modal. This will keep the reference of the function the same across re-rerenders until the values in the dependency array changes.
   const handlePlaceOrder = useCallback(async () => {
     try {
       // Handle Stripe payment separately
@@ -155,18 +151,7 @@ const Cart = () => {
       dispatch(setCartLoading(false));
       toast.error(error.response?.data?.message || "Something went wrong");
     }
-  }, [
-    deliveryAddress,
-    subtotal,
-    paymentMethod,
-    couponApplied,
-    couponCode,
-    discountedPrice,
-    finalTotal,
-    originalTotal,
-    discountAmount,
-    dispatch,
-  ]);
+  }, [deliveryAddress, paymentMethod, couponCode, dispatch]);
 
   // Watch for shouldProceedWithOrder flag and trigger order placement
   useEffect(() => {
