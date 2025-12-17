@@ -11,6 +11,7 @@ const {
   deleteOrder,
   updateOrder,
   getOrderStats,
+  verifyOrder
 } = require("../../controllers/order.controller.js");
 
 // All order routes require authentication
@@ -22,6 +23,7 @@ router.post("/placeOrder", placeOrder);
 router.get("/getOrders", getOrderHistory);
 router.get("/allOrdersList", requireAdmin, allOrdersList);
 router.get("/orderStats", requireAdmin, getOrderStats);
+router.get("/verifyOrder", verifyOrder)
 // DELETE
 router.delete("/delete/:orderId", requireAdmin, deleteOrder);
 // UPDATE

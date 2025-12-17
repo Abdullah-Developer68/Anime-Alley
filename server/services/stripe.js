@@ -94,7 +94,8 @@ const createCheckoutSession = async (req, res) => {
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
-      success_url: `${process.env.CLIENT_URL}/success`,
+      //The {CHECKOUT_SESSION_ID} is a Stripe placeholder that gets replaced with the actual session ID.
+      success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/cart`,
 
       // Lock the customer email to the authenticated user's email
