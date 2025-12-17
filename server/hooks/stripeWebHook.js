@@ -207,8 +207,6 @@ const handleStripeWebhook = async (req, res) => {
     const StripeSession = event.data.object;
 
     try {
-      // // CRITICAL: Establish DB connection FIRST with longer timeout
-      // await dbConnect();
 
       // Now process payment
       await processSuccessfulPayment(StripeSession);
@@ -239,10 +237,7 @@ const handleStripeWebhook = async (req, res) => {
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
       console.log(`Payment failed for user: ${userId}, email: ${userEmail}`);
-      console.log(
-        `Reservation preserved - user can still pay with Cash on Delivery`
-      );
-
+     
       // Just log the failure - don't modify reservation model
       console.log(`Payment failure logged for tracking: ${event.type}`);
     } catch (error) {
@@ -271,7 +266,7 @@ const handleStripeWebhook = async (req, res) => {
     }
   }
 
-  // For other events, acknowledge quickly
+  // Tells Stripe that data has been received
   res.json({ received: true });
 };
 
