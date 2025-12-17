@@ -15,6 +15,7 @@ const UserHistory = () => {
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [dataLoading, setDataLoading] = useState(false);
 
   // Redux state only for loading (shared with Loader component)
   const isLoading = useSelector((state) => state.userHistory.isLoading);
@@ -83,10 +84,12 @@ const UserHistory = () => {
 
   const handleNextPage = async () => {
     try {
+      setDataLoading(true);
       const userInfo = getUserInfo();
       if (!userInfo) {
         toast.error("Please login to view your order history");
         navigate("/login");
+        setDataLoading(false);
         return;
       }
 
@@ -102,15 +105,19 @@ const UserHistory = () => {
         toast.error("Please login to view your order history");
         navigate("/login");
       }
+    } finally {
+      setDataLoading(false);
     }
   };
 
   const handlePrevPage = async () => {
     try {
+      setDataLoading(true);
       const userInfo = getUserInfo();
       if (!userInfo) {
         toast.error("Please login to view your order history");
         navigate("/login");
+        setDataLoading(false);
         return;
       }
 
@@ -126,6 +133,8 @@ const UserHistory = () => {
         toast.error("Please login to view your order history");
         navigate("/login");
       }
+    } finally {
+      setDataLoading(false);
     }
   };
 
@@ -177,9 +186,9 @@ const UserHistory = () => {
             <div className="flex gap-2">
               <button
                 onClick={handlePrevPage}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || dataLoading}
                 className={`px-3 py-1.5 rounded text-sm ${
-                  currentPage === 1
+                  currentPage === 1 || dataLoading
                     ? "bg-white/5 text-white/30"
                     : "bg-pink-500/10 text-white hover:bg-pink-500/20"
                 }`}
@@ -188,9 +197,9 @@ const UserHistory = () => {
               </button>
               <button
                 onClick={handleNextPage}
-                disabled={currentPage >= totalPages}
+                disabled={currentPage >= totalPages || dataLoading}
                 className={`px-3 py-1.5 rounded text-sm ${
-                  currentPage >= totalPages
+                  currentPage >= totalPages || dataLoading
                     ? "bg-white/5 text-white/30"
                     : "bg-pink-500/10 text-white hover:bg-pink-500/20"
                 }`}
