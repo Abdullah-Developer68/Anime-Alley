@@ -61,13 +61,6 @@ const cartSlice = createSlice({
       }
     },
 
-    removeFromCartLocal: (state, action) => {
-      const { id, selectedVariant } = action.payload;
-      state.cartItems = state.cartItems.filter(
-        (item) => !(item._id === id && item.selectedVariant === selectedVariant)
-      );
-    },
-
     emptyCartLocal: (state) => {
       state.cartItems = [];
     },
@@ -133,7 +126,6 @@ export const {
   setCartItems,
   addToCartLocal,
   updateCartItemLocal,
-  removeFromCartLocal,
   emptyCartLocal,
   applyCoupon,
   resetCoupon,

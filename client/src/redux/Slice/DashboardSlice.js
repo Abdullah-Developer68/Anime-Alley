@@ -192,15 +192,6 @@ const persistKeys = [
   "exportModalState",
 ];
 
-// Used to persist the state of the dashboard slice to localStorage
-export const persistDashboardModalState = (state) => {
-  const toPersist = {};
-  persistKeys.forEach((key) => {
-    toPersist[key] = state.dashboard[key];
-  });
-  localStorage.setItem("dashboardModalState", JSON.stringify(toPersist));
-};
-
 export const {
   setReloadData,
   setUpdatedProfilePic,

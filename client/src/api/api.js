@@ -98,12 +98,6 @@ api.searchProduct = (data) => {
   return api.get("/search/products", { params: { data } });
 };
 
-api.verifyStock = (itemName, selectedVariant, itemQuantity) => {
-  return api.get("/product/verifyStock", {
-    params: { itemName, selectedVariant, itemQuantity },
-  });
-};
-
 // --- ORDER API'S ---
 
 api.placeOrder = (
@@ -225,14 +219,6 @@ api.reserveStock = (productId, variant, quantity) => {
   return api.post("/reserveStock", { productId, variant, quantity });
 };
 
-api.decrementReservationStock = (productId, variant, quantity) => {
-  return api.post("/decrementReservationStock", {
-    productId,
-    variant,
-    quantity,
-  });
-};
-
 // --- CART API'S ---
 api.getCart = () => {
   return api.post("/cart");
@@ -240,10 +226,6 @@ api.getCart = () => {
 
 api.updateCartItem = (productId, variant, newQuantity) => {
   return api.put("/cart/update", { productId, variant, newQuantity });
-};
-
-api.removeFromCart = (productId, variant) => {
-  return api.delete("/cart/remove", { data: { productId, variant } });
 };
 
 api.clearCart = () => {

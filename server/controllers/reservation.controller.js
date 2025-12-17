@@ -95,7 +95,7 @@ const reserveStock = async (req, res) => {
         updated = await productModel.updateOne(
           { _id: productId, [`stock.${variant}`]: { $gte: availableQuantity } },
           { $inc: update },
-          { session: mongoSession }, // attach the session to the operation
+          { session: mongoSession } // attach the session to the operation
         );
 
         // If 0 documents were modified, it means stock was changed by an other user during a transaction
@@ -162,7 +162,7 @@ const reserveStock = async (req, res) => {
         updated = await productModel.updateOne(
           { _id: productId, stock: { $gte: availableQuantity } },
           { $inc: { stock: -availableQuantity } },
-          { session: mongoSession }, // attach the session to the operation
+          { session: mongoSession } // attach the session to the operation
         );
         // If 0 documents were modified, it means stock was changed by an other user during a transaction
         if (updated.modifiedCount > 0) {
@@ -204,7 +204,7 @@ const reserveStock = async (req, res) => {
 
     // Find if product already reserved
     const prodIdx = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant,
+      (p) => p.productId.toString() === productId && p.variant === variant
     );
 
     // If index is found, increment quantity, else add new product
@@ -255,117 +255,6 @@ const reserveStock = async (req, res) => {
   }
 };
 
-// USED IN CART.JSX FOR DECREMENTING RESERVATION STOCK
-const decrementReservationStock = async (req, res) => {
-  await dbConnect();
-  const mongoSession = await mongoose.startSession();
-
-  try {
-    mongoSession.startTransaction();
-    const userId = req.user.id; // Get userId from verified token
-    const { productId, variant, quantity } = req.body;
-
-    if (!productId || !quantity || !variant) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing fields" });
-    }
-
-    let reservation = await reservationModel
-      .findOne({ userId })
-      .session(mongoSession);
-
-    if (!reservation) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(404)
-        .json({ success: false, message: "Reservation not found" });
-    }
-    // Find if product is in reservation
-    const prodIdx = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant,
-    );
-    // product not found in reservation
-    if (prodIdx === -1) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not reserved" });
-    }
-
-    // Atomically increment stock in product
-    const product = await productModel
-      .findById(productId)
-      .session(mongoSession);
-    if (!product) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-    }
-
-    let newStock;
-    if (
-      product.category === "comics" ||
-      product.category === "clothes" ||
-      product.category === "shoes"
-    ) {
-      const update = {};
-      update[`stock.${variant}`] = quantity;
-      await productModel.updateOne(
-        { _id: productId },
-        { $inc: update },
-        { session: mongoSession },
-      );
-      newStock = (product.stock[variant] || 0) + quantity;
-    } else {
-      await productModel.updateOne(
-        { _id: productId },
-        { $inc: { stock: quantity } },
-        { session: mongoSession },
-      );
-      newStock = product.stock + quantity;
-    }
-
-    // Update or remove product from reservation
-    if (reservation.products[prodIdx].quantity > quantity) {
-      reservation.products[prodIdx].quantity -= quantity;
-    } else {
-      reservation.products.splice(prodIdx, 1);
-    }
-    reservation.reservedAt = new Date();
-    if (reservation.products.length === 0) {
-      await reservationModel
-        .deleteOne({ _id: reservation._id })
-        .session(mongoSession);
-    } else {
-      await reservation.save({ session: mongoSession });
-    }
-
-    await mongoSession.commitTransaction();
-
-    return res.json({
-      success: true,
-      stock: newStock,
-      message: "Reservation decremented and stock restored",
-    });
-  } catch (err) {
-    await mongoSession.abortTransaction();
-    console.error("Error in decrementReservationStock:", {
-      error: err.message,
-      stack: err.stack,
-      requestBody: req.body,
-      timestamp: new Date().toISOString(),
-    });
-    return res
-      .status(500)
-      .json({ success: false, message: "Server error: " + err.message });
-  } finally {
-    mongoSession.endSession();
-  }
-};
-
 // Get user's cart items from server
 const getCart = async (req, res) => {
   await dbConnect();
@@ -399,7 +288,7 @@ const getCart = async (req, res) => {
           itemQuantity: item.quantity,
           stock: product.stock,
         };
-      }),
+      })
     );
 
     res.json({
@@ -438,7 +327,7 @@ const updateCartItem = async (req, res) => {
     }
 
     const productIndex = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant,
+      (p) => p.productId.toString() === productId && p.variant === variant
     );
 
     if (productIndex === -1) {
@@ -480,7 +369,7 @@ const updateCartItem = async (req, res) => {
         await productModel.updateOne(
           { _id: productId },
           { $inc: stockUpdate },
-          { session },
+          { session }
         );
       } else {
         // Decreasing quantity - release stock
@@ -492,7 +381,7 @@ const updateCartItem = async (req, res) => {
         await productModel.updateOne(
           { _id: productId },
           { $inc: stockUpdate },
-          { session },
+          { session }
         );
       }
     }
@@ -526,85 +415,6 @@ const updateCartItem = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to update cart",
-    });
-  } finally {
-    session.endSession();
-  }
-};
-
-// Remove item from cart
-const removeFromCart = async (req, res) => {
-  await dbConnect();
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-    const userId = req.user.id;
-    const { productId, variant } = req.body;
-
-    const reservation = await reservationModel
-      .findOne({ userId })
-      .session(session);
-
-    if (!reservation) {
-      await session.abortTransaction();
-      return res.status(404).json({
-        success: false,
-        message: "Cart not found",
-      });
-    }
-
-    const productIndex = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant,
-    );
-
-    if (productIndex === -1) {
-      await session.abortTransaction();
-      return res.status(404).json({
-        success: false,
-        message: "Product not found in cart",
-      });
-    }
-
-    const quantity = reservation.products[productIndex].quantity;
-
-    // Release stock back to product
-    const product = await productModel.findById(productId).session(session);
-    const stockUpdate =
-      product.category === "toys"
-        ? { stock: quantity }
-        : { [`stock.${variant}`]: quantity };
-
-    await productModel.updateOne(
-      { _id: productId },
-      { $inc: stockUpdate },
-      { session },
-    );
-
-    // Remove from reservation
-    reservation.products.splice(productIndex, 1);
-    reservation.reservedAt = new Date();
-
-    if (reservation.products.length === 0) {
-      await reservationModel
-        .deleteOne({ _id: reservation._id })
-        .session(session);
-    } else {
-      await reservation.save({ session });
-    }
-
-    await session.commitTransaction();
-
-    res.json({
-      success: true,
-      message: "Item removed from cart",
-    });
-  } catch (error) {
-    await session.abortTransaction();
-    console.error("Error removing from cart:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to remove item from cart",
     });
   } finally {
     session.endSession();
@@ -645,7 +455,7 @@ const clearCart = async (req, res) => {
       await productModel.updateOne(
         { _id: item.productId },
         { $inc: stockUpdate },
-        { session },
+        { session }
       );
     }
 
@@ -672,9 +482,7 @@ const clearCart = async (req, res) => {
 
 module.exports = {
   reserveStock,
-  decrementReservationStock,
   getCart,
   updateCartItem,
-  removeFromCart,
   clearCart,
 };
