@@ -10,7 +10,7 @@ const Success = () => {
   dispatch(emptyCartLocal()); // --> This clears out all info of cart
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigate("/shop");
+      navigate("/history");
     }, 2000);
     return () => clearTimeout(timer);
   }, [navigate]);
