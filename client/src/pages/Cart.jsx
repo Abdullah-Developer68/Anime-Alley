@@ -51,7 +51,10 @@ const Cart = () => {
   // Load cart from server on component mount
   useEffect(() => {
     const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-    if (userInfo && !isCartLoaded) dispatch(loadCartFromServer());
+    if (userInfo && !isCartLoaded) {
+      // This gets send to the cartThunks to identify the user's cart and load it
+      dispatch(loadCartFromServer());
+    }
   }, [dispatch, isCartLoaded]);
 
   // Price calculations
