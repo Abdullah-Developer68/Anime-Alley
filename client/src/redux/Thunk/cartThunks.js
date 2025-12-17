@@ -116,6 +116,8 @@ export const clearCartAsync = createAsyncThunk(
   }
 );
 
+// --- These are being used to increment/decrement reservation stock in cart ---
+
 export const decrementReservationStockAsync = createAsyncThunk(
   "cart/decrementReservationStockAsync",
   async ({ id, variant }, { dispatch, getState, rejectWithValue }) => {
