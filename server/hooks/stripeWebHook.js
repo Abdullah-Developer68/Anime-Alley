@@ -97,7 +97,7 @@ const processSuccessfulPayment = async (StripeSession) => {
 
     // Create order from reservation data matching your Order model structure
     const orderData = {
-      orderID: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      orderID: `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       stripeSessionID: StripeSession.id, // Add this field
       products: reservation.products.map((item) => ({
         productId: item.productId._id,
@@ -207,7 +207,6 @@ const handleStripeWebhook = async (req, res) => {
     const StripeSession = event.data.object;
 
     try {
-
       // Now process payment
       await processSuccessfulPayment(StripeSession);
 
@@ -237,7 +236,7 @@ const handleStripeWebhook = async (req, res) => {
       const userEmail = session.customer_details?.email || metadataUserEmail;
 
       console.log(`Payment failed for user: ${userId}, email: ${userEmail}`);
-     
+
       // Just log the failure - don't modify reservation model
       console.log(`Payment failure logged for tracking: ${event.type}`);
     } catch (error) {
