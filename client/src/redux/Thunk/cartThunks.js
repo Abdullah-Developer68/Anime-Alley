@@ -4,7 +4,6 @@ import {
   setCartItems,
   addToCartLocal,
   updateCartItemLocal,
-  removeFromCartLocal,
   emptyCartLocal,
 } from "../Slice/cartSlice";
 
@@ -91,27 +90,6 @@ export const updateCartItemAsync = createAsyncThunk(
     } catch (error) {
       const errorMessage =
         error.response?.data?.message || "Failed to update cart";
-      return rejectWithValue(errorMessage);
-    }
-  }
-);
-
-// Remove from cart
-export const removeFromCartAsync = createAsyncThunk(
-  "cart/removeFromCartAsync",
-  async ({ id, variant }, { dispatch, rejectWithValue }) => {
-    try {
-      const response = await api.removeFromCart(id, variant);
-
-      if (response.data.success) {
-        dispatch(removeFromCartLocal({ id, selectedVariant: variant }));
-        return response.data;
-      } else {
-        return rejectWithValue(response.data.message);
-      }
-    } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Failed to remove from cart";
       return rejectWithValue(errorMessage);
     }
   }

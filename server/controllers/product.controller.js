@@ -107,19 +107,19 @@ const getProducts = async (req, res) => {
       if (category === "comics") {
         // Use case-insensitive regex matching for genres
         const genreRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i"),
+          (type) => new RegExp(`^${type}$`, "i")
         );
         query.genres = { $in: genreRegexArray };
       } else if (category === "clothes" || category === "shoes") {
         // Use case-insensitive regex matching for merchType
         const merchTypeRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i"),
+          (type) => new RegExp(`^${type}$`, "i")
         );
         query.merchType = { $in: merchTypeRegexArray };
       } else if (category === "toys") {
         // Use case-insensitive regex matching for toyType
         const toyTypeRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i"),
+          (type) => new RegExp(`^${type}$`, "i")
         );
         query.toyType = { $in: toyTypeRegexArray };
       }
@@ -349,7 +349,7 @@ const updateProduct = async (req, res) => {
     const updatedProduct = await productModel.findOneAndUpdate(
       { productID: productData.productID },
       productData,
-      { new: true },
+      { new: true }
     );
 
     res.status(200).json({
@@ -362,69 +362,6 @@ const updateProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || "Internal Server Error",
-    });
-  }
-};
-
-const verifyStock = async (req, res) => {
-  await dbConnect();
-  try {
-    const { itemName, selectedVariant, itemQuantity } = req.query;
-
-    if (!itemName || !selectedVariant || !itemQuantity) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required parameters",
-      });
-    }
-
-    const product = await productModel.findOne({ name: itemName });
-
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
-
-    // Check if the variant exists in the product
-    let stockAvailable = 0;
-    if (product.category === "comics") {
-      if (!product.volumes?.includes(selectedVariant)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid volume selected",
-        });
-      }
-      stockAvailable = product.stock[selectedVariant] || 0;
-    } else if (product.category === "clothes" || product.category === "shoes") {
-      // Changed from size to sizes
-      if (!product.sizes?.includes(selectedVariant)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid size selected",
-        });
-      }
-      stockAvailable = product.stock[selectedVariant] || 0;
-    } else {
-      // For toys and other categories with simple stock
-      stockAvailable = product.stock;
-    }
-
-    return res.status(200).json({
-      success: true,
-      stockAvailable,
-      isAvailable: stockAvailable >= parseInt(itemQuantity),
-      message:
-        stockAvailable >= parseInt(itemQuantity)
-          ? "Stock available"
-          : `Only ${stockAvailable} items available`,
-    });
-  } catch (error) {
-    console.error("Error verifying stock:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
     });
   }
 };
@@ -453,7 +390,6 @@ const deleteProduct = async (req, res) => {
 module.exports = {
   getProducts,
   createProduct,
-  verifyStock,
   deleteProduct,
   updateProduct,
 };

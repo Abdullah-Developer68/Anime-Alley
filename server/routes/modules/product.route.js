@@ -11,16 +11,12 @@ const upload = require("../../middlewares/modules/multerConfig.js");
 const {
   getProducts,
   createProduct,
-  verifyStock,
   deleteProduct,
   updateProduct,
 } = require("../../controllers/product.controller.js");
 
 // Public route - anyone can view products
 router.get("/getProducts", productSearchLimiter, getProducts);
-
-// Protected route - authenticated users can verify stock
-router.get("/verifyStock", verifyTokenMiddleware, verifyStock);
 
 // Admin-only routes - require authentication and admin role
 router.post(
