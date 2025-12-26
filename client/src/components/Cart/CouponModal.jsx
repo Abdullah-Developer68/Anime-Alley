@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import {
   applyCoupon,
@@ -30,7 +30,7 @@ const CouponModal = () => {
   // Calculate subtotal and shipping from Redux state
   const subtotal = cartItems.reduce(
     (total, item) => total + item.price * item.itemQuantity,
-    0
+    0,
   );
   const shippingCost = 5; // SHIPPING_COST constant
 
@@ -39,11 +39,11 @@ const CouponModal = () => {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [isProceeding, setIsProceeding] = useState(false);
 
-  const calculateCosts = () => {
+  const calculateCosts = useCallback(() => {
     if (couponApplied && couponDiscount > 0) {
       // discounted Price
       const newDiscountedPrice = Math.round(
-        subtotal * (1 - couponDiscount / 100)
+        subtotal * (1 - couponDiscount / 100),
       );
       // Final Total
       const newFinalTotal = Math.round(newDiscountedPrice + shippingCost);
@@ -55,9 +55,9 @@ const CouponModal = () => {
       dispatch(setDiscountedPrice(subtotal));
       dispatch(setFinalTotal(subtotal + shippingCost));
     }
-  };
+  }, [couponApplied, couponDiscount, subtotal, shippingCost, dispatch]);
 
-  const resetCouponModalState = () => {
+  const resetCouponModalState = useCallback(() => {
     if (couponModalOpen) {
       setCouponInput("");
       if (!couponApplied) {
@@ -66,17 +66,17 @@ const CouponModal = () => {
         dispatch(setFinalTotal(subtotal + shippingCost));
       }
     }
-  };
+  }, [couponModalOpen, couponApplied, subtotal, shippingCost, dispatch]);
 
   // Calculate totals when coupon is applied/removed
   useEffect(() => {
     calculateCosts();
-  }, [couponApplied, couponDiscount, subtotal, shippingCost, dispatch]);
+  }, [calculateCosts]);
 
   // Reset modal state when opened
   useEffect(() => {
     resetCouponModalState();
-  }, [couponModalOpen, couponApplied, subtotal, shippingCost, dispatch]);
+  }, [resetCouponModalState]);
 
   const handleApplyCoupon = async () => {
     if (couponApplied) {
@@ -128,13 +128,13 @@ const CouponModal = () => {
             couponCode: couponInput.trim(),
             discountedPrice: newDiscountedPrice,
             finalCost: newFinalTotal,
-          })
+          }),
         );
 
         dispatch(setDiscountedPrice(newDiscountedPrice));
         dispatch(setFinalTotal(newFinalTotal));
         toast.success(
-          `Coupon applied! You saved $${subtotal - newDiscountedPrice}`
+          `Coupon applied! You saved $${subtotal - newDiscountedPrice}`,
         );
 
         // Set proceeding state and automatically proceed with payment
