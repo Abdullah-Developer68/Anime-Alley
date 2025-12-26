@@ -113,7 +113,7 @@ const ProductForm = () => {
     }
     // In add mode, do NOT reset previewImage or selectedFile here!
     // Let the user's selection persist.
-  }, [editProduct]);
+  }, [editProduct, setValue]);
 
   /**
    * Handles image file selection and preview
@@ -209,7 +209,7 @@ const ProductForm = () => {
     } else if (selectedCategory && selectedCategory !== initialCategory) {
       setInitialCategory(selectedCategory);
     }
-  }, [selectedCategory, initialCategory, watch]);
+  }, [selectedCategory, initialCategory, watch, setValue]);
 
   /**
    * Handles form submission
@@ -259,8 +259,8 @@ const ProductForm = () => {
             data.genres
               .split(",")
               .map((g) => g.trim())
-              .filter((g) => g)
-          )
+              .filter((g) => g),
+          ),
         );
       } else if (data.category === "clothes" || data.category === "shoes") {
         const stockData = {};
@@ -289,11 +289,11 @@ const ProductForm = () => {
           response.data.product.productID
         ) {
           toast.success(
-            `Product created successfully! Generated ID: ${response.data.product.productID}`
+            `Product created successfully! Generated ID: ${response.data.product.productID}`,
           );
         } else {
           toast.success(
-            `Product ${editProduct ? "updated" : "created"} successfully!`
+            `Product ${editProduct ? "updated" : "created"} successfully!`,
           );
         }
         dispatch(setReloadData("products"));
@@ -668,7 +668,7 @@ const ProductForm = () => {
                                   newGenres = [...currentGenres, genre];
                                 } else {
                                   newGenres = currentGenres.filter(
-                                    (g) => g !== genre
+                                    (g) => g !== genre,
                                   );
                                 }
                                 setValue("genres", newGenres.join(", "), {
@@ -708,11 +708,11 @@ const ProductForm = () => {
 
                             // Check if all volumes match the V+number format
                             const invalidVolumes = volumes.filter(
-                              (v) => !/^V\d+$/.test(v)
+                              (v) => !/^V\d+$/.test(v),
                             );
                             if (invalidVolumes.length > 0) {
                               return `Invalid format: "${invalidVolumes.join(
-                                ", "
+                                ", ",
                               )}". Use format: V1, V2, V10, etc.`;
                             }
 
