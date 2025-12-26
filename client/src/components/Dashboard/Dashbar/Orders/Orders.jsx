@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch } from "react-redux";
 import useAuth from "../../../../Hooks/UseAuth";
 import api from "../../../../api/api";
@@ -39,31 +39,34 @@ const Orders = () => {
   };
 
   // Fetch orders for the current page
-  const loadOrders = async (page = 1) => {
-    if (!user?.email) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.getAllOrdersList(page);
-      if (res.data.success) {
-        setOrders(res.data.currPageOrders);
-        setTotalPages(res.data.totalPages);
-        setTotalOrders(res.data.totalOrders);
-      } else {
+  const loadOrders = useCallback(
+    async (page = 1) => {
+      if (!user?.email) return;
+      setLoading(true);
+      setError("");
+      try {
+        const res = await api.getAllOrdersList(page);
+        if (res.data.success) {
+          setOrders(res.data.currPageOrders);
+          setTotalPages(res.data.totalPages);
+          setTotalOrders(res.data.totalOrders);
+        } else {
+          setOrders([]);
+          setTotalPages(1);
+          setTotalOrders(0);
+          setError(res.data.message || "Failed to fetch orders");
+        }
+      } catch (err) {
         setOrders([]);
         setTotalPages(1);
         setTotalOrders(0);
-        setError(res.data.message || "Failed to fetch orders");
+        setError(err.response?.data?.message || "Failed to fetch orders");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setOrders([]);
-      setTotalPages(1);
-      setTotalOrders(0);
-      setError(err.response?.data?.message || "Failed to fetch orders");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [user?.email],
+  );
 
   // Fetch order status stats
   const fetchOrderStats = async () => {
@@ -90,7 +93,7 @@ const Orders = () => {
     fetchOrderStats();
     const interval = setInterval(fetchOrderStats, 600000); // 10 minutes
     return () => clearInterval(interval);
-  }, [currPage, user?.email]);
+  }, [currPage, loadOrders]);
 
   useEffect(() => {
     if (reloadDataType === "orders") {
@@ -345,12 +348,12 @@ const Orders = () => {
                           order.status === "pending"
                             ? "bg-yellow-500/20 text-yellow-500"
                             : order.status === "processing"
-                            ? "bg-blue-500/20 text-blue-500"
-                            : order.status === "shipped"
-                            ? "bg-purple-500/20 text-purple-500"
-                            : order.status === "delivered"
-                            ? "bg-green-500/20 text-green-500"
-                            : "bg-gray-500/20 text-gray-500"
+                              ? "bg-blue-500/20 text-blue-500"
+                              : order.status === "shipped"
+                                ? "bg-purple-500/20 text-purple-500"
+                                : order.status === "delivered"
+                                  ? "bg-green-500/20 text-green-500"
+                                  : "bg-gray-500/20 text-gray-500"
                         }`}
                       >
                         {order.status?.charAt(0).toUpperCase() +

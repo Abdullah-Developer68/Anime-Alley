@@ -11,6 +11,7 @@ import api from "../../../../api/api";
 import assets from "../../../../assets/asset";
 import ProductForm from "./ProductForm";
 import DeleteProduct from "./DeleteProduct";
+import { useCallback } from "react";
 
 const ProductCatalog = () => {
   // base URL for images from server
@@ -50,7 +51,7 @@ const ProductCatalog = () => {
 
   // redux
   const { reloadData, productDeleteModalState, productFormState } = useSelector(
-    (state) => state.dashboard
+    (state) => state.dashboard,
   );
 
   const dispatch = useDispatch();
@@ -68,7 +69,7 @@ const ProductCatalog = () => {
     }
 
     setValue("productTypes", updatedProductTypes);
-  }, [formFields.currProductType]);
+  }, [formFields.currProductType, setValue, formFields.productTypes]);
 
   //  Dynamically update available filters based on current category.
   useEffect(() => {
@@ -81,7 +82,7 @@ const ProductCatalog = () => {
           "Adventure",
           "Comedy",
           "Drama",
-          "Fantasy"
+          "Fantasy",
         );
         break;
       case "clothes":
@@ -116,7 +117,8 @@ const ProductCatalog = () => {
     setApiPayload(newPayload);
   };
 
-  const loadProducts = async () => {
+  // This changes the reference of the function on currPage, and apiPayload
+  const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.getProducts(apiPayload);
@@ -135,7 +137,7 @@ const ProductCatalog = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiPayload]);
 
   const handleCheckboxChange = (item) => {
     const currentTypes = formFields.productTypes;
@@ -199,7 +201,7 @@ const ProductCatalog = () => {
   // Loads products when the component mounts or when apiPayload changes
   useEffect(() => {
     loadProducts();
-  }, [apiPayload, currPage]);
+  }, [loadProducts]);
 
   // Reloads products when productReload is true
   useEffect(() => {
@@ -209,7 +211,7 @@ const ProductCatalog = () => {
         dispatch(setReloadData(null));
       });
     }
-  }, [reloadData]);
+  }, [reloadData, dispatch, loadProducts]);
 
   const handleDeleteModal = (product) => {
     dispatch(openProductDeleteModal(product));
@@ -308,12 +310,12 @@ const ProductCatalog = () => {
               {formFields.category === "clothes"
                 ? "Available Cloth Types"
                 : formFields.category === "shoes"
-                ? "Available Shoe Types"
-                : formFields.category === "comics"
-                ? "Available Genres"
-                : formFields.category === "toys"
-                ? "Available Toy Types"
-                : null}
+                  ? "Available Shoe Types"
+                  : formFields.category === "comics"
+                    ? "Available Genres"
+                    : formFields.category === "toys"
+                      ? "Available Toy Types"
+                      : null}
             </label>
             <div className="flex flex-wrap gap-4">
               {availProductTypes.map((item, index) => (
@@ -327,7 +329,7 @@ const ProductCatalog = () => {
                     value={item}
                     className="w-4 h-4 text-pink-500 border-gray-300 rounded focus:ring-pink-500 cursor-pointer"
                     checked={formFields.productTypes.includes(
-                      item.toLowerCase()
+                      item.toLowerCase(),
                     )}
                     onChange={() => handleCheckboxChange(item)}
                   />
@@ -494,7 +496,7 @@ const ProductCatalog = () => {
                                 {product.category === "comics" ? "Vol." : ""}
                                 {key}: {quantity > 0 ? quantity : "Out"}
                               </span>
-                            )
+                            ),
                           )
                         )}
                       </div>
