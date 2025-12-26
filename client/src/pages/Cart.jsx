@@ -104,7 +104,9 @@ const Cart = () => {
     );
   };
 
-  // Order placement after coupon modal. This will keep the reference of the function the same across re-rerenders until the values in the dependency array changes.
+  // Order placement after coupon modal. This will keep the reference of the function 
+  // the same across re-rerenders until the values in the dependency array changes 
+  // (in which case function is again with a new reference).
   const handlePlaceOrder = useCallback(async () => {
     try {
       // Handle Stripe payment separately
