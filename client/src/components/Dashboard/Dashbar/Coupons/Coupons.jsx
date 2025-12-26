@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useAuth from "../../../../Hooks/UseAuth";
 import api from "../../../../api/api";
@@ -42,27 +42,30 @@ const Coupons = () => {
     return new Date(expiryDate) > new Date() ? "Active" : "Expired";
   };
 
-  const loadCoupons = async (page = 1) => {
-    if (!user?.email) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.getAllCoupons(page);
-      if (res.data.success) {
-        setCoupons(res.data.allCoupons);
-        setTotalPages(res.data.totalPages);
-        setTotalCoupons(res.data.totalCoupons);
-      } else {
-        setError(res.data.message || "Failed to fetch coupons.");
+  const loadCoupons = useCallback(
+    async (page = 1) => {
+      if (!user?.email) return;
+      setLoading(true);
+      setError("");
+      try {
+        const res = await api.getAllCoupons(page);
+        if (res.data.success) {
+          setCoupons(res.data.allCoupons);
+          setTotalPages(res.data.totalPages);
+          setTotalCoupons(res.data.totalCoupons);
+        } else {
+          setError(res.data.message || "Failed to fetch coupons.");
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || "An error occurred.");
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError(err.response?.data?.message || "An error occurred.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [user?.email],
+  );
 
-  const refreshStats = async () => {
+  const refreshStats = useCallback(async () => {
     setLoading(true);
     setError("");
     if (!user?.email) return;
@@ -78,17 +81,18 @@ const Coupons = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.email]);
+
   // Fetch stats only on mount and when refresh is clicked
   useEffect(() => {
     setLoading(true);
     refreshStats();
-  }, [user?.email]);
+  }, [refreshStats]);
 
   // Load coupons on mount and when page changes
   useEffect(() => {
     loadCoupons(currPage);
-  }, [currPage, user?.email]);
+  }, [loadCoupons, currPage]);
 
   // Reload data when reloadDataType changes (when user makes edit or delete actions)
   useEffect(() => {
@@ -97,7 +101,7 @@ const Coupons = () => {
       dispatch(setReloadData(null));
       refreshStats();
     }
-  }, [reloadDataType]);
+  }, [reloadDataType, currPage, refreshStats, dispatch, loadCoupons]);
 
   // Handler for refresh button
   const handleRefreshStats = () => {
