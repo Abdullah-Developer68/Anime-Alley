@@ -16,9 +16,6 @@ const ProductForm = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [error, setError] = useState(null);
 
-  // Debug: Log render and state
-  // console.log("RENDER", previewImage, selectedFile);
-
   //redux
   const dispatch = useDispatch();
   const { productFormState } = useSelector((state) => state.dashboard);
