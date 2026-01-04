@@ -80,7 +80,7 @@ const GoogleAuthSuccess = () => {
     };
 
     handleGoogleAuthSuccess();
-  }, [searchParams, setUser]);
+  }, [searchParams, setUser, navigate]);
 
   return (
     <div className="flex items-center justify-center h-screen w-full bg-transparent">
