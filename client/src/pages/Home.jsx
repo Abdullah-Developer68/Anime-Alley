@@ -8,6 +8,7 @@ import Banner from "../components/Home/Banner";
 import ComicsSection from "../components/Home/ComicsSection";
 import ClothesSection from "../components/Home/ClothesSection";
 import ActionFigureSection from "../components/Home/ActionFigureSection";
+// need to modify it such that the loader only appears on first mount only
 
 const Home = () => {
   const dispatch = useDispatch();
