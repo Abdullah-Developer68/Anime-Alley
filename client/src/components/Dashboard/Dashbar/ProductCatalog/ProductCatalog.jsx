@@ -56,21 +56,6 @@ const ProductCatalog = () => {
 
   const dispatch = useDispatch();
 
-  //deselects "All" when other filters are active
-  useEffect(() => {
-    let updatedProductTypes;
-
-    if (formFields.currProductType === "All") {
-      updatedProductTypes = ["all"];
-    } else {
-      updatedProductTypes = formFields.productTypes.filter((filter) => {
-        return filter !== "All";
-      });
-    }
-
-    setValue("productTypes", updatedProductTypes);
-  }, [formFields.currProductType, setValue, formFields.productTypes]);
-
   //  Dynamically update available filters based on current category.
   useEffect(() => {
     const currProductTypes = ["All"];
