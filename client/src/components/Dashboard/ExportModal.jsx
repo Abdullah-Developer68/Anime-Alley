@@ -5,7 +5,7 @@ import { closeExportModal } from "../../redux/Slice/DashboardSlice";
 
 const ExportModal = () => {
   const { isOpen, dataType } = useSelector(
-    (state) => state.dashboard.exportModalState
+    (state) => state.dashboard.exportModalState,
   );
   const dispatch = useDispatch();
 
@@ -32,9 +32,9 @@ const ExportModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 w-full max-w-sm animate-fade-in-down">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-sm p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-lg animate-fade-in-down">
+        <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white">
             Export {dataType.charAt(0).toUpperCase() + dataType.slice(1)}
           </h3>
@@ -49,7 +49,7 @@ const ExportModal = () => {
         <div className="space-y-3">
           <button
             onClick={() => handleExport("excel")}
-            className="w-full cursor-pointer text-left px-4 py-3 text-sm bg-gray-500 hover:bg-white text-black flex items-center justify-between gap-3 transition-colors rounded-lg"
+            className="flex items-center justify-between w-full gap-3 px-4 py-3 text-sm text-left text-black transition-colors bg-gray-500 rounded-lg cursor-pointer hover:bg-white"
           >
             <span>Export as Excel</span>{" "}
             <img
@@ -60,7 +60,7 @@ const ExportModal = () => {
           </button>
           <button
             onClick={() => handleExport("pdf")}
-            className="w-full cursor-pointer text-left px-4 py-6 text-sm bg-gray-500 hover:bg-white text-black flex items-center justify-between gap-3 transition-colors rounded-lg"
+            className="flex items-center justify-between w-full gap-3 px-4 py-6 text-sm text-left text-black transition-colors bg-gray-500 rounded-lg cursor-pointer hover:bg-white"
           >
             <span>Export as PDF</span>
             <img

@@ -68,17 +68,17 @@ const CardSlider = () => {
                   <img
                     src={comic.img}
                     alt={`Slide ${index}`}
-                    className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+                    className="object-cover object-center w-full h-full transition-transform duration-500 group-hover:scale-110"
                   />
                 </div>
 
-                <div className="absolute bottom-0 inset-x-0 p-2 text-center bg-gradient-to-t from-black/90 via-black/60 to-transparent">
-                  <h3 className="text-xs sm:text-sm font-medium text-red-400 tracking-wide">
+                <div className="absolute inset-x-0 bottom-0 p-2 text-center bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+                  <h3 className="text-xs font-medium tracking-wide text-red-400 sm:text-sm">
                     {comic.label}
                   </h3>
                 </div>
 
-                <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-orange-500/10 to-transparent"></div>
+                <div className="absolute inset-0 transition-opacity duration-300 rounded-lg opacity-0 group-hover:opacity-100 bg-gradient-to-t from-orange-500/10 to-transparent"></div>
               </div>
             </div>
           ))}

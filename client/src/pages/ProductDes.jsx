@@ -109,7 +109,7 @@ const ProductDescription = () => {
           product: selectedProduct,
           variant: selectedVariant,
           quantity: itemQuantity,
-        })
+        }),
       ).unwrap();
 
       // result is just the data object returned by cartThunk.js
@@ -146,7 +146,7 @@ const ProductDescription = () => {
         setItemQuantity(0);
       } else {
         toast.error(
-          error.message || "Failed to add to cart. Please try again."
+          error.message || "Failed to add to cart. Please try again.",
         );
       }
       setItemQuantity(0);
@@ -157,14 +157,14 @@ const ProductDescription = () => {
     <div className="min-h-screen bg-gradient-to-b from-[#0b0133] to-black text-white">
       {/* Back Navigation */}
       <Link to="/shop">
-        <div className="fixed top-12 md:top-14 lg:top-16 w-full z-50 bg-black/50 backdrop-blur-md border-b border-white/10">
-          <div className="container mx-auto px-4 py-3">
+        <div className="fixed z-50 w-full border-b top-12 md:top-14 lg:top-16 bg-black/50 backdrop-blur-md border-white/10">
+          <div className="container px-4 py-3 mx-auto">
             {/* Back button */}
-            <button className="flex items-center gap-2 text-white/70 hover:text-white transition-colors cursor-pointer">
+            <button className="flex items-center gap-2 transition-colors cursor-pointer text-white/70 hover:text-white">
               <img
                 src={assets.prevBtn}
                 alt=""
-                className="w-4 bg-gray-300 rounded-full p-1"
+                className="w-4 p-1 bg-gray-300 rounded-full"
               />
               Back
             </button>
@@ -172,16 +172,16 @@ const ProductDescription = () => {
         </div>
       </Link>
 
-      <div className="flex justify-center items-center mt-16 mx-auto px-4 pt-28 pb-24">
+      <div className="flex items-center justify-center px-4 pb-24 mx-auto mt-16 pt-28">
         {/* Product Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16 items-start">
+        <div className="grid items-start grid-cols-1 gap-12 mb-16 lg:grid-cols-2">
           {/* Image Section - Made smaller and more compact */}
-          <div className="rounded-2xl overflow-hidden border border-purple-500/20 shadow-xl shadow-purple-500/5 bg-white/5 backdrop-blur-sm p-4">
-            <div className="aspect-square max-w-md mx-auto">
+          <div className="p-4 overflow-hidden border shadow-xl rounded-2xl border-purple-500/20 shadow-purple-500/5 bg-white/5 backdrop-blur-sm">
+            <div className="max-w-md mx-auto aspect-square">
               <img
                 src={`${selectedProduct.image}`}
                 alt={selectedProduct.name}
-                className="w-full h-full object-contain hover:scale-105 transition-transform duration-500 rounded-lg"
+                className="object-contain w-full h-full transition-transform duration-500 rounded-lg hover:scale-105"
               />
             </div>
           </div>
@@ -190,7 +190,7 @@ const ProductDescription = () => {
           <div className="space-y-8">
             {/* Title and Badges */}
             <div className="space-y-4">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-white to-white/80 bg-clip-text">
                 {selectedProduct.name}
               </h1>
               <div className="flex gap-2">
@@ -199,9 +199,9 @@ const ProductDescription = () => {
                     {selectedProduct.category === "comics"
                       ? "Comic"
                       : selectedProduct.category === "clothes" ||
-                        selectedProduct.category === "shoes"
-                      ? selectedProduct.merchType
-                      : "Clothing"}
+                          selectedProduct.category === "shoes"
+                        ? selectedProduct.merchType
+                        : "Clothing"}
                   </span>
                 </div>
                 {selectedProduct.category === "comics" && (
@@ -215,13 +215,13 @@ const ProductDescription = () => {
             </div>
 
             {/* Description */}
-            <p className="text-white/70 text-base leading-relaxed">
+            <p className="text-base leading-relaxed text-white/70">
               {selectedProduct.description}
             </p>
 
             {/* Size/Volume Selection */}
             <div className="space-y-4">
-              <h3 className="text-white/90 font-medium">{variantLabel}</h3>
+              <h3 className="font-medium text-white/90">{variantLabel}</h3>
               <div className="flex flex-wrap gap-3">
                 {variantOptions.map((variant) => (
                   <button
@@ -232,8 +232,8 @@ const ProductDescription = () => {
                         selectedVariant === variant
                           ? "bg-yellow-500 text-black"
                           : stockStatus[variant]?.stockAvailable > 0
-                          ? "bg-white/10 text-white/70 hover:bg-white/20"
-                          : "bg-red-500/20 text-red-500/70 cursor-not-allowed"
+                            ? "bg-white/10 text-white/70 hover:bg-white/20"
+                            : "bg-red-500/20 text-red-500/70 cursor-not-allowed"
                       }`}
                     disabled={stockStatus[variant]?.stockAvailable === 0}
                   >
@@ -247,22 +247,22 @@ const ProductDescription = () => {
 
             {/* Quantity and Price Row */}
             <div className="space-y-4">
-              <h3 className="text-white/90 font-medium">Quantity</h3>
+              <h3 className="font-medium text-white/90">Quantity</h3>
               <div className="flex items-center justify-between gap-6">
                 {/* Quantity Controls */}
                 <div className="flex items-center gap-4">
                   <button
                     onClick={decreaseQuantity}
-                    className="w-12 h-12 rounded-lg bg-white/10 text-white hover:bg-pink-500/20 transition-colors cursor-pointer"
+                    className="w-12 h-12 text-white transition-colors rounded-lg cursor-pointer bg-white/10 hover:bg-pink-500/20"
                   >
                     -
                   </button>
-                  <span className="w-16 text-center text-lg font-medium">
+                  <span className="w-16 text-lg font-medium text-center">
                     {itemQuantity}
                   </span>
                   <button
                     onClick={increaseQuantity}
-                    className="w-12 h-12 rounded-lg bg-white/10 text-white hover:bg-pink-500/20 transition-colors cursor-pointer"
+                    className="w-12 h-12 text-white transition-colors rounded-lg cursor-pointer bg-white/10 hover:bg-pink-500/20"
                   >
                     +
                   </button>
@@ -270,7 +270,7 @@ const ProductDescription = () => {
 
                 {/* Static Price Display */}
                 <div className="text-right">
-                  <p className="text-white/60 text-sm">Unit Price</p>
+                  <p className="text-sm text-white/60">Unit Price</p>
                   <p className="text-2xl font-bold text-yellow-500">
                     ${selectedProduct.price}
                   </p>
@@ -286,7 +286,7 @@ const ProductDescription = () => {
               </div>
               <button
                 onClick={handleAddToCart}
-                className="px-8 py-4 bg-gray-300 hover:bg-white text-black rounded-xl font-medium transition-all duration-300 cursor-pointer"
+                className="px-8 py-4 font-medium text-black transition-all duration-300 bg-gray-300 cursor-pointer hover:bg-white rounded-xl"
               >
                 Add to Cart
               </button>

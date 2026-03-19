@@ -12,7 +12,7 @@ const Banner = () => {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col gap-8 items-start max-[400px]:ml-8 p-6 md:p-9 mt-56 ml-20">
-        <h1 className="text-red-700 animate-pulse font-bold text-2xl md:text-5xl -skew-x-12">
+        <h1 className="text-2xl font-bold text-red-700 -skew-x-12 animate-pulse md:text-5xl">
           Anime Alley
         </h1>
         <span className="md:text-xl text-white w-[350px] -skew-x-12">

@@ -24,7 +24,7 @@ const GoogleAuthSuccess = () => {
         if (token) {
           console.log(
             "Processing token from URL:",
-            token.substring(0, 20) + "..."
+            token.substring(0, 20) + "...",
           );
           // Store token in localStorage
           localStorage.setItem("authToken", token);
@@ -83,9 +83,9 @@ const GoogleAuthSuccess = () => {
   }, [searchParams, setUser, navigate]);
 
   return (
-    <div className="flex items-center justify-center h-screen w-full bg-transparent">
+    <div className="flex items-center justify-center w-full h-screen bg-transparent">
       <div className="text-center">
-        <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <div className="w-16 h-16 mx-auto mb-4 border-4 border-pink-500 rounded-full border-t-transparent animate-spin"></div>
         <p className="text-lg text-gray-600">
           Completing Google authentication...
         </p>

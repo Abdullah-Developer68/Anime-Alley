@@ -50,7 +50,7 @@ const DeleteProduct = () => {
       console.error("Error deleting product:", error);
       setError(
         error.response?.data?.message ||
-          "An error occurred while deleting the product"
+          "An error occurred while deleting the product",
       );
     } finally {
       setIsDeleting(false);
@@ -66,14 +66,14 @@ const DeleteProduct = () => {
   if (!isOpen || !selectedProduct) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-xl border border-red-500/20 p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md p-6 bg-gray-900 border rounded-xl border-red-500/20">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-red-500">Delete Product</h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 transition-colors hover:text-white"
           >
             <svg
               className="w-6 h-6"
@@ -92,25 +92,25 @@ const DeleteProduct = () => {
         </div>
 
         {/* Product Information */}
-        <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-          <h3 className="text-sm font-medium text-gray-400 mb-3">
+        <div className="p-4 mb-6 border rounded-lg bg-white/5 border-white/10">
+          <h3 className="mb-3 text-sm font-medium text-gray-400">
             Product to be deleted:
           </h3>
           <div className="flex items-center gap-3">
             <img
               src={`${selectedProduct.image}`}
               alt={selectedProduct.name}
-              className="w-12 h-12 rounded-lg object-cover bg-white/5"
+              className="object-cover w-12 h-12 rounded-lg bg-white/5"
             />
             <div className="flex-1">
-              <p className="text-white font-medium">{selectedProduct.name}</p>
-              <p className="text-gray-400 text-sm">
+              <p className="font-medium text-white">{selectedProduct.name}</p>
+              <p className="text-sm text-gray-400">
                 ID: {selectedProduct.productID}
               </p>
-              <p className="text-gray-400 text-sm">
+              <p className="text-sm text-gray-400">
                 Category: {selectedProduct.category}
               </p>
-              <p className="text-gray-400 text-sm">
+              <p className="text-sm text-gray-400">
                 Price: ${selectedProduct.price}
               </p>
             </div>
@@ -118,11 +118,11 @@ const DeleteProduct = () => {
         </div>
 
         {/* Warning Message */}
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+        <div className="p-3 mb-4 border rounded-lg bg-red-500/10 border-red-500/20">
           <div className="flex items-center gap-2">
             {/* Warning SVG Icon */}
             <svg
-              className="w-5 h-5 text-red-400 flex-shrink-0"
+              className="flex-shrink-0 w-5 h-5 text-red-400"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -132,7 +132,7 @@ const DeleteProduct = () => {
                 clipRule="evenodd"
               />
             </svg>
-            <p className="text-red-400 text-sm">
+            <p className="text-sm text-red-400">
               This action cannot be undone. To confirm deletion, please enter
               the product ID below.
             </p>
@@ -140,12 +140,12 @@ const DeleteProduct = () => {
         </div>
 
         {/* Product ID Display */}
-        <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+        <div className="p-3 mb-3 border rounded-lg bg-blue-500/10 border-blue-500/20">
           <div className="flex items-center justify-between">
-            <span className="text-blue-400 text-sm font-medium">
+            <span className="text-sm font-medium text-blue-400">
               Product ID:
             </span>
-            <span className="text-blue-300 text-sm font-mono bg-blue-500/20 px-2 py-1 rounded">
+            <span className="px-2 py-1 font-mono text-sm text-blue-300 rounded bg-blue-500/20">
               {selectedProduct.productID}
             </span>
           </div>
@@ -153,7 +153,7 @@ const DeleteProduct = () => {
 
         {/* Product ID Input */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-400 mb-2">
+          <label className="block mb-2 text-sm font-medium text-gray-400">
             Enter Product ID to confirm deletion:
           </label>
           <input
@@ -164,15 +164,15 @@ const DeleteProduct = () => {
               setError(""); // Clear error when user types
             }}
             placeholder={`Enter: ${selectedProduct.productID}`}
-            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-red-500"
+            className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/30 focus:outline-none focus:border-red-500"
             disabled={isDeleting}
           />
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="p-3 mb-4 border rounded-lg bg-red-500/10 border-red-500/20">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
 
@@ -180,7 +180,7 @@ const DeleteProduct = () => {
         <div className="flex gap-3">
           <button
             onClick={handleClose}
-            className="flex-1 px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors cursor-pointer"
+            className="flex-1 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
             disabled={isDeleting}
           >
             Cancel
@@ -192,7 +192,7 @@ const DeleteProduct = () => {
               !productId.trim() ||
               productId !== selectedProduct.productID
             }
-            className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors cursor-pointer"
+            className="flex-1 px-4 py-2 font-medium text-white transition-colors bg-red-500 rounded-lg cursor-pointer hover:bg-red-600 disabled:bg-red-500/50 disabled:cursor-not-allowed"
           >
             {isDeleting ? "Deleting..." : "Delete Product"}
           </button>

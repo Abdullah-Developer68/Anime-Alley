@@ -42,7 +42,7 @@ const Login = () => {
       }
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "Try again something went wrong!"
+        error.response?.data?.message || "Try again something went wrong!",
       );
       console.error("Login error:", {
         message: error.response?.data?.message,
@@ -57,25 +57,25 @@ const Login = () => {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center px-4 py-6 mt-10">
-        <div className="w-full max-w-6xl p-4 sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-xl">
+      <div className="flex items-center justify-center min-h-screen px-4 py-6 mt-10">
+        <div className="w-full max-w-6xl p-4 border shadow-xl sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border-white/10">
           {/* Mobile Header - Only visible on mobile */}
-          <h2 className="text-2xl font-bold mb-6 text-center text-white/90 lg:hidden">
+          <h2 className="mb-6 text-2xl font-bold text-center text-white/90 lg:hidden">
             Log In
           </h2>
 
           {/* Main Content Container - Responsive Layout */}
           <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
             {/* Left Side - Info Panel (Desktop) / Top (Mobile) */}
-            <div className="lg:w-2/5 lg:pr-4 mb-6 lg:mb-0">
+            <div className="mb-6 lg:w-2/5 lg:pr-4 lg:mb-0">
               {/* Desktop Header - Only visible on desktop */}
-              <h2 className="hidden lg:block text-3xl font-bold mb-6 text-white/90">
+              <h2 className="hidden mb-6 text-3xl font-bold lg:block text-white/90">
                 Log In
               </h2>
 
               {/* Recruiter Access Banner */}
-              <div className="mb-4 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg">
-                <p className="text-sm text-purple-300/90 mb-3">
+              <div className="p-4 mb-4 border rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/20">
+                <p className="mb-3 text-sm text-purple-300/90">
                   <span className="font-semibold text-purple-400">
                     For Recruiters:
                   </span>{" "}
@@ -90,15 +90,15 @@ const Login = () => {
               </div>
 
               {/* Additional Info Panel for Desktop */}
-              <div className="hidden lg:block p-4 bg-white/5 border border-white/10 rounded-lg">
-                <h3 className="text-lg font-semibold text-white/90 mb-3">
+              <div className="hidden p-4 border rounded-lg lg:block bg-white/5 border-white/10">
+                <h3 className="mb-3 text-lg font-semibold text-white/90">
                   Welcome Back!
                 </h3>
-                <p className="text-sm text-white/70 mb-4">
+                <p className="mb-4 text-sm text-white/70">
                   Sign in to access your account and continue your anime
                   journey.
                 </p>
-                <ul className="text-xs text-white/60 space-y-2">
+                <ul className="space-y-2 text-xs text-white/60">
                   <li>• Access your personalized dashboard</li>
                   <li>• Manage your anime collection</li>
                   <li>• Connect with the community</li>
@@ -114,17 +114,17 @@ const Login = () => {
               >
                 {/* Email Field */}
                 <div className="space-y-2">
-                  <label className="block text-white/70 mb-2 text-sm font-medium">
+                  <label className="block mb-2 text-sm font-medium text-white/70">
                     Email Address
                   </label>
                   <input
                     type="email"
-                    className="w-full px-4 py-3 sm:px-5 sm:py-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15 transition-all duration-300"
+                    className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
                     placeholder="Enter your email address"
                     {...register("email", { required: "Email is required!" })}
                   />
                   {errors.email && (
-                    <span className="text-pink-500 text-xs sm:text-sm mt-2 block">
+                    <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
                       {errors.email.message}
                     </span>
                   )}
@@ -133,26 +133,26 @@ const Login = () => {
                 {/* Password Field */}
                 <div className="space-y-2">
                   <div className="flex justify-between mb-2">
-                    <label className="text-white/70 text-sm font-medium">
+                    <label className="text-sm font-medium text-white/70">
                       Password
                     </label>
                     <Link
                       to="/forgot-password"
-                      className="text-pink-500 text-xs sm:text-sm hover:text-pink-400 transition-colors"
+                      className="text-xs text-pink-500 transition-colors sm:text-sm hover:text-pink-400"
                     >
                       Forgot Password?
                     </Link>
                   </div>
                   <input
                     type="password"
-                    className="w-full px-4 py-3 sm:px-5 sm:py-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15 transition-all duration-300"
+                    className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
                     placeholder="Enter your password"
                     {...register("password", {
                       required: "Password is required!",
                     })}
                   />
                   {errors.password && (
-                    <span className="text-pink-500 text-xs sm:text-sm mt-2 block">
+                    <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
                       {errors.password.message}
                     </span>
                   )}
@@ -161,7 +161,7 @@ const Login = () => {
                 {/* Login Button */}
                 <button
                   type="submit"
-                  className="w-full py-3 sm:py-4 rounded-lg bg-pink-500 text-black text-sm sm:text-base font-semibold hover:shadow-lg hover:shadow-pink-500/25 hover:bg-pink-400 transition-all duration-300 cursor-pointer mt-2"
+                  className="w-full py-3 mt-2 text-sm font-semibold text-black transition-all duration-300 bg-pink-500 rounded-lg cursor-pointer sm:py-4 sm:text-base hover:shadow-lg hover:shadow-pink-500/25 hover:bg-pink-400"
                 >
                   Login
                 </button>
@@ -182,7 +182,7 @@ const Login = () => {
               {/* Google Login Button */}
               <button
                 onClick={handleGoogleLogin}
-                className="w-full py-3 sm:py-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base hover:bg-white/20 transition-all duration-300 flex items-center justify-center gap-3 cursor-pointer"
+                className="flex items-center justify-center w-full gap-3 py-3 text-sm text-white transition-all duration-300 border rounded-lg cursor-pointer sm:py-4 bg-white/10 border-white/20 sm:text-base hover:bg-white/20"
               >
                 <svg
                   className="w-4 h-4 sm:w-5 sm:h-5"
@@ -211,12 +211,12 @@ const Login = () => {
               </button>
 
               {/* Sign Up Link */}
-              <div className="mt-6 sm:mt-8 text-center space-y-3">
-                <p className="text-white/40 text-xs sm:text-sm">
+              <div className="mt-6 space-y-3 text-center sm:mt-8">
+                <p className="text-xs text-white/40 sm:text-sm">
                   Do not have an account?{" "}
                   <Link
                     to="/signup"
-                    className="text-pink-500 hover:text-pink-400 font-medium transition-colors"
+                    className="font-medium text-pink-500 transition-colors hover:text-pink-400"
                   >
                     Sign Up
                   </Link>

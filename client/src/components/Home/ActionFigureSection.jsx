@@ -15,17 +15,17 @@ const ActionFigureSection = () => {
       <div className="absolute inset-0 bg-black opacity-70"></div>
 
       {/* Content section */}
-      <div className="relative flex flex-col md:flex-row items-center justify-center h-full p-8 max-w-4xl mx-auto">
-        <div className="bg-gray-900 bg-opacity-80 p-8 rounded-lg shadow-lg text-center md:text-left max-w-md border-2 border-red-600">
-          <h1 className="text-4xl font-extrabold text-red-500 mb-4">
+      <div className="relative flex flex-col items-center justify-center h-full max-w-4xl p-8 mx-auto md:flex-row">
+        <div className="max-w-md p-8 text-center bg-gray-900 border-2 border-red-600 rounded-lg shadow-lg bg-opacity-80 md:text-left">
+          <h1 className="mb-4 text-4xl font-extrabold text-red-500">
             Action Heroes
           </h1>
-          <p className="text-gray-300 text-lg">
+          <p className="text-lg text-gray-300">
             Perfectly crafted for the ultimate collector.
           </p>
           <Link to="/shop" className="z-40">
             <button
-              className="mt-6 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-full font-bold transition duration-300"
+              className="px-4 py-2 mt-6 font-bold text-white transition duration-300 bg-red-600 rounded-full hover:bg-red-700"
               onClick={() => dispatch(setCategory("toys"))}
             >
               Explore Now
@@ -34,7 +34,7 @@ const ActionFigureSection = () => {
         </div>
 
         {/* Image section */}
-        <div className="relative md:ml-8 flex-shrink-0">
+        <div className="relative flex-shrink-0 md:ml-8">
           <img
             src={assets.jin}
             alt="Action Figure"

@@ -21,7 +21,7 @@ const Pagination = () => {
           onClick={() => dispatch(updateCurrPage(i))}
         >
           {i}
-        </button>
+        </button>,
       );
     }
     return pages;
@@ -30,21 +30,21 @@ const Pagination = () => {
   return (
     <div className="flex items-center justify-center my-8">
       <button
-        className="h-8 px-4 ml-2 flex items-center justify-center rounded-full bg-gray-300 hover:bg-white border-gray-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center h-8 px-4 ml-2 transition-colors bg-gray-300 border-gray-300 rounded-full cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={currentPage === 1}
         onClick={() => dispatch(updateCurrPage(currentPage - 1))}
       >
-        <img src={assets.prevBtn} alt="Previous" className="h-4 w-4" />
+        <img src={assets.prevBtn} alt="Previous" className="w-4 h-4" />
       </button>
 
       <div className="flex items-center">{renderPageNumbers()}</div>
 
       <button
-        className="h-8 px-4 ml-2 flex items-center justify-center rounded-full bg-gray-300 hover:bg-white border-gray-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center h-8 px-4 ml-2 transition-colors bg-gray-300 border-gray-300 rounded-full cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={currentPage === totalPages}
         onClick={() => dispatch(updateCurrPage(currentPage + 1))}
       >
-        <img src={assets.nextBtn} alt="Next" className="h-4 w-4" />
+        <img src={assets.nextBtn} alt="Next" className="w-4 h-4" />
       </button>
     </div>
   );

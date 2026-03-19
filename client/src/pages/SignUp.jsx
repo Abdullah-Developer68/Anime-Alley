@@ -118,25 +118,25 @@ const Signup = () => {
 
   return (
     <>
-      <div className="min-h-screen flex items-center justify-center px-4 py-6 mt-10">
-        <div className="w-full max-w-6xl p-4 sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-xl">
+      <div className="flex items-center justify-center min-h-screen px-4 py-6 mt-10">
+        <div className="w-full max-w-6xl p-4 border shadow-xl sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border-white/10">
           {/* Mobile Header - Only visible on mobile */}
-          <h2 className="text-2xl font-bold mb-6 text-center text-white/90 lg:hidden">
+          <h2 className="mb-6 text-2xl font-bold text-center text-white/90 lg:hidden">
             Sign Up
           </h2>
 
           {/* Main Content Container - Responsive Layout */}
           <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
             {/* Left Side - Info Panel (Desktop) / Top (Mobile) */}
-            <div className="lg:w-2/5 lg:pr-4 mb-6 lg:mb-0">
+            <div className="mb-6 lg:w-2/5 lg:pr-4 lg:mb-0">
               {/* Desktop Header - Only visible on desktop */}
-              <h2 className="hidden lg:block text-3xl font-bold mb-6 text-white/90">
+              <h2 className="hidden mb-6 text-3xl font-bold lg:block text-white/90">
                 Sign Up
               </h2>
 
               {/* Recruiter Access Banner */}
-              <div className="mb-4 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg">
-                <p className="text-sm text-purple-300/90 mb-3">
+              <div className="p-4 mb-4 border rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/20">
+                <p className="mb-3 text-sm text-purple-300/90">
                   <span className="font-semibold text-purple-400">
                     For Recruiters:
                   </span>{" "}
@@ -151,14 +151,14 @@ const Signup = () => {
               </div>
 
               {/* Additional Info Panel for Desktop */}
-              <div className="hidden lg:block p-4 bg-white/5 border border-white/10 rounded-lg">
-                <h3 className="text-lg font-semibold text-white/90 mb-3">
+              <div className="hidden p-4 border rounded-lg lg:block bg-white/5 border-white/10">
+                <h3 className="mb-3 text-lg font-semibold text-white/90">
                   Join Our Community!
                 </h3>
-                <p className="text-sm text-white/70 mb-4">
+                <p className="mb-4 text-sm text-white/70">
                   Create your account to start your anime adventure with us.
                 </p>
-                <ul className="text-xs text-white/60 space-y-2">
+                <ul className="space-y-2 text-xs text-white/60">
                   <li>• Build your personal anime collection</li>
                   <li>• Discover new anime recommendations</li>
                   <li>• Connect with fellow anime enthusiasts</li>
@@ -189,13 +189,13 @@ const Signup = () => {
                       disabled={loading}
                     />
                     {emailErrors.email && (
-                      <span className="text-pink-500 text-xs sm:text-sm mt-1">
+                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
                         {emailErrors.email.message}
                       </span>
                     )}
                   </div>
                   {error && (
-                    <div className="text-pink-500 text-sm">{error}</div>
+                    <div className="text-sm text-pink-500">{error}</div>
                   )}
                   <button
                     type="submit"
@@ -236,13 +236,13 @@ const Signup = () => {
                       disabled={loading}
                     />
                     {otpErrors.otp && (
-                      <span className="text-pink-500 text-xs sm:text-sm mt-1">
+                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
                         {otpErrors.otp.message}
                       </span>
                     )}
                   </div>
                   {error && (
-                    <div className="text-pink-500 text-sm">{error}</div>
+                    <div className="text-sm text-pink-500">{error}</div>
                   )}
                   <div className="flex gap-2">
                     <button
@@ -297,7 +297,7 @@ const Signup = () => {
                       disabled={loading}
                     />
                     {signupErrors.username && (
-                      <span className="text-pink-500 text-xs sm:text-sm mt-1">
+                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
                         {signupErrors.username.message}
                       </span>
                     )}
@@ -320,13 +320,13 @@ const Signup = () => {
                       disabled={loading}
                     />
                     {signupErrors.password && (
-                      <span className="text-pink-500 text-xs sm:text-sm mt-1">
+                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
                         {signupErrors.password.message}
                       </span>
                     )}
                   </div>
                   {error && (
-                    <div className="text-pink-500 text-sm">{error}</div>
+                    <div className="text-sm text-pink-500">{error}</div>
                   )}
                   <button
                     type="submit"
@@ -360,7 +360,7 @@ const Signup = () => {
               </button>
 
               {/* Login Link - Reduced margin and text size */}
-              <p className="mt-4 sm:mt-6 text-center text-white/40 text-xs sm:text-sm">
+              <p className="mt-4 text-xs text-center sm:mt-6 text-white/40 sm:text-sm">
                 Already have an account?{" "}
                 <a href="/login" className="text-pink-500 hover:text-pink-400">
                   Log In

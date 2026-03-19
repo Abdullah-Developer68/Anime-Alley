@@ -15,19 +15,19 @@ const ComicsSection = () => {
         {" "}
         {/* Dark overlay */}
         <div className="absolute inset-0 bg-black opacity-75 pointer-events-none "></div>
-        <div className="max-w-screen-2xl flex flex-col items-center justify-center container mx-auto md:px-20 px-4">
-          <span className="text-white font-bold text-center text-4xl z-40 mt-40">
+        <div className="container flex flex-col items-center justify-center px-4 mx-auto max-w-screen-2xl md:px-20">
+          <span className="z-40 mt-40 text-4xl font-bold text-center text-white">
             Buy Comics
           </span>
           <Link to="/shop" className="z-40">
             <button
-              className="mt-5 bg-white w-fit py-2 px-5 rounded-full text-black hover:bg-black hover:text-white z-40 cursor-pointer"
+              className="z-40 px-5 py-2 mt-5 text-black bg-white rounded-full cursor-pointer w-fit hover:bg-black hover:text-white"
               onClick={() => dispatch(setCategory("comics"))}
             >
               Checkout
             </button>
           </Link>
-          <div className="z-40 w-3xl mt-10">
+          <div className="z-40 mt-10 w-3xl">
             <CardSlider />
           </div>
         </div>

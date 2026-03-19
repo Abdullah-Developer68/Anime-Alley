@@ -49,7 +49,7 @@ const FilterBar = () => {
           "Adventure",
           "Comedy",
           "Drama",
-          "Fantasy"
+          "Fantasy",
         );
         break;
       case "action figures":
@@ -101,7 +101,7 @@ const FilterBar = () => {
 
       const formData = {
         productTypes: data.productTypes?.map((filter) =>
-          filter.toLowerCase()
+          filter.toLowerCase(),
         ) || ["all"],
         sortBy: data.sortBy?.toLowerCase() || "popular",
         price: data.price || 0,
@@ -150,15 +150,15 @@ const FilterBar = () => {
     <div className="w-[280px] h-[820px] lg:h-[900px] bg-black/95 backdrop-blur-sm p-6 shadow-xl border border-white/10 rounded-r-lg overflow-y-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Filter header with close icon */}
-        <div className="flex justify-between items-center">
-          <h3 className="text-white/90 font-semibold text-lg flex items-center gap-2">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-white/90">
             <span className="w-1 h-5 bg-yellow-500 rounded-full"></span>
             Filters
           </h3>
           <img
             src={assets.close}
             alt="close"
-            className="w-8 cursor-pointer lg:hidden hover:opacity-75 transition-opacity"
+            className="w-8 transition-opacity cursor-pointer lg:hidden hover:opacity-75"
             onClick={() => dispatch(openFilterBar(!barState))}
           />
         </div>
@@ -178,12 +178,12 @@ const FilterBar = () => {
           />
           <button
             type="submit"
-            className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-75 transition-opacity"
+            className="absolute transition-opacity -translate-y-1/2 right-3 top-1/2 hover:opacity-75"
           >
             <img src={assets.search} className="w-5 h-5" alt="search" />
           </button>
           {errors.searchQuery && (
-            <span className="text-pink-500 text-xs mt-1 block">
+            <span className="block mt-1 text-xs text-pink-500">
               {errors.searchQuery.message}
             </span>
           )}
@@ -191,7 +191,7 @@ const FilterBar = () => {
 
         {/* Filters section */}
         <div>
-          <h3 className="text-white/90 font-semibold mb-4 text-base flex items-center gap-2">
+          <h3 className="flex items-center gap-2 mb-4 text-base font-semibold text-white/90">
             <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
             Available Filters
           </h3>
@@ -199,19 +199,19 @@ const FilterBar = () => {
             {availProductTypes.map((filter) => (
               <label
                 key={filter}
-                className="flex items-center gap-2 hover:text-yellow-500 cursor-pointer text-sm transition-colors duration-200 group"
+                className="flex items-center gap-2 text-sm transition-colors duration-200 cursor-pointer hover:text-yellow-500 group"
               >
                 <input
                   type="checkbox"
                   value={filter}
                   checked={watch("productTypes")?.includes(filter)}
                   {...register("productTypes")}
-                  className="accent-yellow-500 w-4 h-4 border-white/20 focus:ring-yellow-500 focus:ring-offset-1 focus:ring-offset-black cursor-pointer flex-shrink-0"
+                  className="flex-shrink-0 w-4 h-4 cursor-pointer accent-yellow-500 border-white/20 focus:ring-yellow-500 focus:ring-offset-1 focus:ring-offset-black"
                   onClick={() => {
                     updateCurrProductType(filter);
                   }}
                 />
-                <span className="group-hover:translate-x-1 transition-transform duration-200 text-xs">
+                <span className="text-xs transition-transform duration-200 group-hover:translate-x-1">
                   {filter}
                 </span>
               </label>
@@ -221,7 +221,7 @@ const FilterBar = () => {
 
         {/* Price range selector */}
         <div>
-          <h3 className="text-white/90 font-semibold mb-4 text-base flex items-center gap-2">
+          <h3 className="flex items-center gap-2 mb-4 text-base font-semibold text-white/90">
             <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
             Price Range
           </h3>
@@ -235,7 +235,7 @@ const FilterBar = () => {
               style={getBackgroundStyle(formFields.price)}
               className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
             />
-            <div className="absolute -bottom-6 left-0 right-0 flex justify-between text-white/70 text-sm">
+            <div className="absolute left-0 right-0 flex justify-between text-sm -bottom-6 text-white/70">
               <span> 0 $</span>
               <span> {formFields.price} $</span>
               <span>100 $</span>
@@ -245,7 +245,7 @@ const FilterBar = () => {
 
         {/* Sort options */}
         <div>
-          <h3 className="text-white/90 font-semibold mb-4 text-base flex items-center gap-2">
+          <h3 className="flex items-center gap-2 mb-4 text-base font-semibold text-white/90">
             <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
             Sort By
           </h3>

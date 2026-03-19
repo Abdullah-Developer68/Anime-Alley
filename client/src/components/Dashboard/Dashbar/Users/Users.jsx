@@ -79,7 +79,7 @@ const Users = () => {
   const loadUsers = async (
     page = 1,
     search = submittedSearch,
-    roleVal = submittedRole
+    roleVal = submittedRole,
   ) => {
     setLoading(true);
     setError("");
@@ -137,11 +137,11 @@ const Users = () => {
 
       {/* Header Section */}
       <div className="flex max-[362px]:flex-col flex-row justify-between max-[362px]:justify-center max-[362px]:items-end gap-4">
-        <h1 className="text-2xl font-bold text-white ml-20">Users</h1>
+        <h1 className="ml-20 text-2xl font-bold text-white">Users</h1>
         <div className="flex gap-2">
           <button
             onClick={() => dispatch(openExportModal("users"))}
-            className="px-4 py-2 bg-gray-300 hover:bg-white text-black cursor-pointer rounded-lg transition-colors"
+            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
           >
             Export
           </button>
@@ -149,36 +149,36 @@ const Users = () => {
       </div>
 
       {/* Search and Filter Section */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row">
         <div className="flex-1">
           <input
             type="text"
             placeholder="Search users..."
-            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500"
+            className="w-full px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <select
-          className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-pink-500"
+          className="px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 focus:outline-none focus:border-pink-500"
           value={role}
           onChange={(e) => setRole(e.target.value)}
         >
-          <option value="allUsers" className="bg-gray-400 text-black">
+          <option value="allUsers" className="text-black bg-gray-400">
             All Users
           </option>
-          <option value="user" className="bg-gray-400 text-black">
+          <option value="user" className="text-black bg-gray-400">
             Users
           </option>
-          <option value="admin" className="bg-gray-400 text-black">
+          <option value="admin" className="text-black bg-gray-400">
             Admin
           </option>
-          <option value="superAdmin" className="bg-gray-400 text-black">
+          <option value="superAdmin" className="text-black bg-gray-400">
             Super Admin
           </option>
         </select>
         <button
-          className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors"
+          className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg hover:bg-white"
           onClick={() => {
             setSubmittedSearch(searchQuery);
             setSubmittedRole(role);
@@ -190,24 +190,24 @@ const Users = () => {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
         <div className="relative overflow-x-auto max-h-[600px]">
           <table className="w-full min-w-[800px]">
-            <thead className="bg-black/50 backdrop-blur-sm sticky top-0 z-10">
+            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
               <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Actions
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   User
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Email
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Role
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Joined
                 </th>
               </tr>
@@ -215,19 +215,19 @@ const Users = () => {
             <tbody className="divide-y divide-white/10">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                  <td colSpan="5" className="py-8 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-red-400">
+                  <td colSpan="5" className="py-8 text-center text-red-400">
                     {error}
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                  <td colSpan="5" className="py-8 text-center text-gray-400">
                     No users found.
                   </td>
                 </tr>
@@ -235,12 +235,12 @@ const Users = () => {
                 users.map((u) => (
                   <tr
                     key={u._id}
-                    className="hover:bg-white/5 transition-colors"
+                    className="transition-colors hover:bg-white/5"
                   >
                     <td className="px-6 py-4">
                       <div className="flex justify-start gap-2">
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
                           title="Edit"
                           onClick={() => handleEditClick(u)}
                         >
@@ -251,7 +251,7 @@ const Users = () => {
                           />
                         </button>
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
                           title="Delete"
                           onClick={() => handleDelete(u)}
                         >
@@ -265,7 +265,7 @@ const Users = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center overflow-hidden">
+                        <div className="flex items-center justify-center w-10 h-10 overflow-hidden rounded-full bg-pink-500/20">
                           {u.profilePic ? (
                             <img
                               src={
@@ -274,7 +274,7 @@ const Users = () => {
                                   : u.profilePic // Cloudinary URLs are complete
                               }
                               alt={u.username}
-                              className="w-10 h-10 object-cover rounded-full"
+                              className="object-cover w-10 h-10 rounded-full"
                               onError={(e) => {
                                 e.target.onerror = null;
                                 e.target.src = assets.defaultProfile;
@@ -284,7 +284,7 @@ const Users = () => {
                             <img
                               src={assets.defaultProfile}
                               alt={u.username}
-                              className="w-10 h-10 object-cover rounded-full"
+                              className="object-cover w-10 h-10 rounded-full"
                               onError={(e) => {
                                 e.target.onerror = null;
                                 // Fallback to initials if default image fails
@@ -309,15 +309,15 @@ const Users = () => {
                           u.role === "superAdmin"
                             ? "bg-green-500/20 text-green-500"
                             : u.role === "admin"
-                            ? "bg-purple-500/20 text-purple-500"
-                            : "bg-blue-500/20 text-blue-500"
+                              ? "bg-purple-500/20 text-purple-500"
+                              : "bg-blue-500/20 text-blue-500"
                         }`}
                       >
                         {u.role === "superAdmin"
                           ? "Super Admin"
                           : u.role === "admin"
-                          ? "Admin"
-                          : "User"}
+                            ? "Admin"
+                            : "User"}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-white">
@@ -332,7 +332,7 @@ const Users = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
+      <div className="flex items-center justify-between mt-4">
         <p className="text-sm text-gray-400">
           {users.length > 0
             ? `Showing ${(currPage - 1) * 20 + 1} to ${
@@ -344,7 +344,7 @@ const Users = () => {
           <button
             onClick={() => handlePg("prev")}
             disabled={currPage === 1}
-            className="cursor-pointer px-3 py-1 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
           >
             Previous
           </button>
@@ -364,7 +364,7 @@ const Users = () => {
           <button
             onClick={() => handlePg("next")}
             disabled={currPage === totalPages}
-            className="cursor-pointer px-3 py-1 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
           >
             Next
           </button>

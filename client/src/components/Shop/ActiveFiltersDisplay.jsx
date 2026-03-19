@@ -59,7 +59,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
         sortBy: "popular",
         price: 0,
         searchQuery: "",
-      })
+      }),
     );
   };
 
@@ -75,8 +75,8 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
   } = appliedFilters;
 
   return (
-    <div className="w-full mb-3 px-2 py-2 bg-black/20 backdrop-blur-sm border border-white/10 rounded-lg">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div className="w-full px-2 py-2 mb-3 border rounded-lg bg-black/20 backdrop-blur-sm border-white/10">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         {/* Active Filters */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {/* Build filter items array to avoid trailing bullets */}
@@ -98,7 +98,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
                   <span className="truncate max-w-[120px] sm:max-w-[200px]">
                     {searchQuery}
                   </span>
-                </div>
+                </div>,
               );
             }
 
@@ -116,7 +116,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
                   {productTypes
                     .map((type) => getProductTypeDisplayName(type))
                     .join(", ")}
-                </span>
+                </span>,
               );
             }
 
@@ -125,7 +125,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
               filterItems.push(
                 <span key="price" className="text-white/70">
                   Min: ${price}
-                </span>
+                </span>,
               );
             }
 
@@ -134,7 +134,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
               filterItems.push(
                 <span key="sort" className="text-white/70">
                   {getSortDisplayName(sortBy)}
-                </span>
+                </span>,
               );
             }
 
@@ -162,7 +162,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
             return (
               <div className="flex items-center gap-2">
                 {hasFilters && <span className="text-white/40">•</span>}
-                <span className="text-white/50 text-xs">
+                <span className="text-xs text-white/50">
                   in {getCategoryDisplayName(currCategory)}
                 </span>
               </div>
@@ -173,7 +173,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
         {/* Clear All Button */}
         <button
           onClick={clearAllFilters}
-          className="text-xs text-yellow-500 hover:text-yellow-400 transition-colors duration-200 font-medium flex items-center gap-1 flex-shrink-0"
+          className="flex items-center flex-shrink-0 gap-1 text-xs font-medium text-yellow-500 transition-colors duration-200 hover:text-yellow-400"
         >
           <span className="w-1 h-3 bg-yellow-500 rounded-full"></span>
           Clear All

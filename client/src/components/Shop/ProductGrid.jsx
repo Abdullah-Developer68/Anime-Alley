@@ -81,7 +81,7 @@ const ProductGrid = () => {
             <Loader size="lg" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 p-2">
+          <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {/* Key prop helps React identify which items have changed, been added, or been removed in lists */}
             {products.map((product) => (
               <Cards key={product._id} product={product} />

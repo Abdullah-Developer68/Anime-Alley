@@ -19,7 +19,7 @@ const roleOptions = [
 const EditUser = () => {
   const dispatch = useDispatch();
   const { isOpen, selectedUser } = useSelector(
-    (state) => state.dashboard.userEditFormState
+    (state) => state.dashboard.userEditFormState,
   );
   const { user } = useAuth(); // Get user from the auth context
   const editor = user || {}; // Fallback to empty object if user is not available
@@ -181,14 +181,14 @@ const EditUser = () => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold text-white mb-4">Edit User</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-md p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
+        <h3 className="mb-4 text-lg font-semibold text-white">Edit User</h3>
         <div className="flex flex-col items-center mb-4">
           <img
             src={previewPic || assets.defaultProfile}
             alt="Profile"
-            className="w-20 h-20 rounded-full object-cover border-2 border-pink-500 mb-2"
+            className="object-cover w-20 h-20 mb-2 border-2 border-pink-500 rounded-full"
             onError={(e) => {
               e.target.onerror = null;
               e.target.src = assets.defaultProfile;
@@ -204,31 +204,31 @@ const EditUser = () => {
         </div>
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
+            <label className="block mb-1 text-sm font-medium text-gray-400">
               Username
             </label>
             <input
               type="text"
               {...register("username", { required: true })}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
+              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
               disabled={allControlsDisabled}
             />
             {errors.username && (
-              <span className="text-red-400 text-xs">Username is required</span>
+              <span className="text-xs text-red-400">Username is required</span>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
+            <label className="block mb-1 text-sm font-medium text-gray-400">
               Email
             </label>
             <input
               type="email"
               {...register("email", { required: true })}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
+              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
               disabled={allControlsDisabled}
             />
             {errors.email && (
-              <span className="text-red-400 text-xs">Email is required</span>
+              <span className="text-xs text-red-400">Email is required</span>
             )}
           </div>
           {/* Only show the entire Role field if superAdmin (not editing self) or editing self */}
@@ -242,7 +242,7 @@ const EditUser = () => {
             selectedUser &&
             editor.email === selectedUser.email) ? (
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">
+              <label className="block mb-1 text-sm font-medium text-gray-400">
                 Role
               </label>
               {editor.role === "superAdmin" &&
@@ -253,59 +253,59 @@ const EditUser = () => {
               ) ? (
                 <select
                   {...register("role")}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
+                  className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
                   disabled={roleDropdownDisabled || allControlsDisabled}
                 >
                   {roleDropdownOptions.map((opt) => (
                     <option
                       key={opt.value}
                       value={opt.value}
-                      className="bg-gray-400 text-black"
+                      className="text-black bg-gray-400"
                     >
                       {opt.label}
                     </option>
                   ))}
                 </select>
               ) : (
-                <p className="text-gray-400 text-sm">
+                <p className="text-sm text-gray-400">
                   {selectedUser.role} you can not change your own role.
                 </p>
               )}
             </div>
           ) : null}
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
+            <label className="block mb-1 text-sm font-medium text-gray-400">
               Joined Date
             </label>
-            <p className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300">
+            <p className="w-full px-3 py-2 text-gray-300 border rounded-lg bg-white/5 border-white/10">
               {formatDate(selectedUser?.createdAt)}
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
+            <label className="block mb-1 text-sm font-medium text-gray-400">
               Password (leave blank to keep unchanged)
             </label>
             <input
               type="password"
               {...register("password")}
-              className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
+              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
               autoComplete="new-password"
               disabled={allControlsDisabled}
             />
           </div>
-          {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
+          {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
           <div className="flex justify-end gap-4 mt-6">
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg cursor-pointer"
+              className="px-4 py-2 text-black bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
               disabled={isSaving}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg cursor-pointer"
+              className="px-4 py-2 text-black bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
               disabled={isSaving || allControlsDisabled}
             >
               {isSaving ? "Saving..." : "Save"}

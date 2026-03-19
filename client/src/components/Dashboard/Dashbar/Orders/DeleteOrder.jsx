@@ -35,7 +35,7 @@ const DeleteOrder = () => {
     } catch (error) {
       setError(
         error.response?.data?.message ||
-          "An error occurred while deleting the order"
+          "An error occurred while deleting the order",
       );
     } finally {
       setIsDeleting(false);
@@ -51,13 +51,13 @@ const DeleteOrder = () => {
   if (!isOpen || !selectedOrder) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-xl border border-red-500/20 p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md p-6 bg-gray-900 border rounded-xl border-red-500/20">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-red-500">Delete Order</h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 transition-colors hover:text-white"
           >
             <svg
               className="w-6 h-6"
@@ -74,26 +74,26 @@ const DeleteOrder = () => {
             </svg>
           </button>
         </div>
-        <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-          <h3 className="text-sm font-medium text-gray-400 mb-3">
+        <div className="p-4 mb-6 border rounded-lg bg-white/5 border-white/10">
+          <h3 className="mb-3 text-sm font-medium text-gray-400">
             Order to be deleted:
           </h3>
           <div>
-            <p className="text-white font-medium">
+            <p className="font-medium text-white">
               Order ID: {selectedOrder.orderID}
             </p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-sm text-gray-400">
               Customer: {selectedOrder.user?.username}
             </p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-sm text-gray-400">
               Amount: ${selectedOrder.finalAmount}
             </p>
           </div>
         </div>
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+        <div className="p-3 mb-4 border rounded-lg bg-red-500/10 border-red-500/20">
           <div className="flex items-center gap-2">
             <svg
-              className="w-5 h-5 text-red-400 flex-shrink-0"
+              className="flex-shrink-0 w-5 h-5 text-red-400"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -103,14 +103,14 @@ const DeleteOrder = () => {
                 clipRule="evenodd"
               />
             </svg>
-            <p className="text-red-400 text-sm">
+            <p className="text-sm text-red-400">
               This action cannot be undone. Type CONFIRM below to enable
               deletion.
             </p>
           </div>
         </div>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-400 mb-2">
+          <label className="block mb-2 text-sm font-medium text-gray-400">
             Type CONFIRM to delete this order:
           </label>
           <input
@@ -121,19 +121,19 @@ const DeleteOrder = () => {
               setError("");
             }}
             placeholder="Type: CONFIRM"
-            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-red-500"
+            className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/30 focus:outline-none focus:border-red-500"
             disabled={isDeleting}
           />
         </div>
         {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="p-3 mb-4 border rounded-lg bg-red-500/10 border-red-500/20">
+            <p className="text-sm text-red-400">{error}</p>
           </div>
         )}
         <div className="flex gap-3">
           <button
             onClick={handleClose}
-            className="flex-1 px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors"
+            className="flex-1 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg hover:bg-white"
             disabled={isDeleting}
           >
             Cancel
@@ -141,7 +141,7 @@ const DeleteOrder = () => {
           <button
             onClick={handleDelete}
             disabled={isDeleting || confirmText !== "CONFIRM"}
-            className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors"
+            className="flex-1 px-4 py-2 font-medium text-white transition-colors bg-red-500 rounded-lg hover:bg-red-600 disabled:bg-red-500/50 disabled:cursor-not-allowed"
           >
             {isDeleting ? "Deleting..." : "Delete Order"}
           </button>

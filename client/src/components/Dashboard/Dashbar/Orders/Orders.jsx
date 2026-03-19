@@ -124,17 +124,17 @@ const Orders = () => {
       <DeleteOrder />
       {/* Header Section */}
       <div className="flex max-[362px]:flex-col flex-row justify-between max-[362px]:justify-center max-[362px]:items-end gap-4">
-        <h1 className="text-2xl font-bold text-white ml-20">Orders</h1>
+        <h1 className="ml-20 text-2xl font-bold text-white">Orders</h1>
         <div className="flex gap-2">
           <button
             onClick={() => dispatch(openExportModal("orders"))}
-            className="px-4 py-2 bg-gray-300 hover:bg-white text-black cursor-pointer rounded-lg transition-colors"
+            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
           >
             Export
           </button>
           <button
             onClick={fetchOrderStats}
-            className="px-4 py-2 bg-gray-300 hover:bg-white text-black cursor-pointer rounded-lg transition-colors"
+            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
             disabled={statsLoading}
             title="Refresh Stats"
           >
@@ -144,96 +144,96 @@ const Orders = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {/* Pending Orders */}
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Pending Orders</p>
-              <h3 className="text-2xl font-bold text-white mt-1">
+              <h3 className="mt-1 text-2xl font-bold text-white">
                 {orderStats.pending || 0}
               </h3>
             </div>
-            <div className="bg-yellow-500/20 p-3 rounded-lg">
+            <div className="p-3 rounded-lg bg-yellow-500/20">
               <img src={assets.pending} />
             </div>
           </div>
         </div>
         {/* Processing Orders */}
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Processing Orders</p>
-              <h3 className="text-2xl font-bold text-white mt-1">
+              <h3 className="mt-1 text-2xl font-bold text-white">
                 {orderStats.processing || 0}
               </h3>
             </div>
-            <div className="bg-blue-500/20 p-3 rounded-lg">
+            <div className="p-3 rounded-lg bg-blue-500/20">
               <img src={assets.processing} />
             </div>
           </div>
         </div>
         {/* Shipped Orders */}
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Shipped Orders</p>
-              <h3 className="text-2xl font-bold text-white mt-1">
+              <h3 className="mt-1 text-2xl font-bold text-white">
                 {orderStats.shipped || 0}
               </h3>
             </div>
-            <div className="bg-purple-500/20 p-3 rounded-lg">
+            <div className="p-3 rounded-lg bg-purple-500/20">
               <img src={assets.shipped} />
             </div>
           </div>
         </div>
         {/* Delivered Orders */}
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Delivered Orders</p>
-              <h3 className="text-2xl font-bold text-white mt-1">
+              <h3 className="mt-1 text-2xl font-bold text-white">
                 {orderStats.delivered || 0}
               </h3>
             </div>
-            <div className="bg-green-500/20 p-3 rounded-lg">
+            <div className="p-3 rounded-lg bg-green-500/20">
               <img src={assets.delivered} />
             </div>
           </div>
         </div>
       </div>
       {statsError && (
-        <div className="text-red-400 text-sm mt-2">{statsError}</div>
+        <div className="mt-2 text-sm text-red-400">{statsError}</div>
       )}
 
       {/* Orders Table */}
-      <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
         <div className="relative overflow-x-auto max-h-[400px]">
           <table className="w-full min-w-[900px]">
-            <thead className="bg-black/50 backdrop-blur-sm sticky top-0 z-10">
+            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
               <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Actions
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Order ID
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Customer
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Date
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Amount
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Coupon Code
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Discount
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Status
                 </th>
               </tr>
@@ -270,12 +270,12 @@ const Orders = () => {
                 orders.map((order) => (
                   <tr
                     key={order._id}
-                    className="hover:bg-white/5 transition-colors"
+                    className="transition-colors hover:bg-white/5"
                   >
                     <td className="px-6 py-4">
                       <div className="flex justify-start gap-2">
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
                           title="Edit"
                           onClick={() => dispatch(openOrderEditModal(order))}
                         >
@@ -286,7 +286,7 @@ const Orders = () => {
                           />
                         </button>
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
                           title="Delete"
                           onClick={() => dispatch(openOrderDeleteModal(order))}
                         >
@@ -298,12 +298,12 @@ const Orders = () => {
                         </button>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-white font-medium">
+                    <td className="px-6 py-4 font-medium text-white">
                       {order.orderID}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center overflow-hidden">
+                        <div className="flex items-center justify-center w-8 h-8 overflow-hidden rounded-full bg-pink-500/20">
                           <img
                             src={
                               order.user?.profilePic
@@ -313,7 +313,7 @@ const Orders = () => {
                                 : assets.defaultProfile
                             }
                             alt={order.user?.username}
-                            className="w-8 h-8 object-cover rounded-full"
+                            className="object-cover w-8 h-8 rounded-full"
                             onError={(e) => {
                               e.target.onerror = null;
                               e.target.src = assets.defaultProfile;
@@ -369,7 +369,7 @@ const Orders = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
+      <div className="flex items-center justify-between mt-4">
         <p className="text-sm text-gray-400">
           {orders.length > 0
             ? `Showing ${(currPage - 1) * 20 + 1} to ${

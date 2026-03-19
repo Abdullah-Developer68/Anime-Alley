@@ -154,17 +154,17 @@ const UserHistory = () => {
   if (!purchaseHistory || purchaseHistory.length === 0) {
     return (
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4">
-        <div className="relative w-full max-w-md p-8 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl">
+        <div className="relative w-full max-w-md p-8 border rounded-2xl border-white/10 bg-black/40 backdrop-blur-xl">
           <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-500/10 blur-3xl -z-10"></div>
           <img
             src={assets.emptyCart}
             alt="No History"
             className="w-32 h-32 mx-auto mb-6 opacity-70"
           />
-          <h2 className="text-2xl font-bold text-center mb-3 text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">
+          <h2 className="mb-3 text-2xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">
             No Purchase History
           </h2>
-          <p className="text-white/60 text-center">
+          <p className="text-center text-white/60">
             Looks like you have not made any purchases yet. Start shopping to
             see your order history here!
           </p>
@@ -175,12 +175,12 @@ const UserHistory = () => {
 
   return (
     <div className="min-h-screen bg-[#0f172a] py-6 mt-20">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="px-4 mx-auto max-w-7xl">
         {/* Header with Navigation */}
-        <div className="bg-black/30 rounded-lg p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 mb-6 rounded-lg bg-black/30">
           <h1 className="text-2xl font-bold text-white">Purchase History</h1>
           <div className="flex items-center gap-4">
-            <span className="text-white/60 text-sm">
+            <span className="text-sm text-white/60">
               Page {currentPage} of {totalPages}
             </span>
             <div className="flex gap-2">
@@ -215,30 +215,30 @@ const UserHistory = () => {
           {purchaseHistory.map((order, index) => (
             <div
               key={index}
-              className="bg-black/30 rounded-lg overflow-hidden border border-white/10"
+              className="overflow-hidden border rounded-lg bg-black/30 border-white/10"
             >
               {/* Order Header */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-black/20 text-sm">
+              <div className="grid grid-cols-2 gap-2 p-3 text-sm md:grid-cols-4 bg-black/20">
                 <div>
-                  <span className="text-pink-400/70 text-xs block">
+                  <span className="block text-xs text-pink-400/70">
                     Order ID
                   </span>
                   <span className="text-white">{order.orderID}</span>
                 </div>
                 <div>
-                  <span className="text-pink-400/70 text-xs block">Date</span>
+                  <span className="block text-xs text-pink-400/70">Date</span>
                   <span className="text-white">
                     {formatDate(order.orderDate)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-pink-400/70 text-xs block">
+                  <span className="block text-xs text-pink-400/70">
                     Payment
                   </span>
                   <span className="text-white">{order.paymentMethod}</span>
                 </div>
                 <div className="text-right md:text-left">
-                  <span className="text-pink-400/70 text-xs block">Status</span>
+                  <span className="block text-xs text-pink-400/70">Status</span>
                   <span
                     className={`inline-block px-2 py-0.5 rounded-full text-xs ${
                       order.status === "pending"
@@ -256,23 +256,23 @@ const UserHistory = () => {
                 {order.products.map((product, idx) => (
                   <div
                     key={idx}
-                    className="p-3 flex items-center gap-3 hover:bg-white/5"
+                    className="flex items-center gap-3 p-3 hover:bg-white/5"
                   >
                     <img
                       src={product.productId.image}
                       alt={product.productId.name}
-                      className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                      className="flex-shrink-0 object-cover w-16 h-16 rounded-lg"
                     />
                     <div className="flex-grow min-w-0">
-                      <h3 className="text-white truncate text-sm">
+                      <h3 className="text-sm text-white truncate">
                         {product.productId.name}
                       </h3>
-                      <p className="text-white/40 text-xs">
+                      <p className="text-xs text-white/40">
                         Qty: {product.quantity} × {product.price} $
                       </p>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-pink-400 font-medium">
+                    <div className="flex-shrink-0 text-right">
+                      <p className="font-medium text-pink-400">
                         {product.price * product.quantity} $
                       </p>
                     </div>
@@ -281,33 +281,33 @@ const UserHistory = () => {
               </div>
 
               {/* Order Summary - Compact */}
-              <div className="bg-black/20 p-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 gap-4 p-3 text-sm bg-black/20 sm:grid-cols-2">
                 <div>
-                  <p className="text-pink-400/70 text-xs mb-1">
+                  <p className="mb-1 text-xs text-pink-400/70">
                     Shipping Address
                   </p>
-                  <p className="text-white/70 text-xs leading-relaxed">
+                  <p className="text-xs leading-relaxed text-white/70">
                     {order.shippingAddress}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <div className="flex justify-between text-white/60 text-xs">
+                  <div className="flex justify-between text-xs text-white/60">
                     <span>Subtotal:</span>
                     <span>{order.subtotal}$</span>
                   </div>
-                  <div className="flex justify-between text-white/60 text-xs">
+                  <div className="flex justify-between text-xs text-white/60">
                     <span>Shipping:</span>
                     <span>{order.shippingCost}$</span>
                   </div>
                   {order.discount > 0 && (
-                    <div className="flex justify-between text-green-400 text-xs">
+                    <div className="flex justify-between text-xs text-green-400">
                       <span>Discount:</span>
                       <span>-{order.discount}$</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-white pt-2 border-t border-white/10">
+                  <div className="flex justify-between pt-2 text-white border-t border-white/10">
                     <span className="font-medium">Total</span>
-                    <span className="text-pink-400 font-bold">
+                    <span className="font-bold text-pink-400">
                       {order.finalAmount}$
                     </span>
                   </div>

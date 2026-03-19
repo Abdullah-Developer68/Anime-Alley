@@ -40,7 +40,7 @@ const Dashbar = () => {
             animate="visible"
             exit="exit"
             variants={sidebarVariants}
-            className="h-screen bg-gradient-to-b from-black to-gray-900 text-white p-4 flex flex-col fixed z-50 top-0 left-0 w-64"
+            className="fixed top-0 left-0 z-50 flex flex-col w-64 h-screen p-4 text-white bg-gradient-to-b from-black to-gray-900"
           >
             {/* Close button for mobile */}
             <button
@@ -52,7 +52,7 @@ const Dashbar = () => {
             </button>
             {/* Logo/Brand Section */}
             <div className="mb-8">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold text-transparent bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text">
                 Anime Alley
               </h1>
               <p className="text-sm text-gray-400">Admin Dashboard</p>
@@ -63,7 +63,7 @@ const Dashbar = () => {
                 <li>
                   <Link
                     to="/dashboard/"
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
                     onClick={handleNavClick}
                   >
                     <img
@@ -77,7 +77,7 @@ const Dashbar = () => {
                 <li>
                   <Link
                     to="/dashboard/orders"
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
                     onClick={handleNavClick}
                   >
                     <img src={assets.orders} alt="orders" className="invert" />
@@ -87,7 +87,7 @@ const Dashbar = () => {
                 <li>
                   <Link
                     to="/dashboard/users"
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
                     onClick={handleNavClick}
                   >
                     <img src={assets.users} alt="users" className="invert" />
@@ -97,7 +97,7 @@ const Dashbar = () => {
                 <li>
                   <Link
                     to="/dashboard/coupons"
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
                     onClick={handleNavClick}
                   >
                     <img
@@ -118,10 +118,10 @@ const Dashbar = () => {
 
   // Desktop: no animation, normal sidebar
   return (
-    <div className="h-screen bg-gradient-to-b from-black to-gray-900 text-white p-4 flex flex-col relative w-64">
+    <div className="relative flex flex-col w-64 h-screen p-4 text-white bg-gradient-to-b from-black to-gray-900">
       {/* Logo/Brand Section */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold text-transparent bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text">
           Anime Alley
         </h1>
         <p className="text-sm text-gray-400">Admin Dashboard</p>
@@ -132,7 +132,7 @@ const Dashbar = () => {
           <li>
             <Link
               to="/dashboard/"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
               onClick={handleNavClick}
             >
               <img src={assets.product} alt="product" className="invert" />
@@ -142,7 +142,7 @@ const Dashbar = () => {
           <li>
             <Link
               to="/dashboard/orders"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
               onClick={handleNavClick}
             >
               <img src={assets.orders} alt="orders" className="invert" />
@@ -152,7 +152,7 @@ const Dashbar = () => {
           <li>
             <Link
               to="/dashboard/users"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
               onClick={handleNavClick}
             >
               <img src={assets.users} alt="users" className="invert" />
@@ -162,7 +162,7 @@ const Dashbar = () => {
           <li>
             <Link
               to="/dashboard/coupons"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors group"
+              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
               onClick={handleNavClick}
             >
               <img src={assets.coupons} alt="coupons" className="invert" />

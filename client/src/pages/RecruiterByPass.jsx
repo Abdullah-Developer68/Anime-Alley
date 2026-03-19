@@ -46,7 +46,7 @@ const RecruiterByPass = () => {
         localStorage.setItem("userInfo", JSON.stringify(res.data.user));
 
         toast.success(
-          "Recruiter account created successfully! Redirecting to home..."
+          "Recruiter account created successfully! Redirecting to home...",
         );
 
         // Add a small delay to ensure toast is visible before redirect
@@ -63,7 +63,7 @@ const RecruiterByPass = () => {
       // Check if the error response indicates success despite the error
       if (error.response?.data?.success) {
         console.log(
-          "Account created despite error, proceeding with success flow"
+          "Account created despite error, proceeding with success flow",
         );
 
         // Handle success case even if there was an error
@@ -77,11 +77,11 @@ const RecruiterByPass = () => {
           setUser(error.response.data.user);
           localStorage.setItem(
             "userInfo",
-            JSON.stringify(error.response.data.user)
+            JSON.stringify(error.response.data.user),
           );
 
           toast.success(
-            "Recruiter account created successfully! Redirecting to home..."
+            "Recruiter account created successfully! Redirecting to home...",
           );
           setTimeout(() => {
             navigate("/");
@@ -102,33 +102,33 @@ const RecruiterByPass = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-6 mt-10">
-      <div className="w-full max-w-6xl p-4 sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-xl">
+    <div className="flex items-center justify-center min-h-screen px-4 py-6 mt-10">
+      <div className="w-full max-w-6xl p-4 border shadow-xl sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border-white/10">
         {/* Mobile Header - Only visible on mobile */}
-        <h2 className="text-2xl font-bold mb-6 text-center text-white/90 lg:hidden">
+        <h2 className="mb-6 text-2xl font-bold text-center text-white/90 lg:hidden">
           Recruiter Access
         </h2>
 
         {/* Main Content Container - Responsive Layout */}
         <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
           {/* Left Side - Info Panel (Desktop) / Top (Mobile) */}
-          <div className="lg:w-2/5 lg:pr-4 mb-6 lg:mb-0">
+          <div className="mb-6 lg:w-2/5 lg:pr-4 lg:mb-0">
             {/* Desktop Header - Only visible on desktop */}
-            <h2 className="hidden lg:block text-3xl font-bold mb-6 text-white/90">
+            <h2 className="hidden mb-6 text-3xl font-bold lg:block text-white/90">
               Recruiter Access
             </h2>
 
             {/* Back to Login/Signup Links */}
-            <div className="mb-4 flex justify-center lg:justify-start gap-4">
+            <div className="flex justify-center gap-4 mb-4 lg:justify-start">
               <Link
                 to="/login"
-                className="text-xs sm:text-sm text-white/60 hover:text-white/80 transition-colors"
+                className="text-xs transition-colors sm:text-sm text-white/60 hover:text-white/80"
               >
                 ← Back to Login
               </Link>
               <Link
                 to="/signup"
-                className="text-xs sm:text-sm text-white/60 hover:text-white/80 transition-colors"
+                className="text-xs transition-colors sm:text-sm text-white/60 hover:text-white/80"
               >
                 ← Back to Signup
               </Link>
@@ -136,7 +136,7 @@ const RecruiterByPass = () => {
 
             {/* Info Banners */}
             <div className="space-y-4">
-              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+              <div className="p-4 border rounded-lg bg-yellow-500/10 border-yellow-500/20">
                 <p className="text-sm text-yellow-300/80">
                   <span className="font-medium text-yellow-400">
                     For Recruiters:
@@ -145,7 +145,7 @@ const RecruiterByPass = () => {
                 </p>
               </div>
 
-              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <div className="p-4 border rounded-lg bg-blue-500/10 border-blue-500/20">
                 <p className="text-sm text-blue-300/80">
                   <span className="font-medium text-blue-400">Note:</span> These
                   are dummy accounts - no need to use real email addresses. Use
@@ -154,15 +154,15 @@ const RecruiterByPass = () => {
               </div>
 
               {/* Additional Info Panel for Desktop */}
-              <div className="hidden lg:block p-4 bg-white/5 border border-white/10 rounded-lg">
-                <h3 className="text-lg font-semibold text-white/90 mb-3">
+              <div className="hidden p-4 border rounded-lg lg:block bg-white/5 border-white/10">
+                <h3 className="mb-3 text-lg font-semibold text-white/90">
                   Admin Features
                 </h3>
-                <p className="text-sm text-white/70 mb-4">
+                <p className="mb-4 text-sm text-white/70">
                   Recruiter accounts get instant admin access with full
                   privileges.
                 </p>
-                <ul className="text-xs text-white/60 space-y-2">
+                <ul className="space-y-2 text-xs text-white/60">
                   <li>• Full administrative dashboard access</li>
                   <li>• User management capabilities</li>
                   <li>• Content moderation tools</li>
@@ -180,12 +180,12 @@ const RecruiterByPass = () => {
             >
               {/* Username Field */}
               <div className="space-y-2">
-                <label className="block text-white/70 mb-2 text-sm font-medium">
+                <label className="block mb-2 text-sm font-medium text-white/70">
                   Username
                 </label>
                 <input
                   type="text"
-                  className="w-full px-4 py-3 sm:px-5 sm:py-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15 transition-all duration-300"
+                  className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
                   placeholder="Enter username (e.g., recruiter123)"
                   {...register("username", {
                     required: "Username is required!",
@@ -200,7 +200,7 @@ const RecruiterByPass = () => {
                   })}
                 />
                 {errors.username && (
-                  <span className="text-pink-500 text-xs sm:text-sm mt-2 block">
+                  <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
                     {errors.username.message}
                   </span>
                 )}
@@ -208,12 +208,12 @@ const RecruiterByPass = () => {
 
               {/* Email Field */}
               <div className="space-y-2">
-                <label className="block text-white/70 mb-2 text-sm font-medium">
+                <label className="block mb-2 text-sm font-medium text-white/70">
                   Email Address
                 </label>
                 <input
                   type="email"
-                  className="w-full px-4 py-3 sm:px-5 sm:py-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15 transition-all duration-300"
+                  className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
                   placeholder="Enter test email (e.g., recruiter@test.com)"
                   {...register("email", {
                     required: "Email is required!",
@@ -224,7 +224,7 @@ const RecruiterByPass = () => {
                   })}
                 />
                 {errors.email && (
-                  <span className="text-pink-500 text-xs sm:text-sm mt-2 block">
+                  <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
                     {errors.email.message}
                   </span>
                 )}
@@ -232,12 +232,12 @@ const RecruiterByPass = () => {
 
               {/* Password Field */}
               <div className="space-y-2">
-                <label className="block text-white/70 mb-2 text-sm font-medium">
+                <label className="block mb-2 text-sm font-medium text-white/70">
                   Password
                 </label>
                 <input
                   type="password"
-                  className="w-full px-4 py-3 sm:px-5 sm:py-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15 transition-all duration-300"
+                  className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
                   placeholder="Enter password (min 8 characters)"
                   {...register("password", {
                     required: "Password is required!",
@@ -248,7 +248,7 @@ const RecruiterByPass = () => {
                   })}
                 />
                 {errors.password && (
-                  <span className="text-pink-500 text-xs sm:text-sm mt-2 block">
+                  <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
                     {errors.password.message}
                   </span>
                 )}
@@ -256,12 +256,12 @@ const RecruiterByPass = () => {
 
               {/* Confirm Password Field */}
               <div className="space-y-2">
-                <label className="block text-white/70 mb-2 text-sm font-medium">
+                <label className="block mb-2 text-sm font-medium text-white/70">
                   Confirm Password
                 </label>
                 <input
                   type="password"
-                  className="w-full px-4 py-3 sm:px-5 sm:py-4 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15 transition-all duration-300"
+                  className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
                   placeholder="Confirm your password"
                   {...register("confirmPassword", {
                     required: "Please confirm your password!",
@@ -270,7 +270,7 @@ const RecruiterByPass = () => {
                   })}
                 />
                 {errors.confirmPassword && (
-                  <span className="text-pink-500 text-xs sm:text-sm mt-2 block">
+                  <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
                     {errors.confirmPassword.message}
                   </span>
                 )}
@@ -280,15 +280,15 @@ const RecruiterByPass = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 sm:py-4 rounded-lg bg-pink-500 text-black font-semibold hover:bg-pink-400 disabled:bg-pink-500/50 disabled:cursor-not-allowed transition-all duration-300 text-sm sm:text-base mt-2"
+                className="w-full py-3 mt-2 text-sm font-semibold text-black transition-all duration-300 bg-pink-500 rounded-lg sm:py-4 hover:bg-pink-400 disabled:bg-pink-500/50 disabled:cursor-not-allowed sm:text-base"
               >
                 {loading ? "Creating Account..." : "Create Recruiter Account"}
               </button>
             </form>
 
             {/* Footer Info */}
-            <div className="mt-6 sm:mt-8 text-center">
-              <p className="text-white/40 text-xs sm:text-sm">
+            <div className="mt-6 text-center sm:mt-8">
+              <p className="text-xs text-white/40 sm:text-sm">
                 This will create an admin account instantly for recruitment
                 demonstrations
               </p>
