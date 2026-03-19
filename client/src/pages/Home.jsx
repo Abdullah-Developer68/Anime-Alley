@@ -13,7 +13,7 @@ import ActionFigureSection from "../components/Home/ActionFigureSection";
 const Home = () => {
   const dispatch = useDispatch();
   const { isLoading, loadingProgress, componentLoadStatus } = useSelector(
-    (state) => state.home
+    (state) => state.home,
   );
 
   const bannerRef = useRef(null);
@@ -59,24 +59,24 @@ const Home = () => {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col items-center justify-center">
-        <div className="w-80 max-w-md">
-          <h2 className="text-2xl font-bold text-white mb-6 text-center">
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-900">
+        <div className="max-w-md w-80">
+          <h2 className="mb-6 text-2xl font-bold text-center text-white">
             Loading Anime Alley...
           </h2>
 
-          <div className="w-full bg-gray-700 rounded-full h-3 mb-4">
+          <div className="w-full h-3 mb-4 bg-gray-700 rounded-full">
             <div
-              className="bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
+              className="h-3 transition-all duration-500 ease-out rounded-full shadow-lg bg-gradient-to-r from-purple-500 via-pink-500 to-red-500"
               style={{ width: `${loadingProgress}%` }}
             />
           </div>
 
-          <div className="text-center text-gray-100 font-medium">
+          <div className="font-medium text-center text-gray-100">
             {loadingProgress}%
           </div>
 
-          <div className="text-center text-gray-400 text-sm mt-2">
+          <div className="mt-2 text-sm text-center text-gray-400">
             {loadingProgress < 25 && "Loading banner..."}
             {loadingProgress >= 25 &&
               loadingProgress < 50 &&

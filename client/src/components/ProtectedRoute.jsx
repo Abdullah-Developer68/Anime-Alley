@@ -9,8 +9,8 @@ const ProtectedRoute = ({ children }) => {
   // Show loading state while checking auth
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-transparent">
-        <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center w-full h-screen bg-transparent">
+        <div className="w-16 h-16 border-4 border-pink-500 rounded-full border-t-transparent animate-spin"></div>
       </div>
     );
   }

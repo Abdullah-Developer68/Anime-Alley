@@ -128,11 +128,11 @@ const Coupons = () => {
       <CreateCoupon />
       {/* Header Section */}
       <div className="flex max-[565px]:flex-col flex-row justify-between max-[565px]:justify-center max-[565px]:items-end gap-4">
-        <h1 className="text-2xl font-bold text-white ml-20">Coupons</h1>
+        <h1 className="ml-20 text-2xl font-bold text-white">Coupons</h1>
         <div className="flex gap-2">
           <button
             onClick={handleRefreshStats}
-            className="px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg hover:bg-white"
             disabled={loading}
           >
             {loading ? <img src={assets.loader} alt="loading" /> : null}
@@ -140,12 +140,12 @@ const Coupons = () => {
           </button>
           <button
             onClick={() => dispatch(openExportModal("coupons"))}
-            className="px-4 py-2 bg-gray-300 hover:bg-white text-black cursor-pointer rounded-lg transition-colors"
+            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
           >
             Export
           </button>
           <button
-            className="bg-gray-300 hover:bg-white text-black px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg hover:bg-white"
             onClick={() => dispatch(openCouponCreateModal())}
           >
             <img src={assets.plus} alt="add" className="w-5 h-5 invert" />
@@ -155,44 +155,44 @@ const Coupons = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Active Coupons</p>
-              <h3 className="text-2xl font-bold text-white mt-1">
+              <h3 className="mt-1 text-2xl font-bold text-white">
                 {stats.activeCoupons}
               </h3>
             </div>
-            <div className="bg-green-500/20 p-3 rounded-lg">
+            <div className="p-3 rounded-lg bg-green-500/20">
               <img src={assets.activeCoupons} alt="Active Coupons" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Total Usage</p>
-              <h3 className="text-2xl font-bold text-white mt-1">
+              <h3 className="mt-1 text-2xl font-bold text-white">
                 {stats.totalUsage}
               </h3>
             </div>
-            <div className="bg-blue-500/20 p-3 rounded-lg">
+            <div className="p-3 rounded-lg bg-blue-500/20">
               <img src={assets.couponUsage} alt="Coupon Usage" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Total Discount</p>
-              <h3 className="text-2xl font-bold text-white mt-1">
+              <h3 className="mt-1 text-2xl font-bold text-white">
                 ${stats.totalDiscount.toLocaleString()}
               </h3>
             </div>
-            <div className="bg-yellow-500/20 p-3 rounded-lg">
+            <div className="p-3 rounded-lg bg-yellow-500/20">
               <img src={assets.couponDiscount} alt="Coupon Discount" />
             </div>
           </div>
@@ -200,24 +200,24 @@ const Coupons = () => {
       </div>
 
       {/* Coupons Table */}
-      <div className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
         <div className="relative overflow-x-auto max-h-[600px]">
           <table className="w-full min-w-[800px]">
-            <thead className="bg-black/50 backdrop-blur-sm sticky top-0 z-10">
+            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
               <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Actions
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Code
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Discount
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Valid Until
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-400">
+                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
                   Status
                 </th>
               </tr>
@@ -225,19 +225,19 @@ const Coupons = () => {
             <tbody className="divide-y divide-white/10">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                  <td colSpan="5" className="py-8 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-red-400">
+                  <td colSpan="5" className="py-8 text-center text-red-400">
                     {error}
                   </td>
                 </tr>
               ) : coupons.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                  <td colSpan="5" className="py-8 text-center text-gray-400">
                     No coupons found.
                   </td>
                 </tr>
@@ -245,12 +245,12 @@ const Coupons = () => {
                 coupons.map((coupon) => (
                   <tr
                     key={coupon._id}
-                    className="hover:bg-white/5 transition-colors"
+                    className="transition-colors hover:bg-white/5"
                   >
                     <td className="px-6 py-4">
                       <div className="flex justify-start gap-2">
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
                           title="Edit"
                           onClick={() => dispatch(openCouponEditModal(coupon))}
                         >
@@ -261,7 +261,7 @@ const Coupons = () => {
                           />
                         </button>
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
                           title="Delete"
                           onClick={() => handleDelete(coupon)}
                         >
@@ -302,7 +302,7 @@ const Coupons = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4">
+      <div className="flex items-center justify-between mt-4">
         <p className="text-sm text-gray-400">
           {coupons.length > 0
             ? `Showing ${(currPage - 1) * 20 + 1} to ${
@@ -314,7 +314,7 @@ const Coupons = () => {
           <button
             onClick={() => handlePg("prev")}
             disabled={currPage === 1}
-            className="cursor-pointer px-3 py-1 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
           >
             Previous
           </button>
@@ -334,7 +334,7 @@ const Coupons = () => {
           <button
             onClick={() => handlePg("next")}
             disabled={currPage === totalPages}
-            className="cursor-pointer px-3 py-1 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
           >
             Next
           </button>

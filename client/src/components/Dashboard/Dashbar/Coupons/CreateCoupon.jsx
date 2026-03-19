@@ -16,7 +16,7 @@ const CreateCoupon = () => {
   });
   const [formError, setFormError] = useState("");
   const isOpen = useSelector(
-    (state) => state.dashboard.couponCreateModalState?.isOpen
+    (state) => state.dashboard.couponCreateModalState?.isOpen,
   );
 
   if (!isOpen) return null;
@@ -52,36 +52,36 @@ const CreateCoupon = () => {
       >
         <button
           type="button"
-          className="absolute top-2 right-2 text-gray-400 hover:text-white text-2xl"
+          className="absolute text-2xl text-gray-400 top-2 right-2 hover:text-white"
           onClick={() => dispatch(closeCouponCreateModal())}
         >
           &times;
         </button>
-        <h2 className="text-xl font-bold mb-2 text-white">Create Coupon</h2>
+        <h2 className="mb-2 text-xl font-bold text-white">Create Coupon</h2>
         {formError && (
-          <div className="text-red-400 text-sm mb-2">{formError}</div>
+          <div className="mb-2 text-sm text-red-400">{formError}</div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-300">
+          <label className="block mb-1 text-sm font-medium text-gray-300">
             Coupon Code
           </label>
           <input
             type="text"
-            className="w-full border border-white/10 bg-black/30 text-white rounded px-3 py-2 focus:outline-none focus:border-pink-500"
+            className="w-full px-3 py-2 text-white border rounded border-white/10 bg-black/30 focus:outline-none focus:border-pink-500"
             value={form.couponCode}
             onChange={(e) => setForm({ ...form, couponCode: e.target.value })}
             required
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-300">
+          <label className="block mb-1 text-sm font-medium text-gray-300">
             Discount Percentage
           </label>
           <input
             type="number"
             min="1"
             max="100"
-            className="w-full border border-white/10 bg-black/30 text-white rounded px-3 py-2 focus:outline-none focus:border-pink-500"
+            className="w-full px-3 py-2 text-white border rounded border-white/10 bg-black/30 focus:outline-none focus:border-pink-500"
             value={form.discountPercentage}
             onChange={(e) =>
               setForm({ ...form, discountPercentage: e.target.value })
@@ -90,12 +90,12 @@ const CreateCoupon = () => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1 text-gray-300">
+          <label className="block mb-1 text-sm font-medium text-gray-300">
             Expiry Date
           </label>
           <input
             type="date"
-            className="w-full border border-white/10 bg-black/30 text-white rounded px-3 py-2 focus:outline-none focus:border-pink-500"
+            className="w-full px-3 py-2 text-white border rounded border-white/10 bg-black/30 focus:outline-none focus:border-pink-500"
             value={form.expiryDate}
             onChange={(e) => setForm({ ...form, expiryDate: e.target.value })}
             required
@@ -103,7 +103,7 @@ const CreateCoupon = () => {
         </div>
         <button
           type="submit"
-          className="w-full bg-gray-300 hover:bg-white text-black font-bold py-2 rounded transition-colors"
+          className="w-full py-2 font-bold text-black transition-colors bg-gray-300 rounded hover:bg-white"
         >
           Create
         </button>

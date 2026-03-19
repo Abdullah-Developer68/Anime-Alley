@@ -27,14 +27,14 @@ const Cards = ({ product }) => {
           <img
             src={imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
           />
         </div>
 
         {/* Product Info */}
         <div className="p-2">
           {/* Title and Rating */}
-          <div className="flex justify-between items-start mb-1">
+          <div className="flex items-start justify-between mb-1">
             <h3 className="text-white/90 font-medium text-sm truncate max-w-[120px]">
               {product.name}
             </h3>
@@ -44,14 +44,14 @@ const Cards = ({ product }) => {
           <p className="text-white/50 text-xs mb-1.5">{product.category}</p>
 
           {/* Price and Add to Cart */}
-          <div className="flex justify-between items-center">
-            <p className="text-black p-1 rounded-md font-bold text-xs bg-gray-300">
+          <div className="flex items-center justify-between">
+            <p className="p-1 text-xs font-bold text-black bg-gray-300 rounded-md">
               {product.price} $
             </p>
             {/* Add to Cart Button with product._id as the url parameter */}
             <Link to={`/shop/:${product._id}`}>
               <button
-                className="cursor-pointer p-1 rounded-md bg-gray-300 hover:bg-white text-black text-xs font-medium transition-all duration-300"
+                className="p-1 text-xs font-medium text-black transition-all duration-300 bg-gray-300 rounded-md cursor-pointer hover:bg-white"
                 onClick={() => {
                   sendProductData(); // Call the function to send product data to Redux store
                 }}

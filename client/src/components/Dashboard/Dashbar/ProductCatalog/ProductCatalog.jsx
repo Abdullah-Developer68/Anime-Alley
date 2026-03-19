@@ -210,17 +210,17 @@ const ProductCatalog = () => {
     <div className="p-6 space-y-6">
       {/* Header Section */}
       <div className="flex max-[565px]:flex-col flex-row justify-between max-[565px]:justify-center max-[565px]:items-end gap-4">
-        <h1 className="text-2xl font-bold text-white ml-20">Products</h1>
+        <h1 className="ml-20 text-2xl font-bold text-white">Products</h1>
         <div className="flex gap-2">
           <button
             onClick={() => dispatch(openExportModal("products"))}
-            className="px-4 py-2 bg-gray-300 hover:bg-white text-black cursor-pointer rounded-lg transition-colors"
+            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
           >
             Export
           </button>
           <button
             onClick={() => openForm()}
-            className="bg-gray-300 hover:bg-white text-black cursor-pointer px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
           >
             <img
               src={assets.plus}
@@ -247,24 +247,24 @@ const ProductCatalog = () => {
             style={getBackgroundStyle(formFields.price)}
             className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white mb-4"
           />
-          <div className="flex justify-between text-white/70 text-sm">
+          <div className="flex justify-between text-sm text-white/70">
             <span>{formFields.minPrice} $</span>
             <span>{formFields.price} $</span>
             <span>{formFields.maxPrice} $</span>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row">
           <div className="flex-1">
             <input
               type="text"
               placeholder="Search products..."
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500"
+              className="w-full px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
               {...register("searchQuery")}
             />
           </div>
           <div className="flex gap-2">
             <select
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-pink-500 cursor-pointer"
+              className="px-4 py-2 text-white border rounded-lg cursor-pointer bg-white/5 border-white/10 focus:outline-none focus:border-pink-500"
               {...register("category")}
             >
               <option className="text-black bg-gray-400" value="comics">
@@ -283,7 +283,7 @@ const ProductCatalog = () => {
           </div>
           <button
             type="submit"
-            className="bg-gray-300 hover:bg-white text-black p-2 rounded-md cursor-pointer"
+            className="p-2 text-black bg-gray-300 rounded-md cursor-pointer hover:bg-white"
           >
             Load Products
           </button>
@@ -291,7 +291,7 @@ const ProductCatalog = () => {
         {/* Replace the checkBoxes function call with direct JSX */}
         {formFields.category && (
           <div className="mt-8">
-            <label className="block text-white text-sm font-medium mb-2">
+            <label className="block mb-2 text-sm font-medium text-white">
               {formFields.category === "clothes"
                 ? "Available Cloth Types"
                 : formFields.category === "shoes"
@@ -306,13 +306,13 @@ const ProductCatalog = () => {
               {availProductTypes.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 bg-white/5 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 transition-colors rounded-lg bg-white/5 hover:bg-white/10"
                 >
                   <input
                     type="checkbox"
                     id={`${formFields.category}-${item}`}
                     value={item}
-                    className="w-4 h-4 text-pink-500 border-gray-300 rounded focus:ring-pink-500 cursor-pointer"
+                    className="w-4 h-4 text-pink-500 border-gray-300 rounded cursor-pointer focus:ring-pink-500"
                     checked={formFields.productTypes.includes(
                       item.toLowerCase(),
                     )}
@@ -320,7 +320,7 @@ const ProductCatalog = () => {
                   />
                   <label
                     htmlFor={`${formFields.category}-${item}`}
-                    className="text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"
+                    className="text-sm text-gray-300 transition-colors cursor-pointer hover:text-white"
                   >
                     {item}
                   </label>
@@ -331,11 +331,11 @@ const ProductCatalog = () => {
         )}
       </form>
       {/* Products Table */}
-      <div className="bg-white/5 rounded-xl border border-white/10">
+      <div className="border bg-white/5 rounded-xl border-white/10">
         <div className="relative overflow-auto h-[400px]">
           {/* Single table with fixed header */}
           <table className="w-full min-w-[800px]">
-            <thead className="bg-black/50 backdrop-blur-sm sticky top-0 z-10">
+            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
               <tr className="border-b border-white/10">
                 <th
                   scope="col"
@@ -373,13 +373,13 @@ const ProductCatalog = () => {
             <tbody className="divide-y divide-white/10">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                  <td colSpan="5" className="py-8 text-center text-gray-400">
                     Loading...
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                  <td colSpan="5" className="py-8 text-center text-gray-400">
                     No products found
                   </td>
                 </tr>
@@ -387,13 +387,13 @@ const ProductCatalog = () => {
                 products.map((product, index) => (
                   <tr
                     key={index}
-                    className="hover:bg-white/5 transition-colors"
+                    className="transition-colors hover:bg-white/5"
                   >
                     {/* Edit & Delete buttons*/}
                     <td className="px-6 py-4">
                       <div className="flex justify-start gap-2">
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors group"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white group"
                           title="Edit"
                           onClick={() => {
                             openForm(product);
@@ -406,7 +406,7 @@ const ProductCatalog = () => {
                           />
                         </button>
                         <button
-                          className="w-10 h-10 flex items-center justify-center p-2 bg-gray-300 hover:bg-white rounded-lg transition-colors group cursor-pointer"
+                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white group"
                           title="Delete"
                           onClick={() => {
                             handleDeleteModal(product);
@@ -427,7 +427,7 @@ const ProductCatalog = () => {
                         <img
                           src={product.image}
                           alt={product.name}
-                          className="w-10 h-10 rounded-lg object-cover bg-white/5"
+                          className="object-cover w-10 h-10 rounded-lg bg-white/5"
                         />
                         <div>
                           <p className="text-sm font-medium text-white truncate max-w-[200px]">
@@ -441,7 +441,7 @@ const ProductCatalog = () => {
                     </td>
 
                     <td className="px-6 py-4">
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-pink-500/20 text-pink-500">
+                      <span className="px-3 py-1 text-xs font-medium text-pink-500 rounded-full bg-pink-500/20">
                         {product.category.charAt(0).toUpperCase() +
                           product.category.slice(1)}
                       </span>
@@ -495,7 +495,7 @@ const ProductCatalog = () => {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <p className="text-sm text-gray-400">
           {products.length > 0
             ? `Showing ${(currPage - 1) * 20 + 1} to ${

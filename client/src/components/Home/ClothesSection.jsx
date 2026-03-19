@@ -56,14 +56,14 @@ const ClothesSection = () => {
       className="relative flex flex-col justify-center items-center w-full min-h-[690px] overflow-hidden bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: `url(${assets.halloweenBackground})` }}
     >
-      <div className="absolute inset-0 bg-black opacity-20 pointer-events-none"></div>
+      <div className="absolute inset-0 bg-black pointer-events-none opacity-20"></div>
 
-      <h2 className="z-40 text-2xl md:text-3xl lg:text-4xl font-bold text-orange-500 mb-8 text-center tracking-wider mt-16 md:mt-24 px-4">
+      <h2 className="z-40 px-4 mt-16 mb-8 text-2xl font-bold tracking-wider text-center text-orange-500 md:text-3xl lg:text-4xl md:mt-24">
         Spooky Fashion Collection
       </h2>
       <Link to={"/shop"} className="z-40">
         <div
-          className="bg-orange-500 px-4 py-2 rounded-full mb-10 cursor-pointer z-10"
+          className="z-10 px-4 py-2 mb-10 bg-orange-500 rounded-full cursor-pointer"
           onClick={() => dispatch(setCategory("clothes"))}
         >
           Shop Now!
@@ -71,7 +71,7 @@ const ClothesSection = () => {
       </Link>
 
       {/* Product Cards Slider */}
-      <div className="z-40 w-full max-w-6xl mx-auto px-8">
+      <div className="z-40 w-full max-w-6xl px-8 mx-auto">
         <div className="[&_.slick-prev]:left-2 [&_.slick-next]:right-2 [&_.slick-prev]:z-10 [&_.slick-next]:z-10 [&_.slick-prev:before]:text-2xl [&_.slick-next:before]:text-2xl">
           <Slider {...settings}>
             {products.map((product, index) => (
@@ -81,17 +81,17 @@ const ClothesSection = () => {
                     <img
                       src={product.image}
                       alt={product.label}
-                      className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                      className="object-cover object-center w-full h-full transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>
 
-                  <div className="absolute bottom-0 inset-x-0 p-2 text-center bg-gradient-to-t from-black/90 via-black/60 to-transparent">
-                    <h3 className="text-xs sm:text-sm font-medium text-orange-400 tracking-wide">
+                  <div className="absolute inset-x-0 bottom-0 p-2 text-center bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+                    <h3 className="text-xs font-medium tracking-wide text-orange-400 sm:text-sm">
                       {product.label}
                     </h3>
                   </div>
 
-                  <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-t from-orange-500/10 to-transparent"></div>
+                  <div className="absolute inset-0 transition-opacity duration-300 rounded-lg opacity-0 group-hover:opacity-100 bg-gradient-to-t from-orange-500/10 to-transparent"></div>
                 </div>
               </div>
             ))}

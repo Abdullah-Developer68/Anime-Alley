@@ -40,14 +40,14 @@ const Loader = ({ size = "md" }) => {
             {/* Shuriken design using multiple triangular elements */}
             <div className="absolute inset-0">
               {/* Four main blades */}
-              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-6 border-transparent border-b-slate-700"></div>
-              <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-l-6 border-transparent border-l-slate-700"></div>
-              <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-6 border-transparent border-t-slate-700"></div>
-              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-0 h-0 border-t-4 border-b-4 border-r-6 border-transparent border-r-slate-700"></div>
+              <div className="absolute top-0 w-0 h-0 transform -translate-x-1/2 border-l-4 border-r-4 border-transparent left-1/2 border-b-6 border-b-slate-700"></div>
+              <div className="absolute right-0 w-0 h-0 transform -translate-y-1/2 border-t-4 border-b-4 border-transparent top-1/2 border-l-6 border-l-slate-700"></div>
+              <div className="absolute bottom-0 w-0 h-0 transform -translate-x-1/2 border-l-4 border-r-4 border-transparent left-1/2 border-t-6 border-t-slate-700"></div>
+              <div className="absolute left-0 w-0 h-0 transform -translate-y-1/2 border-t-4 border-b-4 border-transparent top-1/2 border-r-6 border-r-slate-700"></div>
 
               {/* Center hole */}
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-slate-800 rounded-full border border-slate-600"></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-slate-300 rounded-full"></div>
+              <div className="absolute w-3 h-3 transform -translate-x-1/2 -translate-y-1/2 border rounded-full top-1/2 left-1/2 bg-slate-800 border-slate-600"></div>
+              <div className="absolute w-1 h-1 transform -translate-x-1/2 -translate-y-1/2 rounded-full top-1/2 left-1/2 bg-slate-300"></div>
             </div>
           </div>
         </div>
@@ -66,7 +66,7 @@ const Loader = ({ size = "md" }) => {
       </div>
 
       {/* Loading text with anime styling */}
-      <div className="absolute mt-20 text-slate-600 text-sm font-medium animate-pulse flex items-center space-x-1">
+      <div className="absolute flex items-center mt-20 space-x-1 text-sm font-medium text-slate-600 animate-pulse">
         <span>Loading</span>
         <div className="flex space-x-1">
           <div
@@ -78,7 +78,7 @@ const Loader = ({ size = "md" }) => {
             style={{ animationDelay: "150ms" }}
           ></div>
           <div
-            className="w-1 h-1 bg-cyan-500 rounded-full animate-bounce"
+            className="w-1 h-1 rounded-full bg-cyan-500 animate-bounce"
             style={{ animationDelay: "300ms" }}
           ></div>
         </div>

@@ -17,7 +17,7 @@ const Shop = () => {
         >
           <FilterBar />
         </div>
-        <div className="flex flex-col justify-center items-center w-full">
+        <div className="flex flex-col items-center justify-center w-full">
           <div className="mt-10 mb-5">
             <ProductNav />
           </div>

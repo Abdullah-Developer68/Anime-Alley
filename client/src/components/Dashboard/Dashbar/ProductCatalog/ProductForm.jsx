@@ -323,16 +323,16 @@ const ProductForm = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-[#1a1a1a] rounded-xl w-full max-w-7xl max-h-[95vh] overflow-y-auto">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#1a1a1a] z-10">
-          <h2 className="text-lg sm:text-xl font-bold text-white">
+          <h2 className="text-lg font-bold text-white sm:text-xl">
             Enter Product Details
           </h2>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 transition-colors rounded-lg hover:bg-white/10"
           >
             <img src={assets.cross} alt="cross" className="cursor-pointer" />
           </button>
@@ -341,20 +341,20 @@ const ProductForm = () => {
         {/* Form */}
         <form className="p-4 sm:p-6" onSubmit={handleSubmit(onSubmit)}>
           {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* Left Column - Basic Information */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6 lg:col-span-2">
               {/* Basic Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-medium text-white">
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Product ID
                       {!editProduct && (
-                        <span className="text-yellow-500 text-xs ml-2">
+                        <span className="ml-2 text-xs text-yellow-500">
                           (Auto-generated)
                         </span>
                       )}
@@ -377,31 +377,31 @@ const ProductForm = () => {
                       })}
                     />
                     {errors.productId && editProduct && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.productId.message}
                       </span>
                     )}
                     {!editProduct && (
-                      <span className="text-yellow-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-yellow-500">
                         Product ID will be automatically generated based on
                         category
                       </span>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Product Name
                     </label>
                     <input
                       type="text"
-                      className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500 text-sm sm:text-base"
+                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                       placeholder="Enter product name"
                       {...register("productName", {
                         required: "Product name is required!",
                       })}
                     />
                     {errors.productName && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.productName.message}
                       </span>
                     )}
@@ -409,7 +409,7 @@ const ProductForm = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
+                  <label className="block mb-1 text-sm font-medium text-gray-400">
                     Description
                   </label>
                   <textarea
@@ -420,36 +420,36 @@ const ProductForm = () => {
                     })}
                   />
                   {errors.description && (
-                    <span className="text-red-500 text-xs mt-1 block">
+                    <span className="block mt-1 text-xs text-red-500">
                       {errors.description.message}
                     </span>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Price
                     </label>
                     <input
                       type="number"
-                      className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500 text-sm sm:text-base"
+                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                       placeholder="Enter price"
                       {...register("price", { required: "Price is required!" })}
                     />
                     {errors.price && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.price.message}
                       </span>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Category
                     </label>
                     <select
-                      className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-pink-500 text-sm sm:text-base"
+                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
                       {...register("category", {
                         required: "Category is required!",
                       })}
@@ -457,43 +457,43 @@ const ProductForm = () => {
                         setValue("category", e.target.value);
                       }}
                     >
-                      <option className="bg-gray-800 text-gray-300" value="">
+                      <option className="text-gray-300 bg-gray-800" value="">
                         Select Category
                       </option>
                       <option
-                        className="bg-gray-800 text-gray-300"
+                        className="text-gray-300 bg-gray-800"
                         value="clothes"
                       >
                         Clothes
                       </option>
                       <option
-                        className="bg-gray-800 text-gray-300"
+                        className="text-gray-300 bg-gray-800"
                         value="shoes"
                       >
                         Shoes
                       </option>
                       <option
-                        className="bg-gray-800 text-gray-300"
+                        className="text-gray-300 bg-gray-800"
                         value="comics"
                       >
                         Comics
                       </option>
                       <option
-                        className="bg-gray-800 text-gray-300"
+                        className="text-gray-300 bg-gray-800"
                         value="toys"
                       >
                         Toys
                       </option>
                     </select>
                     {errors.category && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.category.message}
                       </span>
                     )}
                   </div>
 
                   <div className="sm:col-span-2 xl:col-span-1">
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Stock
                     </label>
                     {selectedCategory === "comics" ? (
@@ -502,12 +502,12 @@ const ProductForm = () => {
                           .split(",")
                           .map((v) => v.trim())
                           .filter((v) => v).length === 0 ? (
-                          <div className="text-yellow-400 text-xs mb-2 p-2 bg-yellow-400/10 rounded">
+                          <div className="p-2 mb-2 text-xs text-yellow-400 rounded bg-yellow-400/10">
                             Please enter at least one volume number below to
                             enter stock values.
                           </div>
                         ) : (
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                          <div className="space-y-2 overflow-y-auto max-h-32">
                             {volumes
                               .split(",")
                               .map((v) => v.trim())
@@ -523,7 +523,7 @@ const ProductForm = () => {
                                   <input
                                     type="number"
                                     min="0"
-                                    className="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500 text-sm"
+                                    className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
                                     placeholder={`Stock`}
                                     {...register(`stock_${volume}`, {
                                       required: `Stock for Volume ${volume} is required!`,
@@ -545,12 +545,12 @@ const ProductForm = () => {
                       selectedCategory === "shoes" ? (
                       <>
                         {availableSizes.length === 0 ? (
-                          <div className="text-yellow-400 text-xs mb-2 p-2 bg-yellow-400/10 rounded">
+                          <div className="p-2 mb-2 text-xs text-yellow-400 rounded bg-yellow-400/10">
                             Please select at least one size below to enter stock
                             values.
                           </div>
                         ) : (
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                          <div className="space-y-2 overflow-y-auto max-h-32">
                             {["XS", "S", "M", "L", "XL", "XXL"]
                               .filter((size) => availableSizes.includes(size))
                               .map((size) => (
@@ -564,7 +564,7 @@ const ProductForm = () => {
                                   <input
                                     type="number"
                                     min="0"
-                                    className="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500 text-sm"
+                                    className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
                                     placeholder={`Stock`}
                                     {...register(`stock_${size}`, {
                                       required: `Stock for Size ${size} is required!`,
@@ -586,7 +586,7 @@ const ProductForm = () => {
                       <input
                         type="number"
                         min="0"
-                        className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500 text-sm sm:text-base"
+                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                         placeholder="Enter stock"
                         {...register("stock", {
                           required: "Stock is required!",
@@ -600,7 +600,7 @@ const ProductForm = () => {
                       />
                     ) : null}
                     {errors.stock && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.stock.message}
                       </span>
                     )}
@@ -620,9 +620,9 @@ const ProductForm = () => {
                     selectedCategory === "comics" ? "block" : "hidden"
                   }`}
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
                         Genres
                       </label>
                       <div className="flex flex-wrap gap-2">
@@ -678,18 +678,18 @@ const ProductForm = () => {
                         ))}
                       </div>
                       {errors.genres && (
-                        <span className="text-red-500 text-xs mt-1 block">
+                        <span className="block mt-1 text-xs text-red-500">
                           {errors.genres.message}
                         </span>
                       )}
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-1">
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
                         Volume Numbers
                       </label>
                       <input
                         type="text"
-                        className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500 text-sm sm:text-base"
+                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                         placeholder="V1, V2, V10, ... (e.g. V1, V2, V10)"
                         {...register("volumes", {
                           validate: (value) => {
@@ -725,7 +725,7 @@ const ProductForm = () => {
                         onBlur={handleVolumesChange}
                       />
                       {errors.volumes && (
-                        <span className="text-red-500 text-xs mt-1 block">
+                        <span className="block mt-1 text-xs text-red-500">
                           {errors.volumes.message}
                         </span>
                       )}
@@ -743,7 +743,7 @@ const ProductForm = () => {
                   }`}
                 >
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Available Sizes
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -768,17 +768,17 @@ const ProductForm = () => {
                       ))}
                     </div>
                     {errors.availableSizes && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.availableSizes.message}
                       </span>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Merchandise Type
                     </label>
                     <select
-                      className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-pink-500 text-sm sm:text-base"
+                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
                       {...register("merchandiseType", {
                         validate: (value) =>
                           !["clothes", "shoes"].includes(selectedCategory) ||
@@ -786,25 +786,25 @@ const ProductForm = () => {
                           "Merchandise type is required!",
                       })}
                     >
-                      <option className="bg-black text-white" value="">
+                      <option className="text-white bg-black" value="">
                         Select Type
                       </option>
                       {selectedCategory === "clothes" && (
                         <>
                           <option
-                            className="bg-gray-800 text-gray-300"
+                            className="text-gray-300 bg-gray-800"
                             value="t-shirt"
                           >
                             T-Shirt
                           </option>
                           <option
-                            className="bg-gray-800 text-gray-300"
+                            className="text-gray-300 bg-gray-800"
                             value="jacket"
                           >
                             Jacket
                           </option>
                           <option
-                            className="bg-gray-800 text-gray-300"
+                            className="text-gray-300 bg-gray-800"
                             value="pants"
                           >
                             Pants
@@ -814,13 +814,13 @@ const ProductForm = () => {
                       {selectedCategory === "shoes" && (
                         <>
                           <option
-                            className="bg-gray-800 text-gray-300"
+                            className="text-gray-300 bg-gray-800"
                             value="sneakers"
                           >
                             Sneakers
                           </option>
                           <option
-                            className="bg-gray-800 text-gray-300"
+                            className="text-gray-300 bg-gray-800"
                             value="boots"
                           >
                             Boots
@@ -829,7 +829,7 @@ const ProductForm = () => {
                       )}
                     </select>
                     {errors.merchandiseType && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.merchandiseType.message}
                       </span>
                     )}
@@ -843,11 +843,11 @@ const ProductForm = () => {
                   }`}
                 >
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-400">
                       Toy Type
                     </label>
                     <select
-                      className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-pink-500 text-sm sm:text-base"
+                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
                       {...register("toyType", {
                         validate: (value) =>
                           selectedCategory !== "toys" ||
@@ -855,22 +855,22 @@ const ProductForm = () => {
                           "Toy type is required!",
                       })}
                     >
-                      <option className="bg-black text-white" value="">
+                      <option className="text-white bg-black" value="">
                         Select Type
                       </option>
                       <option
-                        className="bg-gray-800 text-gray-300"
+                        className="text-gray-300 bg-gray-800"
                         value="action-figure"
                       >
                         Action Figure
                       </option>
 
-                      <option className="bg-gray-800 text-gray-300" value="car">
+                      <option className="text-gray-300 bg-gray-800" value="car">
                         Car
                       </option>
                     </select>
                     {errors.toyType && (
-                      <span className="text-red-500 text-xs mt-1 block">
+                      <span className="block mt-1 text-xs text-red-500">
                         {errors.toyType.message}
                       </span>
                     )}
@@ -880,7 +880,7 @@ const ProductForm = () => {
 
               {/* Error Display */}
               {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-500 text-sm">
+                <div className="p-4 text-sm text-red-500 border rounded-lg bg-red-500/10 border-red-500/20">
                   {error}
                 </div>
               )}
@@ -888,11 +888,11 @@ const ProductForm = () => {
 
             {/* Right Column - Image Upload */}
             <div className="lg:col-span-1">
-              <div className="space-y-4 sticky top-24">
+              <div className="sticky space-y-4 top-24">
                 <h3 className="text-lg font-medium text-white">
                   Product Image
                 </h3>
-                <div className="border-2 border-dashed border-white/10 rounded-lg p-4 sm:p-6 text-center">
+                <div className="p-4 text-center border-2 border-dashed rounded-lg border-white/10 sm:p-6">
                   <div className="space-y-2">
                     <img
                       src={assets.file}
@@ -902,9 +902,9 @@ const ProductForm = () => {
                     <div className="text-sm text-gray-400">
                       <label
                         htmlFor="file-upload"
-                        className="relative flex flex-col justify-center items-center cursor-pointer text-pink-500 hover:text-pink-400"
+                        className="relative flex flex-col items-center justify-center text-pink-500 cursor-pointer hover:text-pink-400"
                       >
-                        <span className="bg-pink-500 w-full sm:w-32 p-2 text-black hover:bg-pink-600 rounded-full text-sm transition-colors">
+                        <span className="w-full p-2 text-sm text-black transition-colors bg-pink-500 rounded-full sm:w-32 hover:bg-pink-600">
                           Upload a file
                         </span>
                         <input
@@ -920,13 +920,13 @@ const ProductForm = () => {
                           onChange={handleImageUpload}
                         />
                         {errors.image && (
-                          <span className="text-red-500 text-xs mt-2 block">
+                          <span className="block mt-2 text-xs text-red-500">
                             {errors.image.message}
                           </span>
                         )}
                       </label>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="mt-2 text-xs text-gray-500">
                       PNG, JPG, GIF up to 10MB
                     </p>
 
@@ -934,10 +934,10 @@ const ProductForm = () => {
                       <div className="mt-4">
                         <img
                           src={previewImage}
-                          className="w-full max-h-48 object-contain rounded-lg border border-white/20"
+                          className="object-contain w-full border rounded-lg max-h-48 border-white/20"
                           alt="Preview"
                         />
-                        <p className="text-green-400 text-xs mt-2">
+                        <p className="mt-2 text-xs text-green-400">
                           ✓ Image selected
                         </p>
                       </div>
@@ -949,17 +949,17 @@ const ProductForm = () => {
           </div>
 
           {/* Form Actions */}
-          <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-6 mt-6 border-t border-white/10">
+          <div className="flex flex-col justify-end gap-3 pt-6 mt-6 border-t sm:flex-row sm:gap-4 border-white/10">
             <button
               type="button"
               onClick={handleClose}
-              className="w-full cursor-pointer sm:w-auto px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors text-sm sm:text-base"
+              className="w-full px-4 py-2 text-sm text-black transition-colors bg-gray-300 rounded-lg cursor-pointer sm:w-auto hover:bg-white sm:text-base"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="w-full sm:w-auto cursor-pointer px-4 py-2 bg-gray-300 hover:bg-white text-black rounded-lg transition-colors text-sm sm:text-base font-medium"
+              className="w-full px-4 py-2 text-sm font-medium text-black transition-colors bg-gray-300 rounded-lg cursor-pointer sm:w-auto hover:bg-white sm:text-base"
             >
               Save
             </button>

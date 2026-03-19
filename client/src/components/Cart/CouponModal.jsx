@@ -200,16 +200,16 @@ const CouponModal = () => {
   if (!couponModalOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-black/95 border border-white/10 rounded-lg p-6 w-full max-w-md mx-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-md p-6 mx-auto border rounded-lg bg-black/95 border-white/10">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-white">
             Apply Coupon Code
           </h2>
           <button
             onClick={handleClose}
-            className="text-white/70 hover:text-white transition-colors"
+            className="transition-colors text-white/70 hover:text-white"
           >
             <img src={assets.close} alt="close" className="w-6 h-6" />
           </button>
@@ -217,19 +217,19 @@ const CouponModal = () => {
 
         {/* Coupon Input Section */}
         {!couponApplied && (
-          <div className="space-y-4 mb-6">
+          <div className="mb-6 space-y-4">
             <input
               type="text"
               placeholder="Enter coupon code"
               value={couponInput}
               onChange={(e) => setCouponInput(e.target.value)}
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:border-yellow-500/50 outline-none transition-colors"
+              className="w-full px-4 py-3 text-white transition-colors border rounded-lg outline-none bg-white/10 border-white/20 placeholder:text-white/50 focus:border-yellow-500/50"
               disabled={isLoading}
             />
             <button
               onClick={handleApplyCoupon}
               disabled={isLoading || !couponInput.trim()}
-              className="w-full py-3 rounded-lg cursor-pointer bg-yellow-500 text-black font-semibold hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
+              className="flex items-center justify-center w-full gap-2 py-3 font-semibold text-black transition-all duration-300 bg-yellow-500 rounded-lg cursor-pointer hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
@@ -245,13 +245,13 @@ const CouponModal = () => {
 
         {/* Applied Coupon Display */}
         {couponApplied && (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-6">
-            <div className="flex justify-between items-center">
+          <div className="p-4 mb-6 border rounded-lg bg-green-500/10 border-green-500/20">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-400 font-medium">Coupon Applied!</p>
-                <p className="text-white/70 text-sm">Code: {couponCode}</p>
+                <p className="font-medium text-green-400">Coupon Applied!</p>
+                <p className="text-sm text-white/70">Code: {couponCode}</p>
                 {isProceeding && (
-                  <p className="text-yellow-400 text-xs mt-1 flex items-center gap-1">
+                  <p className="flex items-center gap-1 mt-1 text-xs text-yellow-400">
                     <span className="animate-pulse">●</span>
                     Proceeding to payment automatically...
                   </p>
@@ -260,7 +260,7 @@ const CouponModal = () => {
               {!isProceeding && (
                 <button
                   onClick={handleRemoveCoupon}
-                  className="text-red-400 hover:text-red-300 text-sm underline"
+                  className="text-sm text-red-400 underline hover:text-red-300"
                 >
                   Remove
                 </button>
@@ -270,7 +270,7 @@ const CouponModal = () => {
         )}
 
         {/* Price Summary */}
-        <div className="bg-white/5 rounded-lg p-4 mb-6 space-y-2">
+        <div className="p-4 mb-6 space-y-2 rounded-lg bg-white/5">
           <div className="flex justify-between text-white/70">
             <span>Subtotal</span>
             <span>${subtotal}</span>
@@ -281,7 +281,7 @@ const CouponModal = () => {
           </div>
           {couponApplied && couponDiscount > 0 && (
             <>
-              <div className="flex justify-between text-white/50 text-sm">
+              <div className="flex justify-between text-sm text-white/50">
                 <span>Original Total</span>
                 <span className="line-through">${subtotal + shippingCost}</span>
               </div>
@@ -291,8 +291,8 @@ const CouponModal = () => {
               </div>
             </>
           )}
-          <div className="border-t border-white/10 pt-2">
-            <div className="flex justify-between text-yellow-500 font-bold text-lg">
+          <div className="pt-2 border-t border-white/10">
+            <div className="flex justify-between text-lg font-bold text-yellow-500">
               <span>Total</span>
               <span>${finalTotal}</span>
             </div>
@@ -304,7 +304,7 @@ const CouponModal = () => {
           <div className="flex justify-center">
             <button
               onClick={handleSkip}
-              className="w-full py-3 rounded-lg bg-pink-500 text-black font-semibold hover:bg-pink-400 transition-all duration-300"
+              className="w-full py-3 font-semibold text-black transition-all duration-300 bg-pink-500 rounded-lg hover:bg-pink-400"
             >
               Skip Coupon & Proceed to Payment
             </button>

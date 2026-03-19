@@ -47,7 +47,7 @@ const Dashboard = () => {
           {/* Modern SVG hamburger icon */}
           <img
             src={assets.dashbar}
-            className="w-6 hover:scale-120 cursor-pointer"
+            className="w-6 cursor-pointer hover:scale-120"
           />
         </button>
       )}

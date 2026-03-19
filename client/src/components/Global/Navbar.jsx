@@ -7,7 +7,7 @@ import Logout from "./Logout";
 const Navbar = () => {
   const { user } = useAuth();
   const updatedProfilePic = useSelector(
-    (state) => state.dashboard.updatedProfilePic
+    (state) => state.dashboard.updatedProfilePic,
   );
 
   return (
@@ -17,7 +17,7 @@ const Navbar = () => {
           {/* Logo */}
           <img
             src={assets.logo}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-full ring-1 ring-black shadow-lg"
+            className="w-10 h-10 rounded-full shadow-lg md:w-12 md:h-12 ring-1 ring-black"
             alt="Logo"
           />
         </span>
@@ -50,7 +50,7 @@ const Navbar = () => {
                   updatedProfilePic || user?.profilePic || assets.defaultProfile
                 }
                 alt={`${user?.username}'s Profile`}
-                className="w-7 h-7 md:w-10 md:h-10 rounded-full object-cover"
+                className="object-cover rounded-full w-7 h-7 md:w-10 md:h-10"
                 referrerPolicy="no-referrer"
                 crossOrigin="anonymous"
                 onError={(e) => {
