@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 // Controllers
 const {
-  makNSenOTP,
+  sendSignupOtp,
   verifyOTP,
   signUp,
   login,
@@ -18,7 +18,7 @@ const {
   signupLimiter,
 } = require("../../middlewares/custom/rateLimiters.middleware.js");
 
-router.post("/send-otp", otpSendLimiter, makNSenOTP); // creates in auth.js and sends via sendOTP in utils
+router.post("/send-otp", otpSendLimiter, sendSignupOtp); // creates in auth.js and sends via sendOTP in utils
 router.post("/verify-otp", otpVerifyLimiter, verifyOTP);
 router.post("/signup", signupLimiter, signUp);
 router.post("/login", loginLimiter, login);

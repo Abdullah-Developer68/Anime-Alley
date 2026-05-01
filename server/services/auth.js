@@ -57,7 +57,7 @@ const getClearCookieOptions = () => {
   };
 };
 
-const makNSenOTP = async (req, res) => {
+const sendSignupOtp = async (req, res) => {
   try {
     await dbConnect();
     const { email } = req.body;
@@ -377,4 +377,11 @@ const verifyToken = async (req, res) => {
   }
 };
 
-module.exports = { makNSenOTP, verifyOTP, signUp, login, logout, verifyToken };
+module.exports = {
+  sendSignupOtp,
+  verifyOTP,
+  signUp,
+  login,
+  logout,
+  verifyToken,
+};
