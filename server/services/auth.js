@@ -134,20 +134,24 @@ const makNSenOTP = async (req, res) => {
 };
 
 const verifyOTP = async (req, res) => {
-  await dbConnect();
-  const { email, otp } = req.body;
-  const user = await userModel.findOne({ email, accountStatus: "verifying" });
-  if (
-    !user ||
-    user.otp.toString() !== otp.toString() ||
-    user.otpExpiry < new Date()
-  ) {
-    return res.status(400).json({ message: "Invalid or expired OTP" });
-  }
+  try {
+    await dbConnect();
+    const { email, otp } = req.body;
+    const user = await userModel.findOne({ email, accountStatus: "verifying" });
+    if (
+      !user ||
+      user.otp.toString() !== otp.toString() ||
+      user.otpExpiry < new Date()
+    ) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
 
-  res
-    .status(200)
-    .json({ message: "OTP verified", accountStatus: user.accountStatus });
+    res
+      .status(200)
+      .json({ message: "OTP verified", accountStatus: user.accountStatus });
+  } catch (err) {
+    console.error("OTP Verification Error:", err.message);
+  }
 };
 
 const signUp = async (req, res) => {
