@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 const sendOTP = require("../utils/sendOTP.js");
 const dbConnect = require("../config/dbConnect.js");
+const otpData = require("../utils/otpGenerator.js");
+const createTemporaryPasswordHash = require("../utils/tempPasswordHash.js");
 
 dotenv.config();
 
@@ -56,55 +58,108 @@ const getClearCookieOptions = () => {
 };
 
 const makNSenOTP = async (req, res) => {
-  await dbConnect();
-  const { email } = req.body;
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 mins expiry
+  try {
+    await dbConnect();
+    const { email } = req.body;
 
-  let user = await userModel.findOne({ email });
-  if (!user) {
-    // Create new user with verifying role and required fields
-    user = await userModel.create({
-      email,
-      otp,
-      otpExpiry,
-      role: "verifying",
-      username: "temp",
-      password: "N/A",
+    let otp;
+    let otpExpiry;
+    let msg = "";
+
+    let user = await userModel.findOne({ email });
+
+    // create user if not found
+    if (!user) {
+      msg = "OTP sent to your email! Please use that to Sign In!";
+      otp = otpData().otp;
+      otpExpiry = otpData().otpExpiry;
+
+      // create a temporary password, so until user provides his own and bcrypt
+      // encrypts it during that time his account is safe. After signup we will replace it
+      const tempPasswordHash = await createTemporaryPasswordHash();
+
+      // Create new user with verifying status and required fields
+      user = await userModel.create({
+        email,
+        otp,
+        otpExpiry,
+        accountStatus: "verifying",
+        username: "temp",
+        password: tempPasswordHash,
+      });
+    }
+
+    if (user.accountStatus === "verifying" && user.otpExpiry > new Date()) {
+      return res
+        .status(200)
+        .json({ message: "OTP already sent! Please use that to Sign In!" });
+    } else if (
+      user.accountStatus === "verifying" &&
+      user.otpExpiry < new Date()
+    ) {
+      msg = "OTP expired! Generating new OTP and sending it to your email!";
+
+      // generates a new otp
+      otp = otpData().otp;
+      otpExpiry = otpData().otpExpiry;
+
+      // updates the existing user with the new otp and expiry
+      user.otp = otp;
+      user.otpExpiry = otpExpiry;
+      await user.save();
+    } else if (user.accountStatus === "active") {
+      return res
+        .status(200)
+        .json({ message: "You already have an account, so please Sign In" });
+    } else {
+      // if the user is signing up for the first time this runs
+      msg = "OTP sent to your email! Please use that to Sign In!";
+      // generates a new otp
+      otp = otpData().otp;
+      otpExpiry = otpData().otpExpiry;
+      user.otp = otp;
+      user.otpExpiry = otpExpiry;
+      user.accountStatus = "verifying";
+      await user.save();
+    }
+    await sendOTP(email, otp);
+    res.status(200).json({ message: msg });
+  } catch (err) {
+    console.error("OTP Generation Error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: err.message || "OTP generation failed",
     });
-  } else {
-    // If user exists
-    res.status(409).json({
-      message: "Your account already exists, so you should just login!",
-    });
-    return;
   }
-  await sendOTP(email, otp);
-  res.status(200).json({ message: "OTP sent" });
 };
 
 const verifyOTP = async (req, res) => {
   await dbConnect();
   const { email, otp } = req.body;
-  const user = await userModel.findOne({ email, role: "verifying" });
-  if (!user || user.otp !== otp || user.otpExpiry < new Date()) {
+  const user = await userModel.findOne({ email, accountStatus: "verifying" });
+  if (
+    !user ||
+    user.otp.toString() !== otp.toString() ||
+    user.otpExpiry < new Date()
+  ) {
     return res.status(400).json({ message: "Invalid or expired OTP" });
   }
-  // OTP verified - do NOT clear otp/otpExpiry yet
-  res.status(200).json({ message: "OTP verified" });
+
+  res
+    .status(200)
+    .json({ message: "OTP verified", accountStatus: user.accountStatus });
 };
 
 const signUp = async (req, res) => {
   await dbConnect();
   try {
     const { email, password, username } = req.body;
-    // Find user with role verifying
-    const user = await userModel.findOne({ email, role: "verifying" });
-    if (!user) {
+    // Find user with accountStatus verifying
+    const user = await userModel.findOne({ email, accountStatus: "verifying" });
+    if (user?.accountStatus !== "verifying") {
       return res.status(400).json({
         success: false,
-        message:
-          "No pending verification for this email. Please start signup again.",
+        message: "There is no pending verification. Please start signup again.",
       });
     }
     // Hash password
@@ -115,6 +170,7 @@ const signUp = async (req, res) => {
     user.role = "user";
     user.otp = undefined;
     user.otpExpiry = undefined;
+    user.accountStatus = "active";
     await user.save();
     // Create token and sign in
     const token = jwt.sign(
@@ -175,6 +231,15 @@ const login = async (req, res) => {
       return res
         .status(401)
         .json({ success: false, status: false, message: "User not found!" });
+    }
+
+    if (userExist.accountStatus === "verifying") {
+      return res.status(403).json({
+        success: false,
+        status: false,
+        message:
+          "Your account is still verifying. Please complete OTP verification first.",
+      });
     }
 
     // Check if user was registered through Google (no password but has googleId)

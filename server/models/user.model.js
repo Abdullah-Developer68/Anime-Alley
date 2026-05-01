@@ -9,21 +9,27 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["superAdmin", "admin", "user", "verifying"],
+      enum: ["superAdmin", "admin", "user"],
       default: "user",
+    },
+
+    accountStatus: {
+      type: String,
+      enum: ["verifying", "active"],
+      default: "verifying",
     },
     // sent for verification of email via normal signup
     otp: {
       type: String,
       required: function () {
-        // Required only if not Google and role is 'verifying'
-        return !this.googleId && this.role === "verifying";
+        // Required only if not Google and the account is still verifying
+        return !this.googleId && this.accountStatus === "verifying";
       },
     },
     otpExpiry: {
       type: Date,
       required: function () {
-        return !this.googleId && this.role === "verifying";
+        return !this.googleId && this.accountStatus === "verifying";
       },
     },
     password: {
@@ -54,7 +60,7 @@ const userSchema = new mongoose.Schema(
     ],
   },
 
-  { timestamps: true } //Automatically add createdAt & updatedAt
+  { timestamps: true }, //Automatically add createdAt & updatedAt
 );
 
 // Adds index on searchable fields
@@ -66,7 +72,7 @@ userSchema.index(
   {
     weights: { username: 5, email: 4 },
     name: "UserSearchIndex",
-  }
+  },
 );
 
 const User = mongoose.model("users", userSchema);

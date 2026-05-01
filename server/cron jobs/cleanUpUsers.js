@@ -2,7 +2,7 @@ const userModel = require("../models/user.model.js");
 
 /**
  * Cleanup Unverified Users
- * Deletes users with role "verifying" that were created more than 7 days ago
+ * Deletes users with accountStatus "verifying" that were created more than 7 days ago
  * This function is now called via API endpoint by Vercel Cron Jobs
  */
 async function cleanupUnverifiedUsers() {
@@ -10,7 +10,7 @@ async function cleanupUnverifiedUsers() {
 
   try {
     const result = await userModel.deleteMany({
-      role: "verifying",
+      accountStatus: "verifying",
       createdAt: { $lt: oneWeekAgo },
     });
 
