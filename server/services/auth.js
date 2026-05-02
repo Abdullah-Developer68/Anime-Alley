@@ -65,6 +65,7 @@ const sendSignupOtp = async (req, res) => {
     let otp;
     let otpExpiry;
     let msg = "";
+    let newUser = false;
 
     let user = await userModel.findOne({ email });
 
@@ -87,9 +88,11 @@ const sendSignupOtp = async (req, res) => {
         username: "temp",
         password: tempPasswordHash,
       });
+
+      newUser = true;
     }
 
-    if (user.accountStatus === "verifying" && user.otpExpiry > new Date()) {
+    if (user.accountStatus === "verifying" && user.otpExpiry > new Date() && !newUser) {
       return res
         .status(200)
         .json({ message: "OTP already sent! Please use that to Sign In!" });
