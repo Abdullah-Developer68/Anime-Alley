@@ -3,7 +3,6 @@ import search from "./img/search.svg";
 import banner from "./img/homePics/banner.webp";
 import menu from "./img/menu.webp";
 import genos from "./img/genos.webp";
-
 import comicBackground from "./img/homePics/comicBackground.webp";
 import halloweenBackground from "./img/homePics/halloweenBackground.webp";
 import jin from "./img/homePics/jin.webp";
