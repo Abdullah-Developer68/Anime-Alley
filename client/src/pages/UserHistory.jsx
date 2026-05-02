@@ -19,6 +19,9 @@ const UserHistory = () => {
 
   // Redux state only for loading (shared with Loader component)
   const isLoading = useSelector((state) => state.userHistory.isLoading);
+  const getNewHistoryCounter = useSelector(
+    (state) => state.userHistory.getNewHistoryCounter,
+  );
 
   const getUserInfo = useCallback(() => {
     try {
@@ -93,12 +96,8 @@ const UserHistory = () => {
         return;
       }
 
+      // triggers usecallback of fetch order which in turn triggers useEffect to get new Data
       setCurrentPage((prev) => prev + 1);
-      const res = await api.getOrderHistory(userInfo, currentPage + 1);
-      if (res.status === 200) {
-        setPurchaseHistory(res.data.paginatedOrders);
-        setTotalPages(res.data.totalPages);
-      }
     } catch (error) {
       console.error("Error fetching next page:", error);
       if (error.response?.status === 401) {
@@ -120,13 +119,8 @@ const UserHistory = () => {
         setDataLoading(false);
         return;
       }
-
+      // triggers usecallback of fetch order which in turn triggers useEffect to get new Data
       setCurrentPage((prev) => prev - 1);
-      const res = await api.getOrderHistory(userInfo, currentPage - 1);
-      if (res.status === 200) {
-        setPurchaseHistory(res.data.paginatedOrders);
-        setTotalPages(res.data.totalPages);
-      }
     } catch (error) {
       console.error("Error fetching previous page:", error);
       if (error.response?.status === 401) {
@@ -140,7 +134,7 @@ const UserHistory = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]); // Runs when fetchOrders changes (which is stable due to useCallback)
+  }, [fetchOrders, getNewHistoryCounter]);
 
   if (isLoading) {
     return (

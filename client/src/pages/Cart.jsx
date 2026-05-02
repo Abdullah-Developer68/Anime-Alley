@@ -9,6 +9,7 @@ import {
   setShouldProceedWithOrder,
   setFinalTotal,
 } from "../redux/Slice/cartSlice";
+import { getNewHistoryCounter } from "../redux/Slice/userHistorySlice";
 import {
   loadCartFromServer,
   clearCartAsync,
@@ -143,8 +144,10 @@ const Cart = () => {
         toast.success("Order placed successfully!");
         // Reset states
         dispatch(clearCartAsync());
+        // in here dispatch a state to reload the userorder history
+        dispatch(getNewHistoryCounter());
         dispatch(resetCoupon());
-        setPaymentMethod("cod");
+        dispatch(setPaymentMethod("cod"));
       } else {
         toast.error(res.data.message || "Failed to place order");
       }
