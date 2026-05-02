@@ -1,6 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { setHistoryLoading } from "../redux/Slice/userHistorySlice";
+import {
+  setHistoryLoading,
+  cachePurchaseHistory,
+  setTotalPages,
+} from "../redux/Slice/userHistorySlice";
 import api from "../api/api";
 import assets from "../assets/asset.js";
 import { useNavigate } from "react-router-dom";
@@ -11,17 +15,19 @@ const UserHistory = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // Local state for data (not shared across components)
-  const [purchaseHistory, setPurchaseHistory] = useState([]);
+  // Local state only for pagination and UI status
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Redux state only for loading (shared with Loader component)
+  // Redux state for cached data and shared status
   const isLoading = useSelector((state) => state.userHistory.isLoading);
   const getNewHistoryCounter = useSelector(
     (state) => state.userHistory.getNewHistoryCounter,
   );
+  const purchaseHistory = useSelector(
+    (state) => state.userHistory.purchaseHistory,
+  );
+  const totalPages = useSelector((state) => state.userHistory.totalPages);
 
   const getUserInfo = useCallback(() => {
     try {
@@ -42,13 +48,18 @@ const UserHistory = () => {
   }, []);
 
   const fetchOrders = useCallback(async () => {
+    let loadingTimer;
     try {
-      const loadingTimer = dispatch(setHistoryLoading(true));
+      // Only show the full-page loader if we don't have any cached data yet
+      // This makes returning visits feel instant (SWR Pattern)
+      if (purchaseHistory.length === 0) {
+        loadingTimer = dispatch(setHistoryLoading(true));
+      }
 
       const userInfo = getUserInfo();
 
       if (!userInfo) {
-        clearTimeout(loadingTimer);
+        if (loadingTimer) clearTimeout(loadingTimer);
         dispatch(setHistoryLoading(false));
         toast.error("Please login to view your order history");
         navigate("/login");
@@ -57,25 +68,30 @@ const UserHistory = () => {
 
       const res = await api.getOrderHistory(userInfo, currentPage);
 
-      // Clear the loading timer since API call completed
-      clearTimeout(loadingTimer);
-      dispatch(setHistoryLoading(false));
-
       if (res.status === 200) {
-        setPurchaseHistory(res.data.paginatedOrders);
-        setTotalPages(res.data.totalPages);
+        // Save to Redux (which also saves to localStorage)
+        dispatch(cachePurchaseHistory(res.data.paginatedOrders));
+        dispatch(setTotalPages(res.data.totalPages));
       } else {
         console.error("Failed to fetch orders:", res.data.message);
       }
     } catch (error) {
       console.error("Error fetching orders:", error);
-      dispatch(setHistoryLoading(false));
       if (error.response?.status === 401) {
         toast.error("Please login to view your order history");
         navigate("/login");
       }
+    } finally {
+      if (loadingTimer) clearTimeout(loadingTimer);
+      dispatch(setHistoryLoading(false));
     }
-  }, [dispatch, getUserInfo, navigate, currentPage]);
+  }, [
+    dispatch,
+    getUserInfo,
+    navigate,
+    currentPage,
+    purchaseHistory.length, // Add to dependencies
+  ]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
