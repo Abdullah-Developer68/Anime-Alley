@@ -107,19 +107,19 @@ const getProducts = async (req, res) => {
       if (category === "comics") {
         // Use case-insensitive regex matching for genres
         const genreRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i")
+          (type) => new RegExp(`^${type}$`, "i"),
         );
         query.genres = { $in: genreRegexArray };
       } else if (category === "clothes" || category === "shoes") {
         // Use case-insensitive regex matching for merchType
         const merchTypeRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i")
+          (type) => new RegExp(`^${type}$`, "i"),
         );
         query.merchType = { $in: merchTypeRegexArray };
       } else if (category === "toys") {
         // Use case-insensitive regex matching for toyType
         const toyTypeRegexArray = productTypes.map(
-          (type) => new RegExp(`^${type}$`, "i")
+          (type) => new RegExp(`^${type}$`, "i"),
         );
         query.toyType = { $in: toyTypeRegexArray };
       }
@@ -163,7 +163,6 @@ const getProducts = async (req, res) => {
     console.error("Error while fetching products:", error.message);
     res.status(500).json({
       success: false,
-      message: "Internal Server Error mongodb can not connect!",
       error: error.message,
     });
   }
@@ -349,7 +348,7 @@ const updateProduct = async (req, res) => {
     const updatedProduct = await productModel.findOneAndUpdate(
       { productID: productData.productID },
       productData,
-      { new: true }
+      { new: true },
     );
 
     res.status(200).json({
