@@ -1,98 +1,14 @@
-import { useEffect, useRef } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  markComponentLoaded,
-  resetLoadingState,
-} from "../redux/Slice/homeSlice";
+import { useRef } from "react";
 import Banner from "../components/Home/Banner";
 import ComicsSection from "../components/Home/ComicsSection";
 import ClothesSection from "../components/Home/ClothesSection";
 import ActionFigureSection from "../components/Home/ActionFigureSection";
-// need to modify it such that the loader only appears on first mount only
 
 const Home = () => {
-  const dispatch = useDispatch();
-  const { isLoading, loadingProgress, componentLoadStatus } = useSelector(
-    (state) => state.home,
-  );
-
   const bannerRef = useRef(null);
   const comicsRef = useRef(null);
   const clothesRef = useRef(null);
   const actionFiguresRef = useRef(null);
-
-  // Reset loading state when component mounts
-  useEffect(() => {
-    dispatch(resetLoadingState());
-
-    // Simple sequential loading - mark components as loaded in order
-    const loadingSequence = [
-      { component: "banner", delay: 300 },
-      { component: "comics", delay: 600 },
-      { component: "clothes", delay: 900 },
-      { component: "actionFigures", delay: 1200 },
-    ];
-
-    loadingSequence.forEach(({ component, delay }) => {
-      setTimeout(() => {
-        dispatch(markComponentLoaded(component));
-      }, delay);
-    });
-  }, [dispatch]);
-
-  // Fallback mechanism to ensure loading never gets stuck
-  useEffect(() => {
-    const fallbackTimer = setTimeout(() => {
-      // Force completion after 2 seconds if still loading
-      if (isLoading) {
-        const components = ["banner", "comics", "clothes", "actionFigures"];
-        components.forEach((component) => {
-          if (!componentLoadStatus[component]) {
-            dispatch(markComponentLoaded(component));
-          }
-        });
-      }
-    }, 2000);
-
-    return () => clearTimeout(fallbackTimer);
-  }, [isLoading, componentLoadStatus, dispatch]);
-
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gray-900">
-        <div className="max-w-md w-80">
-          <h2 className="mb-6 text-2xl font-bold text-center text-white">
-            Loading Anime Alley...
-          </h2>
-
-          <div className="w-full h-3 mb-4 bg-gray-700 rounded-full">
-            <div
-              className="h-3 transition-all duration-500 ease-out rounded-full shadow-lg bg-gradient-to-r from-purple-500 via-pink-500 to-red-500"
-              style={{ width: `${loadingProgress}%` }}
-            />
-          </div>
-
-          <div className="font-medium text-center text-gray-100">
-            {loadingProgress}%
-          </div>
-
-          <div className="mt-2 text-sm text-center text-gray-400">
-            {loadingProgress < 25 && "Loading banner..."}
-            {loadingProgress >= 25 &&
-              loadingProgress < 50 &&
-              "Loading comics section..."}
-            {loadingProgress >= 50 &&
-              loadingProgress < 75 &&
-              "Loading clothes section..."}
-            {loadingProgress >= 75 &&
-              loadingProgress < 100 &&
-              "Loading action figures..."}
-            {loadingProgress === 100 && "Almost ready!"}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
