@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { setHistoryLoading } from "../redux/Slice/userHistorySlice";
 import api from "../api/api";
@@ -20,7 +20,7 @@ const UserHistory = () => {
   // Redux state only for loading (shared with Loader component)
   const isLoading = useSelector((state) => state.userHistory.isLoading);
 
-  const getUserInfo = () => {
+  const getUserInfo = useCallback(() => {
     try {
       const userInfo = JSON.parse(localStorage.getItem("userInfo"));
       if (!userInfo) return null;
@@ -36,9 +36,9 @@ const UserHistory = () => {
       console.error("Error parsing userInfo:", error);
       return null;
     }
-  };
+  }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const loadingTimer = dispatch(setHistoryLoading(true));
 
@@ -72,7 +72,7 @@ const UserHistory = () => {
         navigate("/login");
       }
     }
-  };
+  }, [dispatch, getUserInfo, navigate, currentPage]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -140,8 +140,7 @@ const UserHistory = () => {
 
   useEffect(() => {
     fetchOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // We only need to run this once on mount
+  }, [fetchOrders]); // Runs when fetchOrders changes (which is stable due to useCallback)
 
   if (isLoading) {
     return (
