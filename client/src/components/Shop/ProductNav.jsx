@@ -1,5 +1,6 @@
 import { useSelector, useDispatch } from "react-redux";
 import { setCategory, openFilterBar } from "../../redux/Slice/shopSlice";
+import { updateCurrPage, setProductsCache } from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
 
 const ProductNav = () => {
@@ -24,7 +25,11 @@ const ProductNav = () => {
             className={`group relative flex items-center justify-center p-2 rounded-lg cursor-pointer transition-all duration-300 ${
               currCategory === category.name ? "bg-yellow-500" : "bg-gray-500"
             }`}
-            onClick={() => dispatch(setCategory(category.name))}
+            onClick={() => {
+              dispatch(setCategory(category.name));
+              dispatch(updateCurrPage(1));
+              dispatch(setProductsCache([]));
+            }}
           >
             <img src={category.icon} alt={category.name} className="w-8 h-8" />
             {/* Hover Tooltip */}

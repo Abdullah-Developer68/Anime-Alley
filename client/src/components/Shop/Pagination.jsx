@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from "react-redux";
-import { updateCurrPage } from "../../redux/Slice/shopSlice";
+import { updateCurrPage, setProductsCache } from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
 
 const Pagination = () => {
@@ -18,7 +18,10 @@ const Pagination = () => {
               ? "bg-white text-black cursor-pointer"
               : "bg-gray-600 text-white hover:bg-gray-500 cursor-pointer"
           } transition-colors duration-300 text-sm font-medium`}
-          onClick={() => dispatch(updateCurrPage(i))}
+          onClick={() => {
+            dispatch(updateCurrPage(i));
+            dispatch(setProductsCache([]));
+          }}
         >
           {i}
         </button>,
@@ -32,7 +35,10 @@ const Pagination = () => {
       <button
         className="flex items-center justify-center h-8 px-4 ml-2 transition-colors bg-gray-300 border-gray-300 rounded-full cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={currentPage === 1}
-        onClick={() => dispatch(updateCurrPage(currentPage - 1))}
+        onClick={() => {
+          dispatch(updateCurrPage(currentPage - 1));
+          dispatch(setProductsCache([]));
+        }}
       >
         <img src={assets.prevBtn} alt="Previous" className="w-4 h-4" />
       </button>
@@ -42,7 +48,10 @@ const Pagination = () => {
       <button
         className="flex items-center justify-center h-8 px-4 ml-2 transition-colors bg-gray-300 border-gray-300 rounded-full cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={currentPage === totalPages}
-        onClick={() => dispatch(updateCurrPage(currentPage + 1))}
+        onClick={() => {
+          dispatch(updateCurrPage(currentPage + 1));
+          dispatch(setProductsCache([]));
+        }}
       >
         <img src={assets.nextBtn} alt="Next" className="w-4 h-4" />
       </button>

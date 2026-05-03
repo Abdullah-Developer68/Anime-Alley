@@ -49,16 +49,11 @@ const Cards = ({ product }) => {
               {product.price} $
             </p>
             {/* Add to Cart Button with product._id as the url parameter */}
-            <Link to={`/shop/:${product._id}`}>
-              <button
-                className="p-1 text-xs font-medium text-black transition-all duration-300 bg-gray-300 rounded-md cursor-pointer hover:bg-white"
-                onClick={() => {
-                  sendProductData(); // Call the function to send product data to Redux store
-                }}
-              >
+            <span>
+              <button className="p-1 text-xs font-medium text-black transition-all duration-300 bg-gray-300 rounded-md cursor-pointer hover:bg-white">
                 <img src={assets.bag} alt="add to cart" className="w-5" />
               </button>
-            </Link>
+            </span>
           </div>
         </div>
       </div>

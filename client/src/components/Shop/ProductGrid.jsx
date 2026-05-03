@@ -1,34 +1,31 @@
 import { useSelector, useDispatch } from "react-redux";
 import {
   updateTotalPages,
-  updateCurrPage,
   setLoading,
+  setProductsCache,
 } from "../../redux/Slice/shopSlice";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Cards from "../Global/Card";
 import Loader from "../Global/Loader";
 import api from "../../api/api";
 import ActiveFiltersDisplay from "./ActiveFiltersDisplay";
 
 const ProductGrid = () => {
-  const [products, setProducts] = useState([]);
   const dispatch = useDispatch();
   //Access the category state and filters of that category from the redux store
+  const products = useSelector((state) => state.shop.productsCache);
   const currCategory = useSelector((state) => state.shop.currCategory);
   const appliedFilters = useSelector((state) => state.shop.productTypes);
   const currPage = useSelector((state) => state.shop.currPage);
   const isLoading = useSelector((state) => state.shop.isLoading);
-
-  // reset page to 1 after category changes
-  useEffect(() => {
-    dispatch(updateCurrPage(1));
-  }, [currCategory, dispatch]);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         // Set loading state with a small delay to prevent flickering for fast API calls
         const loadingTimer = setTimeout(() => {
+          console.log("Setting loading to true after delay");
+          console.log("The fecth api is running!");
           dispatch(setLoading(true));
         }, 200);
 
@@ -51,20 +48,22 @@ const ProductGrid = () => {
         dispatch(setLoading(false));
 
         if (response.data.success) {
-          setProducts(response.data.currPageProducts);
+          dispatch(setProductsCache(response.data.currPageProducts));
           dispatch(updateTotalPages(response.data.totalPages));
         } else {
           console.error("Failed to fetch products:", response.data.message);
-          setProducts([]);
+          dispatch(setProductsCache([]));
         }
       } catch (error) {
         console.error("Error fetching products:", error);
         dispatch(setLoading(false));
-        setProducts([]);
+        dispatch(setProductsCache([]));
       }
     };
-    fetchProducts();
-  }, [currCategory, appliedFilters, currPage, dispatch]);
+    if (products.length === 0) {
+      fetchProducts();
+    }
+  }, [currCategory, appliedFilters, currPage, dispatch, products.length]);
 
   return (
     <div className="w-full">

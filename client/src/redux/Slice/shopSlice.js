@@ -8,6 +8,7 @@ const initialState = {
   currPage: parseInt(localStorage.getItem("currPage")) || 1,
   totalPages: parseInt(localStorage.getItem("totalPages")) || 1,
   productData: JSON.parse(localStorage.getItem("productData")) || {},
+  productsCache: JSON.parse(localStorage.getItem("productsCache")) || [], // Cache for products for quick access
   isLoading: false, // Loading state for products
 };
 
@@ -42,6 +43,10 @@ const shopSlice = createSlice({
       state.productData = action.payload;
       localStorage.setItem("productData", JSON.stringify(action.payload));
     },
+    setProductsCache: (state, action) => {
+      state.productsCache = action.payload;
+      localStorage.setItem("productsCache", JSON.stringify(action.payload));
+    },
     setLoading: (state, action) => {
       state.isLoading = action.payload;
     },
@@ -58,6 +63,7 @@ export const {
   updateTotalPages,
   transferProductData,
   setLoading,
+  setProductsCache,
 } = shopSlice.actions;
 
 export default shopSlice.reducer;

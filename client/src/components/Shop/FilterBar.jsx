@@ -4,6 +4,7 @@ import {
   openFilterBar,
   transferFilterData,
   updateCurrPage,
+  setProductsCache,
 } from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
 import { useState, useEffect } from "react";
@@ -87,9 +88,15 @@ const FilterBar = () => {
         return filter !== "All";
       });
     }
+    // Only update if the values are actually different to prevent infinite loops
+    const isDifferent =
+      JSON.stringify(updatedFilters) !==
+      JSON.stringify(formFields.productTypes);
 
-    setValue("productTypes", updatedFilters);
-  }, [formFields.currProductType]);
+    if (isDifferent) {
+      setValue("productTypes", updatedFilters);
+    }
+  }, [formFields.currProductType, formFields.productTypes, setValue]);
 
   /**
    * Form submission handler
@@ -125,6 +132,7 @@ const FilterBar = () => {
 
       // Auto-close the filter bar after applying filters (similar to close button behavior)
       dispatch(openFilterBar(false));
+      dispatch(setProductsCache([])); // Clear cached products to trigger refetch with new filters
     } catch (error) {
       console.error("Error applying filters:", error);
     } finally {
