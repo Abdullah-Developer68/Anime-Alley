@@ -295,90 +295,98 @@ const Cart = () => {
 
             {/* Cart Items List */}
             <div className="flex-1 pr-2 overflow-y-auto scrollbar-thin scrollbar-thumb-pink-500 scrollbar-track-white/10">
-              {cartItems.map((item, index) => (
-                <div
-                  key={index}
-                  className="p-3 mb-4 transition-all duration-300 border sm:mb-6 bg-white/5 rounded-xl sm:p-4 hover:bg-white/10 border-white/10 last:mb-4"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-                    {/* Image Section */}
-                    <div className="mx-auto shrink-0 sm:mx-0">
-                      <img
-                        src={`${item.image}`}
-                        alt={item.name}
-                        className="object-cover w-24 h-24 transition-transform duration-300 rounded-lg shadow-lg sm:w-32 sm:h-32 hover:scale-105"
-                      />
-                    </div>
+              {cartItems.map((item, index) => {
+                const isFirstVisibleItem = index === 0;
 
-                    {/* Details Section */}
-                    <div className="flex-grow w-full space-y-2 sm:space-y-3">
-                      <div className="flex flex-col w-full">
-                        <div className="flex flex-col gap-2 mb-2 sm:flex-row sm:justify-between sm:items-start sm:gap-0">
-                          <h3 className="text-lg font-medium text-center transition-colors sm:text-xl text-white/90 hover:text-pink-500 sm:text-left">
-                            {item.name}
-                          </h3>
-                          <p className="text-base font-bold text-center text-white sm:text-lg sm:text-right">
-                            <span className="p-1 text-xs font-bold text-black bg-yellow-500 rounded-md">
-                              {item.price * item.itemQuantity} $
-                            </span>
-                          </p>
-                        </div>
-
-                        {/* Variant Badge - Moved inside the flex-col container */}
-                        {renderVariantBadge(item)}
+                return (
+                  <div
+                    key={index}
+                    className="p-3 mb-4 transition-all duration-300 border sm:mb-6 bg-white/5 rounded-xl sm:p-4 hover:bg-white/10 border-white/10 last:mb-4"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                      {/* Image Section */}
+                      <div className="mx-auto shrink-0 sm:mx-0">
+                        <img
+                          src={`${item.image}`}
+                          alt={item.name}
+                          fetchPriority={isFirstVisibleItem ? "high" : "auto"}
+                          loading={isFirstVisibleItem ? "eager" : "lazy"}
+                          className="object-cover w-24 h-24 transition-transform duration-300 rounded-lg shadow-lg sm:w-32 sm:h-32 hover:scale-105"
+                        />
                       </div>
 
-                      {/* Quantity Controls */}
-                      <div className="flex items-center justify-center gap-4 sm:justify-start">
-                        <span className="text-sm text-white/60">Quantity:</span>
-                        <div className="flex items-center overflow-hidden border rounded-lg border-white/20 bg-black/40">
-                          <button
-                            className={`px-4 py-2 text-white/90 hover:bg-pink-500/20 transition-colors ${
-                              loadingItems.has(
-                                `${item._id}-${item.selectedVariant}`,
-                              )
-                                ? "opacity-50 cursor-not-allowed"
-                                : "cursor-pointer"
-                            }`}
-                            onClick={() => handleDecreaseQuantity(item)}
-                            disabled={loadingItems.has(
-                              `${item._id}-${item.selectedVariant}`,
-                            )}
-                          >
-                            {loadingItems.has(
-                              `${item._id}-${item.selectedVariant}`,
-                            )
-                              ? "..."
-                              : "-"}
-                          </button>
-                          <span className="w-12 font-medium text-center text-white">
-                            {item.itemQuantity}
+                      {/* Details Section */}
+                      <div className="flex-grow w-full space-y-2 sm:space-y-3">
+                        <div className="flex flex-col w-full">
+                          <div className="flex flex-col gap-2 mb-2 sm:flex-row sm:justify-between sm:items-start sm:gap-0">
+                            <h3 className="text-lg font-medium text-center transition-colors sm:text-xl text-white/90 hover:text-pink-500 sm:text-left">
+                              {item.name}
+                            </h3>
+                            <p className="text-base font-bold text-center text-white sm:text-lg sm:text-right">
+                              <span className="p-1 text-xs font-bold text-black bg-yellow-500 rounded-md">
+                                {item.price * item.itemQuantity} $
+                              </span>
+                            </p>
+                          </div>
+
+                          {/* Variant Badge - Moved inside the flex-col container */}
+                          {renderVariantBadge(item)}
+                        </div>
+
+                        {/* Quantity Controls */}
+                        <div className="flex items-center justify-center gap-4 sm:justify-start">
+                          <span className="text-sm text-white/60">
+                            Quantity:
                           </span>
-                          <button
-                            className={`px-4 py-2 text-white/90 hover:bg-pink-500/20 transition-colors ${
-                              loadingItems.has(
+                          <div className="flex items-center overflow-hidden border rounded-lg border-white/20 bg-black/40">
+                            <button
+                              className={`px-4 py-2 text-white/90 hover:bg-pink-500/20 transition-colors ${
+                                loadingItems.has(
+                                  `${item._id}-${item.selectedVariant}`,
+                                )
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer"
+                              }`}
+                              onClick={() => handleDecreaseQuantity(item)}
+                              disabled={loadingItems.has(
+                                `${item._id}-${item.selectedVariant}`,
+                              )}
+                            >
+                              {loadingItems.has(
                                 `${item._id}-${item.selectedVariant}`,
                               )
-                                ? "opacity-50 cursor-not-allowed"
-                                : "cursor-pointer"
-                            }`}
-                            onClick={() => handleIncreaseQuantity(item)}
-                            disabled={loadingItems.has(
-                              `${item._id}-${item.selectedVariant}`,
-                            )}
-                          >
-                            {loadingItems.has(
-                              `${item._id}-${item.selectedVariant}`,
-                            )
-                              ? "..."
-                              : "+"}
-                          </button>
+                                ? "..."
+                                : "-"}
+                            </button>
+                            <span className="w-12 font-medium text-center text-white">
+                              {item.itemQuantity}
+                            </span>
+                            <button
+                              className={`px-4 py-2 text-white/90 hover:bg-pink-500/20 transition-colors ${
+                                loadingItems.has(
+                                  `${item._id}-${item.selectedVariant}`,
+                                )
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer"
+                              }`}
+                              onClick={() => handleIncreaseQuantity(item)}
+                              disabled={loadingItems.has(
+                                `${item._id}-${item.selectedVariant}`,
+                              )}
+                            >
+                              {loadingItems.has(
+                                `${item._id}-${item.selectedVariant}`,
+                              )
+                                ? "..."
+                                : "+"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
