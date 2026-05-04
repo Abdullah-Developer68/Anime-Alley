@@ -22,6 +22,9 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  imagePublicId: {
+    type: String,
+  },
   category: {
     type: String,
     required: true,
@@ -53,13 +56,13 @@ const productSchema = new mongoose.Schema({
         if (this.category === "comics") {
           const isObject = typeof value === "object";
           const hasValidVolumes = Object.keys(value).every(
-            (key) => this.volumes.includes(key) && Number.isInteger(value[key])
+            (key) => this.volumes.includes(key) && Number.isInteger(value[key]),
           );
           return isObject && hasValidVolumes;
         } else if (this.category === "clothes" || this.category === "shoes") {
           const isObject = typeof value === "object";
           const isValidSizes = Object.keys(value).every(
-            (key) => this.sizes.includes(key) && Number.isInteger(value[key])
+            (key) => this.sizes.includes(key) && Number.isInteger(value[key]),
           );
           return isObject && isValidSizes;
         } else {
@@ -93,7 +96,7 @@ productSchema.index(
   {
     weights: { name: 5, category: 4 },
     name: "ProductSearchIndex",
-  }
+  },
 );
 
 module.exports = mongoose.model("products", productSchema);

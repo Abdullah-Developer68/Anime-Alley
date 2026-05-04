@@ -3,6 +3,10 @@ const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const dbConnect = require("../config/dbConnect.js");
 const jwt = require("jsonwebtoken");
+const {
+  extractPublicIdFromCloudinaryUrl,
+  destroyCloudinaryImage,
+} = require("../utils/cloudinary.utils.js");
 
 const getUsers = async (req, res) => {
   await dbConnect();
@@ -167,6 +171,13 @@ const deleteUser = async (req, res) => {
         .json({ message: "User not found or already deleted." });
     }
 
+    const publicId =
+      userToDelete.profilePicPublicId ||
+      extractPublicIdFromCloudinaryUrl(userToDelete.profilePic);
+    if (publicId) {
+      await destroyCloudinaryImage(userToDelete.profilePic, publicId);
+    }
+
     res.status(200).json({
       success: true,
       message: `User with ID: ${userId} has been deleted.`,
@@ -276,6 +287,9 @@ const updateUser = async (req, res) => {
 
     if (req.file) {
       updateObj.profilePic = req.file.path; // Use path for Cloudinary URL
+      updateObj.profilePicPublicId = extractPublicIdFromCloudinaryUrl(
+        req.file.path,
+      );
     }
     if (password) {
       updateObj.password = await bcrypt.hash(password, 10);
@@ -293,8 +307,20 @@ const updateUser = async (req, res) => {
       new: true,
       runValidators: true,
     });
+
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found after update." });
+    }
+
+    if (req.file) {
+      const oldPublicId =
+        userToUpdate.profilePicPublicId ||
+        extractPublicIdFromCloudinaryUrl(userToUpdate.profilePic);
+
+      const newPublicId = updateObj.profilePicPublicId;
+      if (oldPublicId && oldPublicId !== newPublicId) {
+        await destroyCloudinaryImage(userToUpdate.profilePic, oldPublicId);
+      }
     }
 
     res.status(200).json({

@@ -41,6 +41,7 @@ const userSchema = new mongoose.Schema(
     },
 
     profilePic: { type: String },
+    profilePicPublicId: { type: String },
 
     // `googleId` is unique, ensuring no two users can have the same Google ID
     // `sparse: true` allows users who sign up without Google OAuth to omit this field (it's only enforced for Google users)

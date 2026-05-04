@@ -1,5 +1,9 @@
 const productModel = require("../models/product.model.js");
 const dbConnect = require("../config/dbConnect.js");
+const {
+  extractPublicIdFromCloudinaryUrl,
+  destroyCloudinaryImage,
+} = require("../utils/cloudinary.utils.js");
 
 /**
  * Generate unique product ID based on category
@@ -173,6 +177,9 @@ const createProduct = async (req, res) => {
   try {
     // Cloudinary returns the URL in req.file.path
     const imageUrl = req.file ? req.file.path : null;
+    const imagePublicId = req.file
+      ? extractPublicIdFromCloudinaryUrl(req.file.path)
+      : null;
 
     // Remove productID from required fields validation since it's auto-generated
     if (
@@ -209,6 +216,7 @@ const createProduct = async (req, res) => {
       category: req.body.category,
       description: req.body.description,
       image: imageUrl, // Store the Cloudinary URL
+      imagePublicId,
       stock: JSON.parse(req.body.stock),
     };
 
@@ -268,21 +276,6 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   await dbConnect();
   try {
-    let imageUrl;
-    if (req.file) {
-      // Use Cloudinary URL if a new image is uploaded
-      imageUrl = req.file.path;
-    } else if (req.body.image) {
-      // Use the existing image URL if not
-      imageUrl = req.body.image;
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: "Product image is required",
-      });
-    }
-    // For updates, we need the productID to identify which product to update
-    // But we don't generate a new one - we preserve the existing ID
     if (
       !req.body.productID ||
       !req.body.name ||
@@ -297,14 +290,35 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    // Preserve the existing productID for updates
+    const existingProduct = await productModel.findOne({
+      productID: req.body.productID,
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const imageUrl = req.file
+      ? req.file.path
+      : req.body.image || existingProduct.image;
+    const imagePublicId = req.file
+      ? extractPublicIdFromCloudinaryUrl(req.file.path)
+      : req.body.image
+        ? extractPublicIdFromCloudinaryUrl(req.body.image)
+        : existingProduct.imagePublicId ||
+          extractPublicIdFromCloudinaryUrl(existingProduct.image);
+
     const productData = {
-      productID: req.body.productID, // Keep existing ID
+      productID: req.body.productID,
       name: req.body.name,
       price: parseFloat(req.body.price),
       category: req.body.category,
       description: req.body.description,
       image: imageUrl,
+      imagePublicId,
       stock: JSON.parse(req.body.stock),
     };
 
@@ -348,8 +362,18 @@ const updateProduct = async (req, res) => {
     const updatedProduct = await productModel.findOneAndUpdate(
       { productID: productData.productID },
       productData,
-      { new: true },
+      { new: true, runValidators: true },
     );
+
+    if (req.file) {
+      const oldPublicId =
+        existingProduct.imagePublicId ||
+        extractPublicIdFromCloudinaryUrl(existingProduct.image);
+
+      if (oldPublicId && oldPublicId !== imagePublicId) {
+        await destroyCloudinaryImage(existingProduct.image, oldPublicId);
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -373,18 +397,29 @@ const deleteProduct = async (req, res) => {
     return res.status(400).json({ message: "The productID is required!" });
   }
 
-  const result = await productModel.deleteOne({ productID });
+  const deletedProduct = await productModel.findOneAndDelete({ productID });
 
-  if (!result.acknowledged) {
-    return res
-      .status(500)
-      .json({ message: "Error occured while deleting the document!" });
+  if (!deletedProduct) {
+    return res.status(404).json({
+      success: false,
+      message: "Product not found",
+    });
   }
+
+  const publicId =
+    deletedProduct.imagePublicId ||
+    extractPublicIdFromCloudinaryUrl(deletedProduct.image);
+
+  if (publicId) {
+    await destroyCloudinaryImage(deletedProduct.image, publicId);
+  }
+
   res.status(200).json({
     message: `Product with ID: ${productID} has been deleted!`,
     success: true,
   });
 };
+
 
 module.exports = {
   getProducts,
