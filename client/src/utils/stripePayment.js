@@ -1,6 +1,6 @@
 import api from "../api/api";
 
-const stripePromise = null;
+let stripePromise = null;
 
 const getStripe = async () => {
   if (!stripePromise) {
