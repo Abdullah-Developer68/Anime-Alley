@@ -20,8 +20,6 @@ const StripeButton = () => {
       return;
     }
 
-    toast.info("Proceeding to checkout...");
-
     // Open coupon modal with stripe payment method
     dispatch(openCouponModal());
     dispatch(setPaymentMethod("stripe"));

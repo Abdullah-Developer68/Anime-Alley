@@ -100,8 +100,6 @@ const Cart = () => {
       return;
     }
 
-    toast.info("Proceeding to checkout...");
-
     // Store order data and open coupon modal
     dispatch(
       openCouponModal({

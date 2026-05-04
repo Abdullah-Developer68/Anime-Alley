@@ -24,6 +24,7 @@ const CouponModal = () => {
   const isLoading = useSelector((state) => state.cart.isLoading);
   const couponModalOpen = useSelector((state) => state.cart.couponModalOpen);
   const cartItems = useSelector((state) => state.cart.cartItems);
+  const paymentMethod = useSelector((state) => state.cart.paymentMethod);
   const discountedPrice = useSelector((state) => state.cart.discountedPrice);
   const finalTotal = useSelector((state) => state.cart.finalTotal);
 
@@ -160,6 +161,15 @@ const CouponModal = () => {
     toast.success("Coupon removed");
   };
 
+  const showCheckoutToast = () => {
+    if (paymentMethod === "stripe") {
+      toast.info("Proceeding to checkout...", { autoClose: 3000 });
+      return;
+    }
+
+    toast.info("Placing your order...");
+  };
+
   const handleProceed = () => {
     if (cartItems.length === 0) {
       toast.error(
@@ -168,7 +178,7 @@ const CouponModal = () => {
       return;
     }
 
-    toast.info("Proceeding to checkout...");
+    showCheckoutToast();
 
     // Dispatch individual state updates
     dispatch(setDiscountedPrice(discountedPrice));
@@ -191,7 +201,7 @@ const CouponModal = () => {
       return;
     }
 
-    toast.info("Proceeding to checkout...");
+    showCheckoutToast();
 
     // Reset coupon if applied
     if (couponApplied) {
