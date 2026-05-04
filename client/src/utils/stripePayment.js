@@ -1,12 +1,19 @@
 import api from "../api/api";
-import { loadStripe } from "@stripe/stripe-js";
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const stripePromise = null;
 
+const getStripe = async () => {
+  if (!stripePromise) {
+    // import loadStripe dynamically so that it is loaded only the first time it is needed (when the user clicks on the checkout button) and not when the app loads for the first time
+    const { loadStripe } = await import("@stripe/stripe-js");
+    stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+  }
+  return stripePromise;
+};
 //  paymentData - info from cart.jsx
 export const processStripePayment = async (paymentData) => {
   try {
-    const stripe = await stripePromise;
+    const stripe = await getStripe();
     // This creates a checkout session on the server and or that provides the required data to start the stripe checkout process
     const res = await api.createCheckOutSession(paymentData);
     const { sessionId } = res.data;
