@@ -23,6 +23,7 @@ const findOrCreateUser = async (profile) => {
           email: profile.emails[0].value,
           username: profile.displayName,
           profilePic: profile.photos[0].value,
+          accountStatus: "active",
         });
       }
     }
@@ -52,7 +53,7 @@ const GoogleProvider = new GoogleStrategy(
     } catch (error) {
       return done(error, null);
     }
-  }
+  },
 );
 
 module.exports = GoogleProvider;
