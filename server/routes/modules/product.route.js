@@ -24,20 +24,20 @@ router.post(
   verifyTokenMiddleware,
   requireAdmin,
   upload.single("image"),
-  createProduct
+  createProduct,
 );
 router.post(
   "/deleteProduct",
   verifyTokenMiddleware,
   requireAdmin,
-  deleteProduct
+  deleteProduct,
 );
 router.put(
   "/updateProduct",
   verifyTokenMiddleware,
   requireAdmin,
   upload.single("image"),
-  updateProduct
+  updateProduct,
 );
 
 module.exports = router;

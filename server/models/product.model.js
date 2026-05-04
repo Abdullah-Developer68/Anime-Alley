@@ -1,15 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
-
-const getContextValue = (ctx, key) => {
-  // Mongoose validators run with different contexts for saves vs update queries.
-  // Using this.get() keeps the validator working inside findOneAndUpdate() too.
-  if (ctx && typeof ctx.get === "function") {
-    return ctx.get(key);
-  }
-
-  return ctx ? ctx[key] : undefined;
-};
+const { getContextValue } = require("../utils/mongoose.utils.js");
 
 const productSchema = new mongoose.Schema({
   productID: {

@@ -276,8 +276,16 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   await dbConnect();
   try {
+    const { _id } = req.body;
+
+    if (!_id) {
+      return res.status(400).json({
+        success: false,
+        message: "Product id is required",
+      });
+    }
+
     if (
-      !req.body.productID ||
       !req.body.name ||
       !req.body.price ||
       !req.body.stock ||
@@ -290,9 +298,7 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    const existingProduct = await productModel.findOne({
-      productID: req.body.productID,
-    });
+    const existingProduct = await productModel.findById(_id);
 
     if (!existingProduct) {
       return res.status(404).json({
@@ -312,7 +318,6 @@ const updateProduct = async (req, res) => {
           extractPublicIdFromCloudinaryUrl(existingProduct.image);
 
     const productData = {
-      productID: req.body.productID,
       name: req.body.name,
       price: parseFloat(req.body.price),
       category: req.body.category,
@@ -359,8 +364,8 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    const updatedProduct = await productModel.findOneAndUpdate(
-      { productID: productData.productID },
+    const updatedProduct = await productModel.findByIdAndUpdate(
+      _id,
       productData,
       { new: true, runValidators: true, context: "query" },
     );

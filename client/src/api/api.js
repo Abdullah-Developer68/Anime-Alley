@@ -25,7 +25,7 @@ api.interceptors.request.use(
   (error) => {
     // this ensures that the error is passed down to the catch block handler in the code 1.e, (AuthProvider.jsx, Signup.jsx, Login.jsx)
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add response interceptor to handle token expiration
@@ -40,7 +40,7 @@ api.interceptors.response.use(
       clearAllUserData();
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 // --- AUTH API'S ---
@@ -105,7 +105,7 @@ api.placeOrder = (
   userInfo,
   deliveryAddress,
   paymentMethod,
-  userId
+  userId,
 ) => {
   return api.post("/order/placeOrder", {
     couponCode,
