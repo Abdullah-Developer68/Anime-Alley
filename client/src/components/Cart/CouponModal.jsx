@@ -161,6 +161,15 @@ const CouponModal = () => {
   };
 
   const handleProceed = () => {
+    if (cartItems.length === 0) {
+      toast.error(
+        "Your cart is empty. Add items before proceeding to checkout.",
+      );
+      return;
+    }
+
+    toast.info("Proceeding to checkout...");
+
     // Dispatch individual state updates
     dispatch(setDiscountedPrice(discountedPrice));
     dispatch(setFinalTotal(finalTotal));
@@ -175,6 +184,15 @@ const CouponModal = () => {
   };
 
   const handleSkip = () => {
+    if (cartItems.length === 0) {
+      toast.error(
+        "Your cart is empty. Add items before proceeding to checkout.",
+      );
+      return;
+    }
+
+    toast.info("Proceeding to checkout...");
+
     // Reset coupon if applied
     if (couponApplied) {
       dispatch(resetCoupon());

@@ -102,7 +102,14 @@ const ProductDescription = () => {
       return;
     }
 
+    let addingToastId;
     try {
+      addingToastId = toast.info("Adding item to cart...", {
+        autoClose: false,
+        closeOnClick: false,
+        draggable: false,
+      });
+
       // All of the Checks are made in the cartThunk.js
       const result = await dispatch(
         addToCartAsync({
@@ -111,6 +118,8 @@ const ProductDescription = () => {
           quantity: itemQuantity,
         }),
       ).unwrap();
+
+      toast.dismiss(addingToastId);
 
       // result is just the data object returned by cartThunk.js
       setItemQuantity(0);
@@ -150,6 +159,7 @@ const ProductDescription = () => {
         );
       }
       setItemQuantity(0);
+      toast.dismiss(addingToastId);
     }
   };
 

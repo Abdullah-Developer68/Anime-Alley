@@ -5,12 +5,22 @@ import { toast } from "react-toastify";
 const StripeButton = () => {
   const dispatch = useDispatch();
   const deliveryAddress = useSelector((state) => state.cart.deliveryAddress);
+  const cartItems = useSelector((state) => state.cart.cartItems);
 
   const handleClick = () => {
+    if (cartItems.length === 0) {
+      toast.error(
+        "Your cart is empty. Add items before proceeding to checkout.",
+      );
+      return;
+    }
+
     if (!deliveryAddress?.trim()) {
       toast.error("Enter the delivery address!");
       return;
     }
+
+    toast.info("Proceeding to checkout...");
 
     // Open coupon modal with stripe payment method
     dispatch(openCouponModal());

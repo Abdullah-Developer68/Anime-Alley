@@ -85,6 +85,12 @@ const Cart = () => {
 
   // Open coupon modal before placing order
   const handlePlaceOrderClick = () => {
+    if (cartItems.length === 0) {
+      toast.error(
+        "Your cart is empty. Add items before proceeding to checkout.",
+      );
+      return;
+    }
     if (!deliveryAddress.trim()) {
       toast.error("Please enter a delivery address");
       return;
@@ -93,6 +99,8 @@ const Cart = () => {
       toast.error("Please select a payment method");
       return;
     }
+
+    toast.info("Proceeding to checkout...");
 
     // Store order data and open coupon modal
     dispatch(
@@ -112,6 +120,13 @@ const Cart = () => {
     try {
       // Handle Stripe payment separately
       if (paymentMethod === "stripe") {
+        if (cartItems.length === 0) {
+          toast.error(
+            "Your cart is empty. Add items before proceeding to checkout.",
+          );
+          return;
+        }
+
         const paymentData = {
           couponCode,
           deliveryAddress,
@@ -435,12 +450,12 @@ const Cart = () => {
               {paymentMethod == "cod" && (
                 <button
                   className={`w-full py-3 rounded-lg font-medium transition-all duration-300 text-sm sm:text-base mt-4 ${
-                    paymentMethod
+                    paymentMethod && cartItems.length > 0
                       ? "bg-pink-500 text-black cursor-pointer hover:shadow-lg hover:shadow-pink-500/25"
                       : "bg-gray-500 text-gray-300 cursor-not-allowed"
                   }`}
                   onClick={handlePlaceOrderClick}
-                  disabled={!paymentMethod}
+                  disabled={!paymentMethod || cartItems.length === 0}
                 >
                   Place Order
                 </button>
