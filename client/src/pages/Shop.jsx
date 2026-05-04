@@ -18,7 +18,7 @@ const Shop = () => {
           <FilterBar />
         </div>
         <div className="flex flex-col items-center justify-center w-full">
-          <div className="mt-10 mb-5">
+          <div className="mb-5">
             <ProductNav />
           </div>
           <ProductGrid />
