@@ -362,7 +362,7 @@ const updateProduct = async (req, res) => {
     const updatedProduct = await productModel.findOneAndUpdate(
       { productID: productData.productID },
       productData,
-      { new: true, runValidators: true },
+      { new: true, runValidators: true, context: "query" },
     );
 
     if (req.file) {
@@ -419,7 +419,6 @@ const deleteProduct = async (req, res) => {
     success: true,
   });
 };
-
 
 module.exports = {
   getProducts,

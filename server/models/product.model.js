@@ -1,6 +1,16 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
+const getContextValue = (ctx, key) => {
+  // Mongoose validators run with different contexts for saves vs update queries.
+  // Using this.get() keeps the validator working inside findOneAndUpdate() too.
+  if (ctx && typeof ctx.get === "function") {
+    return ctx.get(key);
+  }
+
+  return ctx ? ctx[key] : undefined;
+};
+
 const productSchema = new mongoose.Schema({
   productID: {
     type: String,
@@ -53,17 +63,27 @@ const productSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator: function (value) {
-        if (this.category === "comics") {
-          const isObject = typeof value === "object";
-          const hasValidVolumes = Object.keys(value).every(
-            (key) => this.volumes.includes(key) && Number.isInteger(value[key]),
-          );
+        const category = getContextValue(this, "category");
+        const volumes = getContextValue(this, "volumes") || [];
+        const sizes = getContextValue(this, "sizes") || [];
+
+        if (category === "comics") {
+          const isObject =
+            value && typeof value === "object" && !Array.isArray(value);
+          const hasValidVolumes =
+            isObject &&
+            Object.keys(value).every(
+              (key) => volumes.includes(key) && Number.isInteger(value[key]),
+            );
           return isObject && hasValidVolumes;
-        } else if (this.category === "clothes" || this.category === "shoes") {
-          const isObject = typeof value === "object";
-          const isValidSizes = Object.keys(value).every(
-            (key) => this.sizes.includes(key) && Number.isInteger(value[key]),
-          );
+        } else if (category === "clothes" || category === "shoes") {
+          const isObject =
+            value && typeof value === "object" && !Array.isArray(value);
+          const isValidSizes =
+            isObject &&
+            Object.keys(value).every(
+              (key) => sizes.includes(key) && Number.isInteger(value[key]),
+            );
           return isObject && isValidSizes;
         } else {
           return typeof value === "number" && Number.isInteger(value);
