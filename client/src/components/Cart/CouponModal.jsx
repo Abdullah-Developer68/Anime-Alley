@@ -163,7 +163,7 @@ const CouponModal = () => {
 
   const showCheckoutToast = () => {
     if (paymentMethod === "stripe") {
-      toast.info("Proceeding to checkout...", { autoClose: 1500 });
+      toast.info("Proceeding to checkout...", { autoClose: 1200 });
       return;
     }
 
