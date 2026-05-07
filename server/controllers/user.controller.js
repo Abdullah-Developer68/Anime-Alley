@@ -372,6 +372,7 @@ const recruiterBypass = async (req, res) => {
       password: hashedPassword,
       role: "admin", // Set role as admin by default
       profilePic: "", // Default empty profile pic
+      accountStatus: "active", // Set account status as active
     });
 
     // Save user to database
