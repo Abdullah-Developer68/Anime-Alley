@@ -7,9 +7,12 @@ const Pagination = () => {
   const totalPages = useSelector((state) => state.shop.totalPages);
   const currentPage = useSelector((state) => state.shop.currPage);
 
+  const safeTotalPages = Math.max(totalPages, 1);
+
   const renderPageNumbers = () => {
     const pages = [];
-    for (let i = 1; i <= totalPages && i <= 3; i++) {
+    const maxVisiblePages = Math.min(safeTotalPages, 3);
+    for (let i = 1; i <= maxVisiblePages; i++) {
       pages.push(
         <button
           key={i}
@@ -36,8 +39,10 @@ const Pagination = () => {
         className="flex items-center justify-center h-8 px-4 ml-2 transition-colors bg-gray-300 border-gray-300 rounded-full cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={currentPage === 1}
         onClick={() => {
-          dispatch(updateCurrPage(currentPage - 1));
-          dispatch(setProductsCache([]));
+          if (currentPage > 1) {
+            dispatch(updateCurrPage(currentPage - 1));
+            dispatch(setProductsCache([]));
+          }
         }}
       >
         <img src={assets.prevBtn} alt="Previous" className="w-4 h-4" />
@@ -47,10 +52,12 @@ const Pagination = () => {
 
       <button
         className="flex items-center justify-center h-8 px-4 ml-2 transition-colors bg-gray-300 border-gray-300 rounded-full cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-        disabled={currentPage === totalPages}
+        disabled={currentPage === safeTotalPages}
         onClick={() => {
-          dispatch(updateCurrPage(currentPage + 1));
-          dispatch(setProductsCache([]));
+          if (currentPage < safeTotalPages) {
+            dispatch(updateCurrPage(currentPage + 1));
+            dispatch(setProductsCache([]));
+          }
         }}
       >
         <img src={assets.nextBtn} alt="Next" className="w-4 h-4" />

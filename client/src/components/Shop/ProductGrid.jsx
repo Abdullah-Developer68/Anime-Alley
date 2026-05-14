@@ -1,6 +1,7 @@
 import { useSelector, useDispatch } from "react-redux";
 import {
   updateTotalPages,
+  updateCurrPage,
   setLoading,
   setProductsCache,
 } from "../../redux/Slice/shopSlice";
@@ -48,8 +49,18 @@ const ProductGrid = () => {
         dispatch(setLoading(false));
 
         if (response.data.success) {
-          dispatch(setProductsCache(response.data.currPageProducts));
-          dispatch(updateTotalPages(response.data.totalPages));
+          const { totalPages, currPageProducts } = response.data;
+
+          dispatch(updateTotalPages(totalPages));
+
+          // If we restored an out-of-range page from persistence, clamp to the last valid page
+          if (totalPages > 0 && currPage > totalPages) {
+            dispatch(updateCurrPage(totalPages));
+            dispatch(setProductsCache([]));
+            return;
+          }
+
+          dispatch(setProductsCache(currPageProducts));
         } else {
           console.error("Failed to fetch products:", response.data.message);
           dispatch(setProductsCache([]));
@@ -60,10 +71,9 @@ const ProductGrid = () => {
         dispatch(setProductsCache([]));
       }
     };
-    if (products.length === 0) {
-      fetchProducts();
-    }
-  }, [currCategory, appliedFilters, currPage, dispatch, products.length]);
+
+    fetchProducts();
+  }, [currCategory, appliedFilters, currPage, dispatch]);
 
   return (
     <div className="w-full">

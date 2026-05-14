@@ -4,7 +4,7 @@ const initialState = {
   isLoading: false,
   getNewHistoryCounter: 0,
   purchaseHistory: JSON.parse(localStorage.getItem("purchaseHistory")) || [],
-  totalPages: JSON.parse(localStorage.getItem("totalPages")) || 1,
+  totalPages: JSON.parse(localStorage.getItem("userHistoryTotalPages")) || 1,
 };
 
 const userHistorySlice = createSlice({
@@ -23,7 +23,10 @@ const userHistorySlice = createSlice({
     },
     setTotalPages: (state, action) => {
       state.totalPages = action.payload;
-      localStorage.setItem("totalPages", JSON.stringify(action.payload));
+      localStorage.setItem(
+        "userHistoryTotalPages",
+        JSON.stringify(action.payload),
+      );
     },
   },
 });

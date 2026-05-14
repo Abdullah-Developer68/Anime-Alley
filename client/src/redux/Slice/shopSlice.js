@@ -5,10 +5,10 @@ const initialState = {
   currCategory: localStorage.getItem("currCategory") || "comics",
   openFilterBar: JSON.parse(localStorage.getItem("openFilterBar")) || false,
   productTypes: JSON.parse(localStorage.getItem("productTypes")) || {},
-  currPage: parseInt(localStorage.getItem("currPage")) || 1,
-  totalPages: parseInt(localStorage.getItem("totalPages")) || 1,
+  currPage: parseInt(localStorage.getItem("shopCurrPage")) || 1,
+  totalPages: parseInt(localStorage.getItem("shopTotalPages")) || 1,
   productData: JSON.parse(localStorage.getItem("productData")) || {},
-  productsCache: JSON.parse(localStorage.getItem("productsCache")) || [], // Cache for products for quick access
+  productsCache: JSON.parse(localStorage.getItem("shopProductsCache")) || [], // Cache persists for UX continuity
   isLoading: false, // Loading state for products
 };
 
@@ -33,11 +33,11 @@ const shopSlice = createSlice({
     },
     updateCurrPage: (state, action) => {
       state.currPage = action.payload;
-      localStorage.setItem("currPage", action.payload);
+      localStorage.setItem("shopCurrPage", action.payload);
     },
     updateTotalPages: (state, action) => {
       state.totalPages = action.payload;
-      localStorage.setItem("totalPages", action.payload);
+      localStorage.setItem("shopTotalPages", action.payload);
     },
     transferProductData: (state, action) => {
       state.productData = action.payload;
@@ -45,7 +45,7 @@ const shopSlice = createSlice({
     },
     setProductsCache: (state, action) => {
       state.productsCache = action.payload;
-      localStorage.setItem("productsCache", JSON.stringify(action.payload));
+      localStorage.setItem("shopProductsCache", JSON.stringify(action.payload));
     },
     setLoading: (state, action) => {
       state.isLoading = action.payload;
