@@ -21,6 +21,11 @@ const ProductGrid = () => {
   const isLoading = useSelector((state) => state.shop.isLoading);
 
   useEffect(() => {
+    if (products.length > 0) {
+      dispatch(setLoading(false));
+      return;
+    }
+
     const fetchProducts = async () => {
       try {
         // Set loading state with a small delay to prevent flickering for fast API calls
@@ -73,7 +78,7 @@ const ProductGrid = () => {
     };
 
     fetchProducts();
-  }, [currCategory, appliedFilters, currPage, dispatch]);
+  }, [products.length, currCategory, appliedFilters, currPage, dispatch]);
 
   return (
     <div className="w-full">
