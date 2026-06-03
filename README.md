@@ -21,17 +21,44 @@ Anime Alley is a full-stack MERN e-commerce app for anime fans, with a customer 
 
 ## Screenshots
 
-Home Page:
+### Home Page
 
-Shop Page:
-![alt text](<Screenshot 2025-10-25 152013.png>)
+<img src="client/src/assets/img/readme/home.png" alt="Home Page" width="220" />
 
-Admin Dashboard:
-![alt text](<Screenshot 2025-10-25 151849.png>)
+### Shop Page
+
+<img src="client/src/assets/img/readme/shop.png" alt="Shop Page" width="220" />
+
+### Cart Page
+
+![Cart Page](client/src/assets/img/readme/cart.png)
+
+### Checkout / Payment
+
+![Checkout / Payment](client/src/assets/img/readme/checkout.png)
+
+### Purchase History
+
+![Purchase History](client/src/assets/img/readme/history.png)
+
+### Admin Dashboard - Products
+
+![Admin Dashboard - Products](client/src/assets/img/readme/dashboard-products.png)
+
+### Admin Dashboard - Orders
+
+![Admin Dashboard - Orders](client/src/assets/img/readme/dashboard-orders.png)
+
+### Admin Dashboard - Users
+
+![Admin Dashboard - Users](client/src/assets/img/readme/dashboard-users.png)
+
+### Admin Dashboard - Coupons
+
+![Admin Dashboard - Coupons](client/src/assets/img/readme/dashboard-coupons.png)
 
 ## Tech Stack:
 
-  - MERN
-  - Redux Toolkit
-  - Vercel (Serverless platform for deployment)
-  
+- **Frontend:** React, Redux Toolkit, Tailwind CSS, React Hook Form, React Router DOM, Stripe.js, Google OAuth
+- **Backend:** Node.js, Express.js, MongoDB Passport.js, Stripe SDK, Nodemailer, Cloudinary, ExcelJS, PDFKit
+- **Deployment:** Vercel
