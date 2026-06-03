@@ -17,6 +17,7 @@ const ProductDescription = () => {
   const [selectedVariant, setSelectedVariant] = useState("");
   const [itemQuantity, setItemQuantity] = useState(0);
   const [stockStatus, setStockStatus] = useState({});
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const totalPrice = itemQuantity * selectedProduct.price;
 
@@ -85,6 +86,8 @@ const ProductDescription = () => {
 
   //  add to cart
   const handleAddToCart = async () => {
+    if (isAddingToCart) return;
+
     // Check if user is logged in
     const userInfo = JSON.parse(localStorage.getItem("userInfo"));
     if (!userInfo) {
@@ -103,6 +106,7 @@ const ProductDescription = () => {
     }
 
     let addingToastId;
+    setIsAddingToCart(true);
     try {
       addingToastId = toast.info("Adding item to cart...", {
         autoClose: false,
@@ -118,8 +122,6 @@ const ProductDescription = () => {
           quantity: itemQuantity,
         }),
       ).unwrap();
-
-      toast.dismiss(addingToastId);
 
       // result is just the data object returned by cartThunk.js
       setItemQuantity(0);
@@ -159,7 +161,11 @@ const ProductDescription = () => {
         );
       }
       setItemQuantity(0);
-      toast.dismiss(addingToastId);
+    } finally {
+      if (addingToastId) {
+        toast.dismiss(addingToastId);
+      }
+      setIsAddingToCart(false);
     }
   };
 
@@ -296,9 +302,14 @@ const ProductDescription = () => {
               </div>
               <button
                 onClick={handleAddToCart}
-                className="px-8 py-4 font-medium text-black transition-all duration-300 bg-gray-300 cursor-pointer hover:bg-white rounded-xl"
+                disabled={isAddingToCart}
+                className={`px-8 py-4 font-medium text-black transition-all duration-300 rounded-xl ${
+                  isAddingToCart
+                    ? "bg-gray-400 cursor-not-allowed opacity-70"
+                    : "bg-gray-300 cursor-pointer hover:bg-white"
+                }`}
               >
-                Add to Cart
+                {isAddingToCart ? "Adding..." : "Add to Cart"}
               </button>
             </div>
           </div>
