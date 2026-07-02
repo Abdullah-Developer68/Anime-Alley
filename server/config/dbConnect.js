@@ -42,7 +42,6 @@ const dbConnect = async () => {
 	      maxPoolSize: 10, // Smaller pool for serverless
 	      serverSelectionTimeoutMS: 10000, // 10 seconds to select server
 	      socketTimeoutMS: 45000, // 45 seconds socket timeout
-	      autoIndex: true, // Build indexes on cold start (no-op if index already exists)
 	    };
 
     // CRITICAL: Set the promise BEFORE awaiting to prevent race conditions
