@@ -37,12 +37,13 @@ const dbConnect = async () => {
 
   // If connection is in progress, wait for it. 1st time it will be null so it will run the code below to create new connection
   if (!cached.promise) {
-    const opts = {
-      bufferCommands: false, // Don't buffer commands when disconnected
-      maxPoolSize: 10, // Smaller pool for serverless
-      serverSelectionTimeoutMS: 10000, // 10 seconds to select server
-      socketTimeoutMS: 45000, // 45 seconds socket timeout
-    };
+	    const opts = {
+	      bufferCommands: false, // Don't buffer commands when disconnected
+	      maxPoolSize: 10, // Smaller pool for serverless
+	      serverSelectionTimeoutMS: 10000, // 10 seconds to select server
+	      socketTimeoutMS: 45000, // 45 seconds socket timeout
+	      autoIndex: true, // Build indexes on cold start (no-op if index already exists)
+	    };
 
     // CRITICAL: Set the promise BEFORE awaiting to prevent race conditions
     // If we await first, concurrent calls can both pass the !cached.promise check

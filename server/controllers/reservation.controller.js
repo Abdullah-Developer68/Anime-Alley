@@ -11,6 +11,12 @@ const reserveStock = async (req, res) => {
   mongoSession.startTransaction();
   try {
     const userId = req.user.id; // Get userId from verified token
+
+    if (!userId) {
+      await mongoSession.abortTransaction();
+      return res.status(401).json({ success: false, message: "Invalid user session" });
+    }
+
     const { productId, variant, quantity } = req.body;
 
     // productId and quantity are required
@@ -268,6 +274,10 @@ const getCart = async (req, res) => {
   try {
     const userId = req.user.id; // Get userId from verified token
 
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Invalid user session" });
+    }
+
     // Find user's cart reservation
     const reservation = await reservationModel
       .findOne({ userId })
@@ -319,6 +329,12 @@ const updateCartItem = async (req, res) => {
   try {
     session.startTransaction();
     const userId = req.user.id;
+
+    if (!userId) {
+      await session.abortTransaction();
+      return res.status(401).json({ success: false, message: "Invalid user session" });
+    }
+
     const { productId, variant, newQuantity } = req.body;
 
     if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0) {
@@ -444,6 +460,11 @@ const clearCart = async (req, res) => {
   try {
     session.startTransaction();
     const userId = req.user.id;
+
+    if (!userId) {
+      await session.abortTransaction();
+      return res.status(401).json({ success: false, message: "Invalid user session" });
+    }
 
     const reservation = await reservationModel
       .findOne({ userId })
