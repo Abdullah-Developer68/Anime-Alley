@@ -25,6 +25,14 @@ const placeOrder = async (req, res) => {
       });
     }
 
+    const VALID_PAYMENT_METHODS = ["cod", "stripe"];
+    if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid payment method. Must be one of: ${VALID_PAYMENT_METHODS.join(", ")}`,
+      });
+    }
+
     // Pricing validation removed - all calculations done server-side for security
 
     // Verify user exists in database
@@ -376,6 +384,13 @@ const updateOrder = async (req, res) => {
 
     if (!orderId) {
       return res.status(400).json({ message: "Order ID is required." });
+    }
+
+    const VALID_STATUSES = ["pending", "processing", "shipped", "delivered"];
+    if (!status || !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
+      });
     }
 
     const updatedOrder = await orderModel.findByIdAndUpdate(

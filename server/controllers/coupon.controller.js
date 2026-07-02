@@ -1,6 +1,7 @@
 const couponModel = require("../models/coupon.model.js");
 const userModel = require("../models/user.model.js");
 const dbConnect = require("../config/dbConnect.js");
+const { validateCouponFields } = require("../utils/coupon.utils.js");
 
 const checkCoupon = async (req, res) => {
   await dbConnect();
@@ -174,6 +175,14 @@ const updateCoupon = async (req, res) => {
       return res.status(400).json({ message: "Coupon ID is required." });
     }
 
+    const fieldValidation = validateCouponFields({ discountPercentage, expiryDate });
+    if (!fieldValidation.valid) {
+      return res.status(fieldValidation.status).json({
+        success: false,
+        message: fieldValidation.message,
+      });
+    }
+
     const updatedCoupon = await couponModel.findByIdAndUpdate(
       couponId,
       { discountPercentage, expiryDate },
@@ -210,6 +219,14 @@ const createCoupon = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields." });
+    }
+
+    const fieldValidation = validateCouponFields({ discountPercentage, expiryDate });
+    if (!fieldValidation.valid) {
+      return res.status(fieldValidation.status).json({
+        success: false,
+        message: fieldValidation.message,
+      });
     }
 
     // Verify admin role from database (ultra-secure)

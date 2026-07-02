@@ -209,6 +209,13 @@ const createProduct = async (req, res) => {
     // Generate unique product ID based on category
     const generatedProductID = await generateProductID(req.body.category);
 
+    let stockData;
+    try {
+      stockData = JSON.parse(req.body.stock);
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
+    }
+
     const productData = {
       productID: generatedProductID, // Use auto-generated ID
       name: req.body.name,
@@ -217,13 +224,18 @@ const createProduct = async (req, res) => {
       description: req.body.description,
       image: imageUrl, // Store the Cloudinary URL
       imagePublicId,
-      stock: JSON.parse(req.body.stock),
+      stock: stockData,
     };
 
     // Add category-specific fields
     if (req.body.category === "comics") {
-      const volumes = JSON.parse(req.body.volumes);
-      const genres = JSON.parse(req.body.genres);
+      let volumes, genres;
+      try {
+        volumes = JSON.parse(req.body.volumes);
+        genres = JSON.parse(req.body.genres);
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
+      }
 
       productData.volumes = volumes;
       productData.genres = genres;
@@ -238,7 +250,12 @@ const createProduct = async (req, res) => {
       req.body.category === "clothes" ||
       req.body.category === "shoes"
     ) {
-      const sizes = JSON.parse(req.body.sizes);
+      let sizes;
+      try {
+        sizes = JSON.parse(req.body.sizes);
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      }
       productData.sizes = sizes;
       productData.merchType = req.body.merchType;
 
@@ -317,6 +334,13 @@ const updateProduct = async (req, res) => {
         : existingProduct.imagePublicId ||
           extractPublicIdFromCloudinaryUrl(existingProduct.image);
 
+    let stockData;
+    try {
+      stockData = JSON.parse(req.body.stock);
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
+    }
+
     const productData = {
       name: req.body.name,
       price: parseFloat(req.body.price),
@@ -324,13 +348,18 @@ const updateProduct = async (req, res) => {
       description: req.body.description,
       image: imageUrl,
       imagePublicId,
-      stock: JSON.parse(req.body.stock),
+      stock: stockData,
     };
 
     // Add category-specific fields
     if (req.body.category === "comics") {
-      const volumes = JSON.parse(req.body.volumes);
-      const genres = JSON.parse(req.body.genres);
+      let volumes, genres;
+      try {
+        volumes = JSON.parse(req.body.volumes);
+        genres = JSON.parse(req.body.genres);
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
+      }
 
       productData.volumes = volumes;
       productData.genres = genres;
@@ -345,7 +374,12 @@ const updateProduct = async (req, res) => {
       req.body.category === "clothes" ||
       req.body.category === "shoes"
     ) {
-      const sizes = JSON.parse(req.body.sizes);
+      let sizes;
+      try {
+        sizes = JSON.parse(req.body.sizes);
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      }
       productData.sizes = sizes;
       productData.merchType = req.body.merchType;
 

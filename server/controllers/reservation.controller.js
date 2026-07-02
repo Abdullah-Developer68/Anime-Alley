@@ -14,11 +14,18 @@ const reserveStock = async (req, res) => {
     const { productId, variant, quantity } = req.body;
 
     // productId and quantity are required
-    if (!productId || !quantity) {
+    if (!productId || quantity === undefined || quantity === null) {
       await mongoSession.abortTransaction();
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields" });
+    }
+
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1) {
+      await mongoSession.abortTransaction();
+      return res
+        .status(400)
+        .json({ success: false, message: "Quantity must be a positive integer" });
     }
 
     let requestedQuantity = quantity;
@@ -313,6 +320,14 @@ const updateCartItem = async (req, res) => {
     session.startTransaction();
     const userId = req.user.id;
     const { productId, variant, newQuantity } = req.body;
+
+    if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "newQuantity must be a non-negative integer",
+      });
+    }
 
     const reservation = await reservationModel
       .findOne({ userId })
