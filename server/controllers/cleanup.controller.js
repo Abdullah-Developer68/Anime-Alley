@@ -13,7 +13,7 @@ const cleanupUnverifiedUsersController = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Successfully deleted ${result.deletedCount} unverified users`,
+      message: `Successfully deleted ${result.deletedCount} unverified/demo users`,
       deletedCount: result.deletedCount,
       timestamp: new Date().toISOString(),
     });

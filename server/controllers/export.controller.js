@@ -7,7 +7,6 @@ const {
 const dbConnect = require("../config/dbConnect.js");
 
 const exportData = async (req, res) => {
-  await dbConnect();
   const { dataType } = req.params;
   const { format } = req.query;
 
@@ -27,6 +26,7 @@ const exportData = async (req, res) => {
   }
 
   try {
+    await dbConnect();
     // No need to check role again - requireAdmin middleware already verified admin/superAdmin role
 
     // --- File Generation ---

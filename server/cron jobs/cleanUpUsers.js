@@ -1,23 +1,27 @@
 const userModel = require("../models/user.model.js");
 
 /**
- * Cleanup Unverified Users
- * Deletes users with accountStatus "verifying" that were created more than 7 days ago
- * This function is now called via API endpoint by Vercel Cron Jobs
+ * Cleanup Unverified Users & Expired Demo Users
+ * Deletes users with accountStatus "verifying" OR isDemo: true that were created more than 7 days ago
+ * This function is called via API endpoint by Vercel Cron Jobs
  */
 async function cleanupUnverifiedUsers() {
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   try {
     const result = await userModel.deleteMany({
-      accountStatus: "verifying",
-      createdAt: { $lt: oneWeekAgo },
+      $or: [
+        { accountStatus: "verifying", createdAt: { $lt: oneWeekAgo } },
+        { isDemo: true, createdAt: { $lt: oneWeekAgo } },
+      ],
     });
 
-    console.log(`[CLEANUP] Deleted ${result.deletedCount} unverified users`);
+    console.log(
+      `[CLEANUP] Deleted ${result.deletedCount} unverified/expired demo users`,
+    );
     return result;
   } catch (err) {
-    console.error("[CLEANUP] Error deleting unverified users:", err);
+    console.error("[CLEANUP] Error deleting unverified/demo users:", err);
     throw err;
   }
 }

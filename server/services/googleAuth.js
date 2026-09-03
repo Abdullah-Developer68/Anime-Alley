@@ -82,11 +82,17 @@ const initiateGoogleAuth = (req, res, next) => {
  * 4. Establishes authentication state
  */
 const handleGoogleCallback = async (req, res, next) => {
-  await dbConnect();
   const clientUrl =
     process.env.NODE_ENV === "production"
       ? process.env.CLIENT_URL
       : "http://localhost:5173";
+
+  try {
+    await dbConnect();
+  } catch (error) {
+    console.error("Database connection error in Google callback:", error);
+    return res.redirect(`${clientUrl}/login`);
+  }
 
   // Use custom callback to avoid session requirement
   passport.authenticate("google", { session: false }, (err, user, info) => {

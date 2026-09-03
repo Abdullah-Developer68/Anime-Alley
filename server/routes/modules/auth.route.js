@@ -8,8 +8,8 @@ const {
   login,
   logout,
   verifyToken,
+  demoLogin,
 } = require("../../services/auth.js");
-const { recruiterBypass } = require("../../controllers/user.controller.js");
 // Rate limiters (middlewares)
 const {
   otpSendLimiter,
@@ -24,6 +24,9 @@ router.post("/signup", signupLimiter, signUp);
 router.post("/login", loginLimiter, login);
 router.get("/logout", logout);
 router.get("/verify", verifyToken);
-router.post("/recruiterBypass", recruiterBypass); // Recruiter bypass signup
+router.post("/demo-login", demoLogin); // Demo account generation & login
+router.post("/demo", demoLogin); // Alias for demo account generation & login
+router.get("/demo-login", demoLogin);
+router.get("/demo", demoLogin);
 
 module.exports = router;

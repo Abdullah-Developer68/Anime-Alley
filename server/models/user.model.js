@@ -18,6 +18,14 @@ const userSchema = new mongoose.Schema(
       enum: ["verifying", "active"],
       default: "verifying",
     },
+    isOtpVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isDemo: {
+      type: Boolean,
+      default: false,
+    },
     // sent for verification of email via normal signup
     otp: {
       type: String,

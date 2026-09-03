@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { toast } from "react-toastify";
 import { checkAndHandleUserChange } from "../utils/userSessionManager";
 
 const Signup = () => {
@@ -14,9 +15,46 @@ const Signup = () => {
   // Step state: 1 = email, 2 = otp, 3 = username/password
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
+  const [verificationToken, setVerificationToken] = useState("");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(null);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  const handleDemoLogin = async (role) => {
+    setDemoLoading(role);
+    try {
+      const res = await api.demoLogin(role);
+
+      if (res.data.success) {
+        const wasCleared = checkAndHandleUserChange(res.data.user);
+        if (!wasCleared) {
+          localStorage.clear();
+        }
+
+        if (res.data.token) {
+          localStorage.setItem("authToken", res.data.token);
+        }
+
+        setUser(res.data.user);
+        localStorage.setItem("userInfo", JSON.stringify(res.data.user));
+        toast.success(
+          `Logged in as ${res.data.user.username} (${res.data.user.role})!`,
+        );
+        navigate("/");
+      } else {
+        toast.error(res.data.message || "Failed to create demo account");
+      }
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+          "Failed to create demo account. Please try again.",
+      );
+      console.error("Demo login error:", err);
+    } finally {
+      setDemoLoading(null);
+    }
+  };
 
   // Step 1: Email form
   const {
@@ -70,7 +108,10 @@ const Signup = () => {
     setLoading(true);
     setError("");
     try {
-      await api.post("/auth/verify-otp", { email, otp: data.otp });
+      const res = await api.post("/auth/verify-otp", { email, otp: data.otp });
+      if (res.data.verificationToken) {
+        setVerificationToken(res.data.verificationToken);
+      }
       setStep(3);
     } catch (err) {
       setError(err.response?.data?.message || "Invalid or expired OTP");
@@ -84,7 +125,11 @@ const Signup = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.post("/auth/signup", { email, ...data });
+      const res = await api.post("/auth/signup", {
+        email,
+        verificationToken,
+        ...data,
+      });
       if (res.data.success) {
         // Check if user email has changed and clear localStorage if needed
         const wasCleared = checkAndHandleUserChange(res.data.user);
@@ -134,20 +179,49 @@ const Signup = () => {
                 Sign Up
               </h2>
 
-              {/* Recruiter Access Banner */}
+              {/* Demo Access Banner */}
               <div className="p-4 mb-4 border rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/20">
-                <p className="mb-3 text-sm text-purple-300/90">
-                  <span className="font-semibold text-purple-400">
-                    For Recruiters:
-                  </span>{" "}
-                  Need admin access?
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-purple-300">
+                    Instant Demo Access
+                  </p>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">
+                    1-Click
+                  </span>
+                </div>
+                <p className="mb-3 text-xs text-white/60">
+                  Generate a fresh demo account instantly. Cleaned up automatically after 7 days.
                 </p>
-                <Link
-                  to="/recruiter"
-                  className="block w-full text-center py-2.5 px-4 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 rounded-md text-purple-300 hover:text-purple-200 transition-all duration-300 text-sm font-medium"
-                >
-                  Create Recruiter Account →
-                </Link>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin("admin")}
+                    disabled={demoLoading !== null}
+                    className="w-full py-2.5 px-3 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-md text-purple-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {demoLoading === "admin" ? (
+                      <span>Loading...</span>
+                    ) : (
+                      <>
+                        <span>👑</span> Demo Admin
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin("user")}
+                    disabled={demoLoading !== null}
+                    className="w-full py-2.5 px-3 bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 rounded-md text-pink-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {demoLoading === "user" ? (
+                      <span>Loading...</span>
+                    ) : (
+                      <>
+                        <span>👤</span> Demo User
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Additional Info Panel for Desktop */}

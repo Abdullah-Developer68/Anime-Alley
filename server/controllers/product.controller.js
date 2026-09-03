@@ -70,9 +70,8 @@ const generateProductID = async (category) => {
 };
 
 const getProducts = async (req, res) => {
-  await dbConnect();
-  console.log("executed before connecting to the database.");
   try {
+    await dbConnect();
     // Destructure the productConstraints from the request query
     const { productConstraints } = req.query;
     const constraints = JSON.parse(productConstraints);
@@ -173,8 +172,8 @@ const getProducts = async (req, res) => {
 };
 
 const createProduct = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     // Cloudinary returns the URL in req.file.path
     const imageUrl = req.file ? req.file.path : null;
     const imagePublicId = req.file
@@ -291,8 +290,8 @@ const createProduct = async (req, res) => {
 };
 
 const updateProduct = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     const { _id } = req.body;
 
     if (!_id) {
@@ -429,34 +428,42 @@ const updateProduct = async (req, res) => {
 };
 
 const deleteProduct = async (req, res) => {
-  await dbConnect();
-  const { productID } = req.body;
+  try {
+    await dbConnect();
+    const { productID } = req.body || {};
 
-  if (!productID) {
-    return res.status(400).json({ message: "The productID is required!" });
-  }
+    if (!productID) {
+      return res.status(400).json({ message: "The productID is required!" });
+    }
 
-  const deletedProduct = await productModel.findOneAndDelete({ productID });
+    const deletedProduct = await productModel.findOneAndDelete({ productID });
 
-  if (!deletedProduct) {
-    return res.status(404).json({
+    if (!deletedProduct) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const publicId =
+      deletedProduct.imagePublicId ||
+      extractPublicIdFromCloudinaryUrl(deletedProduct.image);
+
+    if (publicId) {
+      await destroyCloudinaryImage(deletedProduct.image, publicId);
+    }
+
+    res.status(200).json({
+      message: `Product with ID: ${productID} has been deleted!`,
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error deleting product:", error);
+    res.status(500).json({
       success: false,
-      message: "Product not found",
+      message: error.message || "Internal server error",
     });
   }
-
-  const publicId =
-    deletedProduct.imagePublicId ||
-    extractPublicIdFromCloudinaryUrl(deletedProduct.image);
-
-  if (publicId) {
-    await destroyCloudinaryImage(deletedProduct.image, publicId);
-  }
-
-  res.status(200).json({
-    message: `Product with ID: ${productID} has been deleted!`,
-    success: true,
-  });
 };
 
 module.exports = {

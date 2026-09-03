@@ -7,17 +7,19 @@ const mongoose = require("mongoose");
 const dbConnect = require("../config/dbConnect.js");
 
 const placeOrder = async (req, res) => {
-  await dbConnect();
-  const session = await mongoose.startSession();
+  let session = null;
 
   try {
+    await dbConnect();
+    session = await mongoose.startSession();
     session.startTransaction();
 
-    const userId = req.user.id; // Get userId from verified token
-    const { couponCode, userInfo, deliveryAddress, paymentMethod } = req.body;
+    const userId = req.user?.id; // Get userId from verified token
+    const { couponCode, userInfo, deliveryAddress, paymentMethod } = req.body || {};
 
     // Validate essential order information
     if (!userInfo?.email || !deliveryAddress || !paymentMethod) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message:
@@ -27,6 +29,7 @@ const placeOrder = async (req, res) => {
 
     const VALID_PAYMENT_METHODS = ["cod", "stripe"];
     if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: `Invalid payment method. Must be one of: ${VALID_PAYMENT_METHODS.join(", ")}`,
@@ -40,6 +43,7 @@ const placeOrder = async (req, res) => {
       .findOne({ email: userInfo.email })
       .session(session);
     if (!user) {
+      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: "User not found",
@@ -52,13 +56,20 @@ const placeOrder = async (req, res) => {
       couponDoc = await couponModel.findOne({ couponCode }).session(session);
 
       if (!couponDoc) {
+        await session.abortTransaction();
         return res.status(400).json({
           success: false,
           message: "Coupon not found.",
         });
       }
 
-      if (user.couponCodeUsed.includes(couponDoc._id)) {
+      if (
+        user.couponCodeUsed &&
+        user.couponCodeUsed.some(
+          (id) => id.toString() === couponDoc._id.toString()
+        )
+      ) {
+        await session.abortTransaction();
         return res.status(400).json({
           success: false,
           message: "You have already used this coupon.",
@@ -78,6 +89,7 @@ const placeOrder = async (req, res) => {
       !reservation.products ||
       reservation.products.length === 0
     ) {
+      await session.abortTransaction();
       return res.status(400).json({
         success: false,
         message: "No reserved products found for this cart.",
@@ -197,30 +209,50 @@ const placeOrder = async (req, res) => {
       .populate({ path: "user", select: "email username" })
       .session(session);
 
+    // Commit transaction on success BEFORE sending response
+    await session.commitTransaction();
+
     res.status(201).json({
       success: true,
       message: "Order placed successfully",
       order: populatedOrder,
     });
-
-    // Commit transaction on success
-    await session.commitTransaction();
   } catch (error) {
     // Rollback transaction on any error
-    await session.abortTransaction();
+    if (session && session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+      } catch (abortErr) {
+        console.error("Error aborting transaction:", abortErr);
+      }
+    }
     console.error("Error placing order:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: error.message || "Internal server error",
+      });
+    }
   } finally {
-    // Always end the session
-    session.endSession();
+    // Always clean up session and abort if still in transaction
+    if (session) {
+      if (session.inTransaction()) {
+        try {
+          await session.abortTransaction();
+        } catch (abortErr) {
+          console.error("Error aborting transaction in finally:", abortErr);
+        }
+      }
+      try {
+        await session.endSession();
+      } catch (endErr) {
+        console.error("Error ending session:", endErr);
+      }
+    }
   }
 };
 
 const getOrderHistory = async (req, res) => {
-  await dbConnect();
   const { email, currPage } = req.query;
 
   // Validate user email and current page
@@ -232,6 +264,7 @@ const getOrderHistory = async (req, res) => {
   }
 
   try {
+    await dbConnect();
     // Verify user exists
     const user = await userModel.findOne({ email });
 
@@ -290,27 +323,26 @@ const getOrderHistory = async (req, res) => {
 };
 
 const allOrdersList = async (req, res) => {
-  await dbConnect();
-  const { currPage } = req.query;
-  const email = req.user.email; // Get email from authenticated user token
-
-  if (!currPage) {
-    return res.status(400).json({ message: "Current page is required!" });
-  }
-
-  const user = await userModel.findOne({ email });
-  // Check if user exists and is either admin or superAdmin
-  if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
-    return res.status(403).json("User is not authorized!");
-  }
-
-  const ordersPerPage = 20;
-  // Parse the current page number, default to 1 if invalid
-  const page = parseInt(currPage, 10) || 1;
-
-  const startIndex = (page - 1) * ordersPerPage;
-
   try {
+    await dbConnect();
+    const { currPage } = req.query;
+    const email = req.user.email; // Get email from authenticated user token
+
+    if (!currPage) {
+      return res.status(400).json({ message: "Current page is required!" });
+    }
+
+    const user = await userModel.findOne({ email });
+    // Check if user exists and is either admin or superAdmin
+    if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
+      return res.status(403).json("User is not authorized!");
+    }
+
+    const ordersPerPage = 20;
+    // Parse the current page number, default to 1 if invalid
+    const page = parseInt(currPage, 10) || 1;
+
+    const startIndex = (page - 1) * ordersPerPage;
     const totalOrders = await orderModel.countDocuments();
 
     const totalPages = Math.ceil(totalOrders / ordersPerPage);
@@ -346,8 +378,8 @@ const allOrdersList = async (req, res) => {
 };
 
 const deleteOrder = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     const { orderId } = req.params;
 
     if (!orderId) {
@@ -377,8 +409,8 @@ const deleteOrder = async (req, res) => {
 };
 
 const updateOrder = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     const { orderId } = req.params;
     const { status } = req.body;
 
@@ -419,8 +451,8 @@ const updateOrder = async (req, res) => {
 
 // Controller to get order stats by status
 const getOrderStats = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     const stats = await orderModel.aggregate([
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
@@ -436,15 +468,23 @@ const getOrderStats = async (req, res) => {
 
 // This is used when the payment is made through stripe
 const verifyOrder = async (req, res) => {
-  await dbConnect();
-  const { stripeSessionID } = req.query;
-  // Find if the recent order has been saved to the database
-  const order = await orderModel.findOne({ stripeSessionID });
+  try {
+    await dbConnect();
+    const { stripeSessionID } = req.query;
+    // Find if the recent order has been saved to the database
+    const order = await orderModel.findOne({ stripeSessionID });
 
-  if (order) {
-    return res.json({ success: true });
-  } else {
-    res.json({ success: false });
+    if (order) {
+      return res.json({ success: true });
+    } else {
+      return res.json({ success: false });
+    }
+  } catch (error) {
+    console.error("Error verifying order:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };
 

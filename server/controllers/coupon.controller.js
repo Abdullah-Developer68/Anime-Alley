@@ -4,8 +4,6 @@ const dbConnect = require("../config/dbConnect.js");
 const { validateCouponFields } = require("../utils/coupon.utils.js");
 
 const checkCoupon = async (req, res) => {
-  await dbConnect();
-
   // Get email from verified token
   const userEmail = req.user.email;
   const { couponCode } = req.body;
@@ -18,6 +16,7 @@ const checkCoupon = async (req, res) => {
   }
 
   try {
+    await dbConnect();
     // Find the coupon
     const coupon = await couponModel.findOne({ couponCode });
     if (!coupon) {
@@ -77,8 +76,6 @@ const checkCoupon = async (req, res) => {
 };
 
 const getAllCoupons = async (req, res) => {
-  await dbConnect();
-
   // Get email from verified token
   const viewerEmail = req.user.email;
   const { currPage } = req.query;
@@ -91,6 +88,7 @@ const getAllCoupons = async (req, res) => {
   }
 
   try {
+    await dbConnect();
     // Verify admin role from database (ultra-secure)
     const adminUser = await userModel.findOne({ email: viewerEmail });
     if (
@@ -136,9 +134,8 @@ const getAllCoupons = async (req, res) => {
 };
 
 const deleteCoupon = async (req, res) => {
-  await dbConnect();
-
   try {
+    await dbConnect();
     const { couponId } = req.params;
 
     if (!couponId) {
@@ -165,9 +162,8 @@ const deleteCoupon = async (req, res) => {
 };
 
 const updateCoupon = async (req, res) => {
-  await dbConnect();
-
   try {
+    await dbConnect();
     const { couponId } = req.params;
     const { discountPercentage, expiryDate } = req.body;
 
@@ -208,9 +204,8 @@ const updateCoupon = async (req, res) => {
 };
 
 const createCoupon = async (req, res) => {
-  await dbConnect();
-
   try {
+    await dbConnect();
     // Get email from verified token
     const email = req.user.email;
     const { couponCode, discountPercentage, expiryDate } = req.body;
@@ -272,9 +267,8 @@ const createCoupon = async (req, res) => {
 };
 
 const getCouponStats = async (req, res) => {
-  await dbConnect();
-
   try {
+    await dbConnect();
     // Get email from verified token
     const email = req.user.email;
 

@@ -13,17 +13,17 @@ const webHookSecretKey = process.env.STRIPE_WEBHOOK_SECRET;
 const processedSessions = new Set(); // In-memory store for processed sessions
 
 const processSuccessfulPayment = async (StripeSession) => {
-  await dbConnect(); // Wait for database connection to be established
-
-  const mongoSession = await mongoose.startSession();
-
   // Prevent double processing
   if (processedSessions.has(StripeSession.id)) {
     console.log(`Session ${StripeSession.id} already processed, skipping`);
     return;
   }
 
+  let mongoSession = null;
+
   try {
+    await dbConnect(); // Wait for database connection to be established
+    mongoSession = await mongoose.startSession();
     mongoSession.startTransaction();
 
     // Mark session as being processed
@@ -181,11 +181,30 @@ const processSuccessfulPayment = async (StripeSession) => {
   } catch (error) {
     // Remove from processed set if transaction fails
     processedSessions.delete(StripeSession.id);
-    await mongoSession.abortTransaction();
-    console.error("Transaction failed for user:", userId, error);
+    if (mongoSession && mongoSession.inTransaction()) {
+      try {
+        await mongoSession.abortTransaction();
+      } catch (abortErr) {
+        console.error("Error aborting transaction:", abortErr);
+      }
+    }
+    console.error("Transaction failed for session:", StripeSession.id, error);
     throw error;
   } finally {
-    mongoSession.endSession();
+    if (mongoSession) {
+      if (mongoSession.inTransaction()) {
+        try {
+          await mongoSession.abortTransaction();
+        } catch (abortErr) {
+          console.error("Error aborting transaction in finally:", abortErr);
+        }
+      }
+      try {
+        await mongoSession.endSession();
+      } catch (endErr) {
+        console.error("Error ending session:", endErr);
+      }
+    }
   }
 };
 

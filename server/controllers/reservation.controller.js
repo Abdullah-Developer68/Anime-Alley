@@ -4,12 +4,13 @@ const mongoose = require("mongoose");
 const dbConnect = require("../config/dbConnect.js");
 
 const reserveStock = async (req, res) => {
-  await dbConnect();
-  // Start a MongoDB session to track/record multiple operations as a single transaction.
-  // This allows us to commit all changes together or roll them back entirely if any operation fails.
-  const mongoSession = await mongoose.startSession();
-  mongoSession.startTransaction();
+  let mongoSession = null;
   try {
+    await dbConnect();
+    // Start a MongoDB session to track/record multiple operations as a single transaction.
+    // This allows us to commit all changes together or roll them back entirely if any operation fails.
+    mongoSession = await mongoose.startSession();
+    mongoSession.startTransaction();
     const userId = req.user.id; // Get userId from verified token
 
     if (!userId) {
@@ -252,7 +253,13 @@ const reserveStock = async (req, res) => {
       requestedQuantity: requestedQuantity,
     });
   } catch (err) {
-    await mongoSession.abortTransaction();
+    if (mongoSession && mongoSession.inTransaction()) {
+      try {
+        await mongoSession.abortTransaction();
+      } catch (abortErr) {
+        console.error("Error aborting transaction:", abortErr);
+      }
+    }
     console.error("Error in reserveStock:", {
       error: err.message,
       stack: err.stack,
@@ -264,14 +271,27 @@ const reserveStock = async (req, res) => {
       .json({ success: false, message: "Server error: " + err.message });
   } finally {
     // End the session
-    mongoSession.endSession();
+    if (mongoSession) {
+      if (mongoSession.inTransaction()) {
+        try {
+          await mongoSession.abortTransaction();
+        } catch (abortErr) {
+          console.error("Error aborting transaction in finally:", abortErr);
+        }
+      }
+      try {
+        await mongoSession.endSession();
+      } catch (endErr) {
+        console.error("Error ending session:", endErr);
+      }
+    }
   }
 };
 
 // Get user's cart items from server
 const getCart = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     const userId = req.user.id; // Get userId from verified token
 
     if (!userId) {
@@ -291,22 +311,24 @@ const getCart = async (req, res) => {
       });
     }
 
-    // Transform reservation data to cart format
-    const cartItems = await Promise.all(
-      reservation.products.map(async (item) => {
-        const product = item.productId;
-        return {
-          _id: product._id,
-          name: product.name,
-          price: product.price,
-          image: product.image,
-          category: product.category,
-          selectedVariant: item.variant,
-          itemQuantity: item.quantity,
-          stock: product.stock,
-        };
-      })
+    // Transform reservation data to cart format, filtering out any products deleted from DB
+    const validProducts = (reservation.products || []).filter(
+      (item) => item.productId != null
     );
+
+    const cartItems = validProducts.map((item) => {
+      const product = item.productId;
+      return {
+        _id: product._id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        category: product.category,
+        selectedVariant: item.variant,
+        itemQuantity: item.quantity,
+        stock: product.stock,
+      };
+    });
 
     res.json({
       success: true,
@@ -323,10 +345,11 @@ const getCart = async (req, res) => {
 
 // Update cart item quantity
 const updateCartItem = async (req, res) => {
-  await dbConnect();
-  const session = await mongoose.startSession();
+  let session = null;
 
   try {
+    await dbConnect();
+    session = await mongoose.startSession();
     session.startTransaction();
     const userId = req.user.id;
 
@@ -441,23 +464,43 @@ const updateCartItem = async (req, res) => {
       message: "Cart updated successfully",
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (session && session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+      } catch (abortErr) {
+        console.error("Error aborting transaction:", abortErr);
+      }
+    }
     console.error("Error updating cart:", error);
     res.status(500).json({
       success: false,
       message: "Failed to update cart",
     });
   } finally {
-    session.endSession();
+    if (session) {
+      if (session.inTransaction()) {
+        try {
+          await session.abortTransaction();
+        } catch (abortErr) {
+          console.error("Error aborting transaction in finally:", abortErr);
+        }
+      }
+      try {
+        await session.endSession();
+      } catch (endErr) {
+        console.error("Error ending session:", endErr);
+      }
+    }
   }
 };
 
 // Clear entire cart
 const clearCart = async (req, res) => {
-  await dbConnect();
-  const session = await mongoose.startSession();
+  let session = null;
 
   try {
+    await dbConnect();
+    session = await mongoose.startSession();
     session.startTransaction();
     const userId = req.user.id;
 
@@ -505,14 +548,33 @@ const clearCart = async (req, res) => {
       message: "Cart cleared successfully",
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (session && session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+      } catch (abortErr) {
+        console.error("Error aborting transaction:", abortErr);
+      }
+    }
     console.error("Error clearing cart:", error);
     res.status(500).json({
       success: false,
       message: "Failed to clear cart",
     });
   } finally {
-    session.endSession();
+    if (session) {
+      if (session.inTransaction()) {
+        try {
+          await session.abortTransaction();
+        } catch (abortErr) {
+          console.error("Error aborting transaction in finally:", abortErr);
+        }
+      }
+      try {
+        await session.endSession();
+      } catch (endErr) {
+        console.error("Error ending session:", endErr);
+      }
+    }
   }
 };
 

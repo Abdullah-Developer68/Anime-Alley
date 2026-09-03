@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
@@ -10,12 +11,53 @@ const Login = () => {
   const { setUser } = useAuth();
   // to navigate
   const navigate = useNavigate();
+  const [demoLoading, setDemoLoading] = useState(null);
+
   // form setup
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm();
+
+  const handleDemoLogin = async (role) => {
+    setDemoLoading(role);
+    try {
+      const res = await api.demoLogin(role);
+
+      if (res.data.success) {
+        // Check if user email has changed and clear localStorage if needed
+        const wasCleared = checkAndHandleUserChange(res.data.user);
+        if (!wasCleared) {
+          // Only clear if user didn't change (to avoid double clearing)
+          localStorage.clear();
+        }
+
+        // Store token in localStorage for Authorization header
+        if (res.data.token) {
+          localStorage.setItem("authToken", res.data.token);
+        }
+
+        // Store user info
+        setUser(res.data.user);
+        localStorage.setItem("userInfo", JSON.stringify(res.data.user));
+        toast.success(
+          `Logged in as ${res.data.user.username} (${res.data.user.role})!`,
+        );
+        navigate("/");
+      } else {
+        toast.error(res.data.message || "Failed to create demo account");
+      }
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to create demo account. Please try again.",
+      );
+      console.error("Demo login error:", error);
+    } finally {
+      setDemoLoading(null);
+    }
+  };
 
   const localLogin = async (data) => {
     console.log(data);
@@ -73,20 +115,49 @@ const Login = () => {
                 Log In
               </h2>
 
-              {/* Recruiter Access Banner */}
+              {/* Demo Accounts Banner */}
               <div className="p-4 mb-4 border rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/20">
-                <p className="mb-3 text-sm text-purple-300/90">
-                  <span className="font-semibold text-purple-400">
-                    For Recruiters:
-                  </span>{" "}
-                  Need admin access?
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-purple-300">
+                    Instant Demo Access
+                  </p>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">
+                    1-Click
+                  </span>
+                </div>
+                <p className="mb-3 text-xs text-white/60">
+                  Generate a fresh demo account instantly. Cleaned up automatically after 7 days.
                 </p>
-                <Link
-                  to="/recruiter"
-                  className="block w-full text-center py-2.5 px-4 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 rounded-md text-purple-300 hover:text-purple-200 transition-all duration-300 text-sm font-medium"
-                >
-                  Create Recruiter Account →
-                </Link>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin("admin")}
+                    disabled={demoLoading !== null}
+                    className="w-full py-2.5 px-3 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-md text-purple-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {demoLoading === "admin" ? (
+                      <span>Loading...</span>
+                    ) : (
+                      <>
+                        <span>👑</span> Demo Admin
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDemoLogin("user")}
+                    disabled={demoLoading !== null}
+                    className="w-full py-2.5 px-3 bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 rounded-md text-pink-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {demoLoading === "user" ? (
+                      <span>Loading...</span>
+                    ) : (
+                      <>
+                        <span>👤</span> Demo User
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Additional Info Panel for Desktop */}
@@ -178,6 +249,7 @@ const Login = () => {
                   </span>
                 </div>
               </div>
+
 
               {/* Google Login Button */}
               <button

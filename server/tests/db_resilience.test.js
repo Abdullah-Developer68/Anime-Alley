@@ -1,0 +1,667 @@
+const test = require("node:test");
+const assert = require("node:assert");
+const Module = require("module");
+
+// Set test environment variables
+process.env.JWT_KEY = "test-resilience-jwt-secret-key-12345";
+process.env.NODE_ENV = "test";
+process.env.CLIENT_URL = "http://localhost:5173";
+
+/**
+ * Creates a mock response object that strictly simulates Node.js ServerResponse.
+ * If headersSent is true, attempting to set status or send json throws ERR_HTTP_HEADERS_SENT.
+ */
+const createMockRes = () => {
+  const res = {
+    statusCode: 200,
+    headersSent: false,
+    _json: null,
+    _data: null,
+    _redirect: null,
+    status(code) {
+      if (res.headersSent) {
+        const err = new Error("ERR_HTTP_HEADERS_SENT: Cannot set headers after they are sent to the client");
+        err.code = "ERR_HTTP_HEADERS_SENT";
+        throw err;
+      }
+      res.statusCode = code;
+      return res;
+    },
+    json(data) {
+      if (res.headersSent) {
+        const err = new Error("ERR_HTTP_HEADERS_SENT: Cannot set headers after they are sent to the client");
+        err.code = "ERR_HTTP_HEADERS_SENT";
+        throw err;
+      }
+      res.headersSent = true;
+      res._json = data;
+      return res;
+    },
+    send(data) {
+      if (res.headersSent) {
+        const err = new Error("ERR_HTTP_HEADERS_SENT: Cannot set headers after they are sent to the client");
+        err.code = "ERR_HTTP_HEADERS_SENT";
+        throw err;
+      }
+      res.headersSent = true;
+      res._data = data;
+      return res;
+    },
+    redirect(url) {
+      if (res.headersSent) {
+        const err = new Error("ERR_HTTP_HEADERS_SENT: Cannot set headers after they are sent to the client");
+        err.code = "ERR_HTTP_HEADERS_SENT";
+        throw err;
+      }
+      res.headersSent = true;
+      res._redirect = url;
+      return res;
+    },
+    cookie(name, val, opts) {
+      res._cookies = res._cookies || {};
+      res._cookies[name] = { val, opts };
+      return res;
+    },
+  };
+  return res;
+};
+
+// Error simulator for database connection failures
+let dbConnectShouldFail = false;
+let dbConnectError = new Error("MongoServerSelectionError: connection timed out");
+
+// Mock dbConnect
+const mockDbConnect = async () => {
+  if (dbConnectShouldFail) {
+    throw dbConnectError;
+  }
+  return { readyState: 1 };
+};
+
+// Track sessions and transaction states
+const activeSessions = [];
+const createMockSession = () => {
+  let inTx = false;
+  let aborted = false;
+  let committed = false;
+  let ended = false;
+  let commitShouldFail = false;
+
+  const sessionObj = {
+    startTransaction() {
+      inTx = true;
+    },
+    inTransaction() {
+      return inTx;
+    },
+    async abortTransaction() {
+      inTx = false;
+      aborted = true;
+    },
+    async commitTransaction() {
+      if (sessionObj.commitShouldFail) {
+        throw new Error("Transaction commit failed: write conflict or connection drop");
+      }
+      inTx = false;
+      committed = true;
+    },
+    async endSession() {
+      ended = true;
+    },
+    get isAborted() {
+      return aborted;
+    },
+    get isCommitted() {
+      return committed;
+    },
+    get isEnded() {
+      return ended;
+    },
+    get commitShouldFail() {
+      return commitShouldFail;
+    },
+    set commitShouldFail(val) {
+      commitShouldFail = val;
+    },
+  };
+  activeSessions.push(sessionObj);
+  return sessionObj;
+};
+
+// Intercept require to mock dbConnect
+const originalRequire = Module.prototype.require;
+Module.prototype.require = function (request) {
+  if (
+    request.endsWith("config/dbConnect.js") ||
+    request === "../config/dbConnect.js" ||
+    request === "../../config/dbConnect.js"
+  ) {
+    return mockDbConnect;
+  }
+  return originalRequire.apply(this, arguments);
+};
+
+// Load modules under test
+const orderController = require("../controllers/order.controller.js");
+const productController = require("../controllers/product.controller.js");
+const reservationController = require("../controllers/reservation.controller.js");
+const couponController = require("../controllers/coupon.controller.js");
+const userController = require("../controllers/user.controller.js");
+const exportController = require("../controllers/export.controller.js");
+const stripeService = require("../services/stripe.js");
+const googleAuth = require("../services/googleAuth.js");
+const stripeHook = require("../hooks/stripeWebHook.js");
+const mongoose = require("mongoose");
+const userModel = require("../models/user.model.js");
+const productModel = require("../models/product.model.js");
+const reservationModel = require("../models/reservation.model.js");
+const orderModel = require("../models/order.model.js");
+const couponModel = require("../models/coupon.model.js");
+
+// Override mongoose.startSession to track session lifecycle
+mongoose.startSession = async () => createMockSession();
+
+// ==========================================
+// 1. ORDER CONTROLLER RESILIENCE TESTS
+// ==========================================
+test("1. Order Controller: Database Resilience & Transaction Safety", async (t) => {
+  await t.test("placeOrder returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = {
+      user: { id: "user123", email: "user@test.com" },
+      body: {
+        userInfo: { email: "user@test.com" },
+        deliveryAddress: "123 Main St",
+        paymentMethod: "cod",
+      },
+    };
+    const res = createMockRes();
+
+    await orderController.placeOrder(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("placeOrder aborts transaction on missing essential fields", async () => {
+    activeSessions.length = 0;
+    const req = {
+      user: { id: "user123" },
+      body: {}, // Missing userInfo, deliveryAddress, paymentMethod
+    };
+    const res = createMockRes();
+
+    await orderController.placeOrder(req, res);
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res._json.success, false);
+    assert.strictEqual(activeSessions.length, 1);
+    assert.strictEqual(activeSessions[0].isAborted, true);
+    assert.strictEqual(activeSessions[0].isEnded, true);
+  });
+
+  await t.test("placeOrder aborts transaction on invalid payment method", async () => {
+    activeSessions.length = 0;
+    const req = {
+      user: { id: "user123" },
+      body: {
+        userInfo: { email: "user@test.com" },
+        deliveryAddress: "123 Main St",
+        paymentMethod: "bitcoin_invalid",
+      },
+    };
+    const res = createMockRes();
+
+    await orderController.placeOrder(req, res);
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res._json.success, false);
+    assert.strictEqual(activeSessions.length, 1);
+    assert.strictEqual(activeSessions[0].isAborted, true);
+    assert.strictEqual(activeSessions[0].isEnded, true);
+  });
+
+  await t.test("placeOrder catches transaction commit failure without ERR_HTTP_HEADERS_SENT", async () => {
+    activeSessions.length = 0;
+    // Mock user and reservation to pass up to commitTransaction
+    const originalUserFindOne = userModel.findOne;
+    const originalReservationFindOne = reservationModel.findOne;
+    const originalProductFindById = productModel.findById;
+    const originalOrderCreate = orderModel.create;
+    const originalOrderFindById = orderModel.findById;
+
+    userModel.findOne = () => ({
+      session: () => ({
+        _id: "u123",
+        email: "user@test.com",
+        couponCodeUsed: [],
+      }),
+    });
+    reservationModel.findOne = () => ({
+      session: () => ({
+        products: [{ productId: "p123", quantity: 1, variant: "M" }],
+      }),
+    });
+    productModel.findById = () => ({
+      session: () => ({ price: 50, name: "Item 1" }),
+    });
+    orderModel.create = async () => [{ _id: "order_123" }];
+    orderModel.findById = () => ({
+      populate: () => ({
+        populate: () => ({
+          session: () => ({
+            _id: "order_123",
+            finalAmount: 55,
+          }),
+        }),
+      }),
+    });
+    userModel.findByIdAndUpdate = () => ({ session: () => {} });
+    reservationModel.deleteOne = () => ({ session: () => {} });
+
+    // Custom startSession where commit fails
+    mongoose.startSession = async () => {
+      const sess = createMockSession();
+      sess.commitShouldFail = true; // Simulate commit failure
+      return sess;
+    };
+
+    const req = {
+      user: { id: "user123" },
+      body: {
+        userInfo: { email: "user@test.com" },
+        deliveryAddress: "123 Main St",
+        paymentMethod: "cod",
+      },
+    };
+    const res = createMockRes();
+
+    // Must NOT throw ERR_HTTP_HEADERS_SENT and must return 500 JSON
+    await orderController.placeOrder(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    assert.strictEqual(activeSessions[0].isAborted, true);
+    assert.strictEqual(activeSessions[0].isEnded, true);
+
+    // Restore
+    userModel.findOne = originalUserFindOne;
+    reservationModel.findOne = originalReservationFindOne;
+    productModel.findById = originalProductFindById;
+    orderModel.create = originalOrderCreate;
+    orderModel.findById = originalOrderFindById;
+    mongoose.startSession = async () => createMockSession();
+  });
+
+  await t.test("getOrderHistory returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { query: { email: "test@example.com", currPage: "1" } };
+    const res = createMockRes();
+    await orderController.getOrderHistory(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("allOrdersList returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { query: { currPage: "1" }, user: { email: "admin@test.com" } };
+    const res = createMockRes();
+    await orderController.allOrdersList(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("deleteOrder returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { params: { orderId: "ord123" } };
+    const res = createMockRes();
+    await orderController.deleteOrder(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("updateOrder returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { params: { orderId: "ord123" }, body: { status: "shipped" } };
+    const res = createMockRes();
+    await orderController.updateOrder(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("getOrderStats returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = {};
+    const res = createMockRes();
+    await orderController.getOrderStats(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("verifyOrder returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { query: { stripeSessionID: "sess_123" } };
+    const res = createMockRes();
+    await orderController.verifyOrder(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+});
+
+// ==========================================
+// 2. PRODUCT CONTROLLER RESILIENCE TESTS
+// ==========================================
+test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
+  await t.test("getProducts returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { query: { productConstraints: JSON.stringify({ category: "toys", page: 1 }) } };
+    const res = createMockRes();
+    await productController.getProducts(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("createProduct returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { body: { name: "Product A", price: "20", stock: "10", category: "toys" } };
+    const res = createMockRes();
+    await productController.createProduct(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("updateProduct returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { body: { _id: "prod123", name: "Product A", price: "20", stock: "10", category: "toys" } };
+    const res = createMockRes();
+    await productController.updateProduct(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("deleteProduct returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { body: { productID: "prod123" } };
+    const res = createMockRes();
+    await productController.deleteProduct(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("deleteProduct safely handles undefined req.body", async () => {
+    const req = {}; // No body property
+    const res = createMockRes();
+    await productController.deleteProduct(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+});
+
+// ==========================================
+// 3. RESERVATION CONTROLLER RESILIENCE TESTS
+// ==========================================
+test("3. Reservation Controller: Database Resilience & Cart Safety", async (t) => {
+  await t.test("reserveStock returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    activeSessions.length = 0;
+    const req = { user: { id: "user123" }, body: { productId: "p1", quantity: 1 } };
+    const res = createMockRes();
+    await reservationController.reserveStock(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("getCart returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { user: { id: "user123" } };
+    const res = createMockRes();
+    await reservationController.getCart(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("getCart filters deleted products (null productId) without crashing", async () => {
+    const originalReservationFindOne = reservationModel.findOne;
+    reservationModel.findOne = () => ({
+      populate: async () => ({
+        products: [
+          { productId: null, quantity: 2, variant: "M" }, // Deleted product
+          {
+            productId: {
+              _id: "p_active",
+              name: "Active Product",
+              price: 30,
+              image: "img.jpg",
+              category: "toys",
+              stock: 10,
+            },
+            quantity: 1,
+            variant: "default",
+          },
+        ],
+      }),
+    });
+
+    const req = { user: { id: "user123" } };
+    const res = createMockRes();
+    await reservationController.getCart(req, res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res._json.success, true);
+    assert.strictEqual(res._json.cartItems.length, 1);
+    assert.strictEqual(res._json.cartItems[0]._id, "p_active");
+
+    reservationModel.findOne = originalReservationFindOne;
+  });
+
+  await t.test("updateCartItem returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { user: { id: "user123" }, body: { productId: "p1", newQuantity: 2 } };
+    const res = createMockRes();
+    await reservationController.updateCartItem(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("clearCart returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { user: { id: "user123" } };
+    const res = createMockRes();
+    await reservationController.clearCart(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+});
+
+// ==========================================
+// 4. COUPON CONTROLLER RESILIENCE TESTS
+// ==========================================
+test("4. Coupon Controller: Database Resilience", async (t) => {
+  const couponMethods = [
+    { name: "checkCoupon", fn: couponController.checkCoupon, req: { user: { email: "u@t.com" }, body: { couponCode: "DISC10" } } },
+    { name: "getAllCoupons", fn: couponController.getAllCoupons, req: { user: { email: "u@t.com" }, query: { currPage: "1" } } },
+    { name: "deleteCoupon", fn: couponController.deleteCoupon, req: { params: { couponId: "c123" } } },
+    { name: "updateCoupon", fn: couponController.updateCoupon, req: { params: { couponId: "c123" }, body: { discountPercentage: 15, expiryDate: new Date(Date.now() + 86400000).toISOString() } } },
+    { name: "createCoupon", fn: couponController.createCoupon, req: { user: { email: "admin@t.com" }, body: { couponCode: "NEW15", discountPercentage: 15, expiryDate: new Date(Date.now() + 86400000).toISOString() } } },
+    { name: "getCouponStats", fn: couponController.getCouponStats, req: { user: { email: "admin@t.com" } } },
+  ];
+
+  for (const m of couponMethods) {
+    await t.test(`${m.name} returns 500 on dbConnect failure`, async () => {
+      dbConnectShouldFail = true;
+      const res = createMockRes();
+      await m.fn(m.req, res);
+      assert.strictEqual(res.statusCode, 500);
+      assert.strictEqual(res._json.success, false);
+      dbConnectShouldFail = false;
+    });
+  }
+});
+
+// ==========================================
+// 5. USER & EXPORT CONTROLLERS RESILIENCE
+// ==========================================
+test("5. User & Export Controllers: Database Resilience", async (t) => {
+  await t.test("getUsers returns 500 on dbConnect failure", async () => {
+    dbConnectShouldFail = true;
+    const req = { user: { email: "admin@t.com" }, query: { currPage: "1" } };
+    const res = createMockRes();
+    await userController.getUsers(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("deleteUser returns 500 on dbConnect failure", async () => {
+    dbConnectShouldFail = true;
+    const req = { params: { userId: "507f1f77bcf86cd799439011" }, user: { id: "editor1", email: "admin@t.com" } };
+    const res = createMockRes();
+    await userController.deleteUser(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("updateUser returns 500 on dbConnect failure", async () => {
+    dbConnectShouldFail = true;
+    const req = { params: { userId: "507f1f77bcf86cd799439011" }, user: { id: "editor1", email: "admin@t.com" }, body: { username: "updated" } };
+    const res = createMockRes();
+    await userController.updateUser(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("exportData returns 500 on dbConnect failure", async () => {
+    dbConnectShouldFail = true;
+    const req = { user: { email: "admin@t.com" }, params: { dataType: "products" }, query: { format: "excel" } };
+    const res = createMockRes();
+    await exportController.exportData(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+});
+
+// ==========================================
+// 6. STRIPE & GOOGLE AUTH SERVICES RESILIENCE
+// ==========================================
+test("6. Stripe Service & Google Auth: Database Resilience", async (t) => {
+  await t.test("createCheckoutSession returns 500 on dbConnect failure", async () => {
+    dbConnectShouldFail = true;
+    const req = { user: { id: "u1", email: "u@t.com" }, body: { paymentData: { couponCode: "" } } };
+    const res = createMockRes();
+    await stripeService.createCheckoutSession(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.ok(res._json.error);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("createCheckoutSession handles missing paymentData with 400", async () => {
+    const req = { user: { id: "u1", email: "u@t.com" }, body: {} };
+    const res = createMockRes();
+    await stripeService.createCheckoutSession(req, res);
+    assert.strictEqual(res.statusCode, 400);
+    assert.ok(res._json.error);
+  });
+
+  await t.test("handleGoogleCallback redirects to login on dbConnect failure without throwing", async () => {
+    dbConnectShouldFail = true;
+    const req = {};
+    const res = createMockRes();
+    const next = () => {};
+
+    await googleAuth.handleGoogleCallback(req, res, next);
+    assert.strictEqual(res.headersSent, true);
+    assert.strictEqual(res._redirect, "http://localhost:5173/login");
+    dbConnectShouldFail = false;
+  });
+});
+
+// ==========================================
+// 7. STRIPE WEBHOOK RESILIENCE
+// ==========================================
+test("7. Stripe Webhook: Database Resilience", async (t) => {
+  await t.test("handleStripeWebhook returns 500 on DB failure during checkout.session.completed", async () => {
+    dbConnectShouldFail = true;
+    // Mock stripe constructEvent
+    const Stripe = require("stripe");
+    const stripeInstance = Stripe("dummy_key");
+    stripeInstance.webhooks.constructEvent = () => ({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_test_resilience_123",
+          metadata: { userId: "user_123", userEmail: "test@example.com" },
+        },
+      },
+    });
+
+    const req = {
+      headers: { "stripe-signature": "valid_sig" },
+      body: Buffer.from("{}"),
+    };
+    const res = createMockRes();
+
+    await stripeHook.handleStripeWebhook(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.ok(res._json.error);
+    dbConnectShouldFail = false;
+  });
+});
+
+// ==========================================
+// 8. EXPRESS GLOBAL ERROR HANDLER
+// ==========================================
+test("8. Express Global Error Handler", async (t) => {
+  // Read server/app.js to inspect error-handling middleware
+  const app = require("../app.js");
+
+  await t.test("Global error handler is registered with 4 arguments", () => {
+    const errorMiddleware = app._router.stack.filter(
+      (layer) => layer.handle && layer.handle.length === 4
+    );
+    assert.ok(errorMiddleware.length >= 1, "Global 4-argument error handling middleware must be registered");
+  });
+
+  await t.test("Global error handler returns status code and JSON", () => {
+    const errorMiddleware = app._router.stack.filter(
+      (layer) => layer.handle && layer.handle.length === 4
+    )[0].handle;
+
+    const res = createMockRes();
+    const err = new Error("Something broke");
+    err.statusCode = 503;
+
+    errorMiddleware(err, {}, res, () => {});
+    assert.strictEqual(res.statusCode, 503);
+    assert.strictEqual(res._json.success, false);
+    assert.strictEqual(res._json.message, "Something broke");
+  });
+
+  await t.test("Global error handler delegates to next(err) if headersSent is true", () => {
+    const errorMiddleware = app._router.stack.filter(
+      (layer) => layer.handle && layer.handle.length === 4
+    )[0].handle;
+
+    const res = createMockRes();
+    res.headersSent = true; // Headers already sent
+    const err = new Error("Late error");
+
+    let delegatedError = null;
+    errorMiddleware(err, {}, res, (passedErr) => {
+      delegatedError = passedErr;
+    });
+
+    assert.strictEqual(delegatedError, err, "Should delegate to next(err) when headers are already sent");
+  });
+});

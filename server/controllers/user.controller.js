@@ -9,7 +9,6 @@ const {
 } = require("../utils/cloudinary.utils.js");
 
 const getUsers = async (req, res) => {
-  await dbConnect();
   // The user object has other details such as role as well but we will still verify it from the database for high security
   const viewerEmail = req.user.email;
   // This is sent from the frontend (searching constraints)
@@ -22,6 +21,7 @@ const getUsers = async (req, res) => {
   }
 
   try {
+    await dbConnect();
     // Check if the requesting user is an admin or superAdmin
     const adminUser = await userModel.findOne({ email: viewerEmail });
     if (
@@ -95,8 +95,8 @@ const getUsers = async (req, res) => {
 };
 
 const deleteUser = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     // Id of the user who is to be deleted
     const { userId } = req.params;
 
@@ -194,8 +194,8 @@ const deleteUser = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-  await dbConnect();
   try {
+    await dbConnect();
     // This is the id of the user to be updated
     const { userId } = req.params;
 
@@ -337,102 +337,8 @@ const updateUser = async (req, res) => {
   }
 };
 
-// Recruiter Bypass - Create admin account without verification
-const recruiterBypass = async (req, res) => {
-  await dbConnect();
-
-  const { username, email, password } = req.body;
-
-  // Validate required fields
-  if (!username || !email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Username, email, and password are required!",
-    });
-  }
-
-  try {
-    // Check if user already exists
-    const existingUser = await userModel.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this email already exists!",
-      });
-    }
-
-    // Hash the password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Create new user with admin role
-    const newUser = new userModel({
-      username,
-      email,
-      password: hashedPassword,
-      role: "admin", // Set role as admin by default
-      profilePic: "", // Default empty profile pic
-      accountStatus: "active", // Set account status as active
-    });
-
-    // Save user to database
-    const savedUser = await newUser.save();
-
-    // Generate JWT token (using same key as other auth services)
-    const jwtSecret =
-      process.env.JWT_KEY || "fallback-secret-key-for-development";
-    const token = jwt.sign(
-      {
-        userid: savedUser._id, // Use same field name as other auth services
-        email: savedUser.email,
-        username: savedUser.username,
-        profilePic: savedUser.profilePic,
-        role: savedUser.role,
-      },
-      jwtSecret,
-      { expiresIn: "7d" },
-    );
-
-    // Prepare user data for response (exclude password)
-    const userData = {
-      id: savedUser._id,
-      username: savedUser.username,
-      email: savedUser.email,
-      role: savedUser.role,
-      profilePic: savedUser.profilePic,
-    };
-
-    console.log(`Recruiter bypass account created: ${email} with role: admin`);
-
-    res.status(201).json({
-      success: true,
-      message: "Recruiter account created successfully!",
-      user: userData,
-      token,
-    });
-  } catch (error) {
-    console.error("Recruiter bypass error:", error);
-
-    // Handle duplicate key error
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: "User with this email already exists!",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        "Internal server error while creating recruiter account.",
-    });
-  }
-};
-
 module.exports = {
   getUsers,
   deleteUser,
   updateUser,
-  recruiterBypass,
 };

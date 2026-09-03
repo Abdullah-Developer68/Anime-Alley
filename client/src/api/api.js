@@ -69,9 +69,9 @@ api.logout = () => {
   return api.get("/auth/logout");
 };
 
-// recruiter bypass signup
-api.recruiterBypass = (recruiterData) => {
-  return api.post("/auth/recruiterBypass", recruiterData);
+// demo account login
+api.demoLogin = (role) => {
+  return api.post("/auth/demo-login", { role });
 };
 
 // --- PRODUCT API'S ---
