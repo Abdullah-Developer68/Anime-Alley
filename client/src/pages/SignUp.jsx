@@ -3,7 +3,6 @@ import assests from "../assets/asset";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
-import { Link } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { checkAndHandleUserChange } from "../utils/userSessionManager";
@@ -180,7 +179,7 @@ const Signup = () => {
               </h2>
 
               {/* Demo Access Banner */}
-              <div className="p-4 mb-4 border rounded-lg bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-500/20">
+              <div className="p-4 mb-4 border rounded-lg bg-white/5 border-white/10">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-semibold text-purple-300">
                     Instant Demo Access
@@ -418,7 +417,7 @@ const Signup = () => {
                   <div className="w-full border-t border-white/10"></div>
                 </div>
                 <div className="relative flex justify-center text-xs sm:text-sm">
-                  <span className="px-4 text-white/40 bg-gradient-to-b from-[#0b0133] to-[#1a0266]">
+                  <span className="px-4 text-white/40 bg-[#16161f] rounded-full">
                     or continue with
                   </span>
                 </div>

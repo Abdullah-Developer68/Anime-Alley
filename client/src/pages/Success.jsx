@@ -57,7 +57,7 @@ const Success = () => {
           <br />
           Redirecting to your order history...
         </p>
-        <div className="w-full h-2 rounded-full bg-gradient-to-r from-green-400 via-blue-500 to-purple-600 animate-pulse" />
+        <div className="w-full h-2 rounded-full bg-green-500 animate-pulse" />
       </div>
     </div>
   );

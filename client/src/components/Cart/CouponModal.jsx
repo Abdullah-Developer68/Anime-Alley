@@ -3,7 +3,6 @@ import { useSelector, useDispatch } from "react-redux";
 import {
   applyCoupon,
   resetCoupon,
-  setCartLoading,
   closeCouponModal,
   setDiscountedPrice,
   setFinalTotal,
@@ -14,14 +13,12 @@ import {
 import api from "../../api/api";
 import { toast } from "react-toastify";
 import assets from "../../assets/asset";
-import Loader from "../Global/Loader";
 
 const CouponModal = () => {
   const dispatch = useDispatch();
   // Redux state
   const couponApplied = useSelector((state) => state.cart.couponApplied);
   const couponCode = useSelector((state) => state.cart.couponCode); // used to display in the input tag after the couponCode is dispatched to the redux store
-  const isLoading = useSelector((state) => state.cart.isLoading);
   const couponModalOpen = useSelector((state) => state.cart.couponModalOpen);
   const cartItems = useSelector((state) => state.cart.cartItems);
   const paymentMethod = useSelector((state) => state.cart.paymentMethod);
@@ -39,6 +36,8 @@ const CouponModal = () => {
   const [couponInput, setCouponInput] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [isProceeding, setIsProceeding] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const calculateCosts = useCallback(() => {
     if (couponApplied && couponDiscount > 0) {
@@ -61,6 +60,9 @@ const CouponModal = () => {
   const resetCouponModalState = useCallback(() => {
     if (couponModalOpen) {
       setCouponInput("");
+      setIsValidating(false);
+      setIsSuccess(false);
+      setIsProceeding(false);
       if (!couponApplied) {
         setCouponDiscount(0);
         dispatch(setDiscountedPrice(subtotal));
@@ -90,28 +92,19 @@ const CouponModal = () => {
       return;
     }
 
-    try {
-      // start loading
-      const loadingTimer = setTimeout(() => {
-        dispatch(setCartLoading(true)); // shows a loader on screen
-      }, 200);
+    // find user
+    const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+    if (!userInfo) {
+      toast.error("Please login to apply coupon");
+      return;
+    }
 
-      // find user
-      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-      if (!userInfo) {
-        clearTimeout(loadingTimer);
-        dispatch(setCartLoading(false));
-        toast.error("Please login to apply coupon");
-        return;
-      }
-      // verify coupon
+    try {
+      setIsValidating(true);
       const response = await api.verifyCouponCode(couponInput.trim());
 
-      // closes the loader
-      clearTimeout(loadingTimer);
-      dispatch(setCartLoading(false));
-
       if (response.success === false) {
+        setIsValidating(false);
         toast.error("Invalid coupon code");
         return;
       }
@@ -124,13 +117,9 @@ const CouponModal = () => {
         const newDiscountedPrice = Math.round(subtotal * (1 - discount / 100));
         const newFinalTotal = Math.round(newDiscountedPrice + shippingCost);
 
-        dispatch(
-          applyCoupon({
-            couponCode: couponInput.trim(),
-            discountedPrice: newDiscountedPrice,
-            finalCost: newFinalTotal,
-          }),
-        );
+        // Transition button to success state smoothly
+        setIsValidating(false);
+        setIsSuccess(true);
 
         dispatch(setDiscountedPrice(newDiscountedPrice));
         dispatch(setFinalTotal(newFinalTotal));
@@ -138,16 +127,26 @@ const CouponModal = () => {
           `Coupon applied! You saved $${subtotal - newDiscountedPrice}`,
         );
 
-        // Set proceeding state and automatically proceed with payment
-        setIsProceeding(true);
+        // Keep button success animation visible before switching and proceeding
         setTimeout(() => {
-          handleProceed();
-        }, 1500); // Give user time to see the success message
+          dispatch(
+            applyCoupon({
+              couponCode: couponInput.trim(),
+              discountedPrice: newDiscountedPrice,
+              finalCost: newFinalTotal,
+            }),
+          );
+          setIsProceeding(true);
+          setTimeout(() => {
+            handleProceed();
+          }, 1400);
+        }, 800);
       } else {
+        setIsValidating(false);
         toast.error("Invalid coupon code");
       }
     } catch (error) {
-      dispatch(setCartLoading(false));
+      setIsValidating(false);
       toast.error(error.response?.data?.message || "Error applying coupon");
     }
   };
@@ -155,6 +154,9 @@ const CouponModal = () => {
   const handleRemoveCoupon = () => {
     dispatch(resetCoupon());
     setCouponDiscount(0);
+    setIsValidating(false);
+    setIsSuccess(false);
+    setIsProceeding(false);
     dispatch(setDiscountedPrice(subtotal));
     dispatch(setFinalTotal(subtotal + shippingCost));
     setCouponInput("");
@@ -251,19 +253,61 @@ const CouponModal = () => {
               placeholder="Enter coupon code"
               value={couponInput}
               onChange={(e) => setCouponInput(e.target.value)}
-              className="w-full px-4 py-3 text-white transition-colors border rounded-lg outline-none bg-white/10 border-white/20 placeholder:text-white/50 focus:border-yellow-500/50"
-              disabled={isLoading}
+              className="w-full px-4 py-3 text-white transition-colors border rounded-lg outline-none bg-white/10 border-white/20 placeholder:text-white/50 focus:border-yellow-500/50 disabled:opacity-60"
+              disabled={isValidating || isSuccess}
             />
             <button
+              type="button"
               onClick={handleApplyCoupon}
-              disabled={isLoading || !couponInput.trim()}
-              className="flex items-center justify-center w-full gap-2 py-3 font-semibold text-black transition-all duration-300 bg-yellow-500 rounded-lg cursor-pointer hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+              disabled={isValidating || isSuccess || !couponInput.trim()}
+              className={`flex items-center justify-center w-full gap-2 py-3 font-semibold rounded-lg transition-all duration-300 cursor-pointer ${
+                isSuccess
+                  ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
+                  : isValidating
+                    ? "bg-yellow-400 text-black cursor-wait"
+                    : "bg-yellow-500 text-black hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+              }`}
             >
-              {isLoading ? (
-                <>
-                  <Loader size="sm" />
-                  <span>Validating...</span>
-                </>
+              {isValidating ? (
+                <div className="flex items-center justify-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-black animate-spin"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <span>Applying Coupon...</span>
+                </div>
+              ) : isSuccess ? (
+                <div className="flex items-center justify-center gap-2 font-bold animate-pulse">
+                  <svg
+                    className="w-5 h-5 text-black"
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>Coupon Applied!</span>
+                </div>
               ) : (
                 "Apply Coupon"
               )}
@@ -331,8 +375,10 @@ const CouponModal = () => {
         {!couponApplied && (
           <div className="flex justify-center">
             <button
+              type="button"
               onClick={handleSkip}
-              className="w-full py-3 font-semibold text-black transition-all duration-300 bg-pink-500 rounded-lg hover:bg-pink-400"
+              disabled={isValidating || isSuccess}
+              className="w-full py-3 font-semibold text-black transition-all duration-300 bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-400 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Skip Coupon & Proceed to Payment
             </button>
