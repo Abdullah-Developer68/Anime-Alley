@@ -14,9 +14,14 @@ const createCheckoutSession = async (req, res) => {
     if (!paymentData)
       return res.status(400).json({ error: "Payment data is required" });
 
-    const { couponCode = "", deliveryAddress = "" } = paymentData || {};
-    if (!deliveryAddress || (typeof deliveryAddress === "string" && !deliveryAddress.trim()))
-      return res.status(400).json({ error: "Delivery address is required" });
+    const { couponCode, deliveryAddress } = paymentData || {};
+    if (!deliveryAddress || typeof deliveryAddress !== "string" || !deliveryAddress.trim())
+      return res.status(400).json({ error: "Delivery address is required and must be a string" });
+
+    if (couponCode != null && typeof couponCode !== "string")
+      return res.status(400).json({ error: "Coupon code must be a string" });
+
+    const trimmedCouponCode = typeof couponCode === "string" ? couponCode.trim() : "";
 
     await dbConnect();
 
@@ -48,7 +53,6 @@ const createCheckoutSession = async (req, res) => {
     );
     let coupon = null;
     let discountAmount = 0;
-    const trimmedCouponCode = typeof couponCode === "string" ? couponCode.trim() : "";
     if (trimmedCouponCode.length > 0) {
       // find the coupon used
       coupon = await couponModel.findOne({ couponCode: trimmedCouponCode });
@@ -87,15 +91,15 @@ const createCheckoutSession = async (req, res) => {
 
     // Get coupon info for display (if provided)
     let appliedCoupon = null;
-    if (couponCode && authenticatedUserEmail)
-      appliedCoupon = await couponModel.findOne({ couponCode });
+    if (trimmedCouponCode && authenticatedUserEmail)
+      appliedCoupon = coupon || (await couponModel.findOne({ couponCode: trimmedCouponCode }));
 
     // Create checkout session configuration with locked email
     const sessionConfig = {
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
-      //The {CHECKOUT_SESSION_ID} is a Stripe placeholder that gets replaced with the actual session ID.
+      // The {CHECKOUT_SESSION_ID} is a Stripe placeholder that gets replaced with the actual session ID.
       success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/cart`,
 
@@ -105,13 +109,13 @@ const createCheckoutSession = async (req, res) => {
 
       metadata: {
         userId: userId.toString(), // Use userId from verified token
-        couponCode: couponCode || "",
+        couponCode: trimmedCouponCode,
         userEmail: authenticatedUserEmail, // Use authenticated email
-        discountAmount: discountAmount || "0",
+        discountAmount: discountAmount.toString(),
         originalTotal: calculatedSubtotal.toFixed(2),
         finalTotal: finalTotal.toFixed(2),
-        shippingAddress: deliveryAddress || "",
-        shippingCost: shippingCost || 5,
+        shippingAddress: deliveryAddress.trim(),
+        shippingCost: shippingCost.toString(),
       },
     };
 

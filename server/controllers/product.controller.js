@@ -5,11 +5,9 @@ const {
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
 
-/**
- * Generate unique product ID based on category
- * @param {string} category - Product category (comics, toys, clothes, shoes)
- * @returns {Promise<string>} - Generated unique product ID
- */
+// Generate unique product ID based on category
+// category: Product category (comics, toys, clothes, shoes)
+// returns: Generated unique product ID
 const generateProductID = async (category) => {
   try {
     // Define category prefixes
@@ -109,8 +107,8 @@ const getProducts = async (req, res) => {
       query.$text = { $search: searchQuery.trim() };
 
     // Add price filter if price exists
-    if (price)
-      query.price = { $lte: price };
+    if (price != null && price !== "" && !isNaN(Number(price)))
+      query.price = { $lte: Number(price) };
 
     // Add filter to the query of the respective category
     // Note: Using case-insensitive regex matching to handle frontend lowercase conversion
@@ -188,14 +186,27 @@ const createProduct = async (req, res) => {
   try {
     const { name, price, stock, category } = req.body || {};
 
-    // Remove productID from required fields validation since it's auto-generated
-    if (!name || !price || !stock || !category) {
-      console.error("Missing required fields:", req.body);
+    // Use explicit null/undefined and trimmed string checks so 0 and "0" are preserved,
+    // while whitespace-only strings ("     ") are immediately rejected as missing fields
+    if (
+      !name ||
+      (typeof name === "string" && !name.trim()) ||
+      price == null ||
+      (typeof price === "string" && !price.trim()) ||
+      stock == null ||
+      (typeof stock === "string" && !stock.trim()) ||
+      !category ||
+      (typeof category === "string" && !category.trim())
+    )
       return res.status(400).json({
         success: false,
         message: "fields in data from client are missing",
       });
-    }
+
+    // Validate numeric range for price
+    const parsedPrice = typeof price === "number" ? price : Number(typeof price === "string" ? price.trim() : price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0)
+      return res.status(400).json({ success: false, message: "Price must be a valid non-negative number" });
 
     // Validate category before generating ID
     const validCategories = ["comics", "toys", "clothes", "shoes"];
@@ -216,12 +227,15 @@ const createProduct = async (req, res) => {
 
     if (catLower === "toys") {
       stockData = typeof stockData === "number" ? stockData : Number(stockData);
-      if (typeof stockData !== "number" || isNaN(stockData) || stockData < 0)
+      if (typeof stockData !== "number" || !Number.isInteger(stockData) || stockData < 0)
         return res.status(400).json({ success: false, message: "Invalid stock value for toy" });
     }
 
     let volumes, genres, sizes;
     if (catLower === "comics") {
+      if (typeof stockData !== "object" || stockData === null || Array.isArray(stockData))
+        return res.status(400).json({ success: false, message: "Stock must be an object for comics" });
+
       try {
         volumes = req.body.volumes !== undefined
           ? (typeof req.body.volumes === "string" ? JSON.parse(req.body.volumes) : req.body.volumes)
@@ -232,13 +246,40 @@ const createProduct = async (req, res) => {
       } catch {
         return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
       }
+
+      // Validate that stock exists for each volume and is non-negative
+      if (Array.isArray(volumes)) {
+        for (const volume of volumes) {
+          const volStock = stockData[volume];
+          if (volStock == null || typeof volStock === "boolean" || !Number.isInteger(Number(volStock)) || Number(volStock) < 0)
+            return res.status(400).json({
+              success: false,
+              message: `Stock value missing or invalid for volume ${volume}`,
+            });
+        }
+      }
     } else if (catLower === "clothes" || catLower === "shoes") {
+      if (typeof stockData !== "object" || stockData === null || Array.isArray(stockData))
+        return res.status(400).json({ success: false, message: "Stock must be an object for this category" });
+
       try {
         sizes = req.body.sizes !== undefined
           ? (typeof req.body.sizes === "string" ? JSON.parse(req.body.sizes) : req.body.sizes)
           : undefined;
       } catch {
         return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      }
+
+      // Validate that stock exists for each size and is non-negative
+      if (Array.isArray(sizes)) {
+        for (const size of sizes) {
+          const sizeStock = stockData[size];
+          if (sizeStock == null || typeof sizeStock === "boolean" || !Number.isInteger(Number(sizeStock)) || Number(sizeStock) < 0)
+            return res.status(400).json({
+              success: false,
+              message: `Stock value missing or invalid for size ${size}`,
+            });
+        }
       }
     }
 
@@ -255,7 +296,7 @@ const createProduct = async (req, res) => {
     const productData = {
       productID: generatedProductID, // Use auto-generated ID
       name: req.body.name,
-      price: parseFloat(req.body.price),
+      price: parsedPrice,
       category: req.body.category,
       description: req.body.description,
       image: imageUrl, // Store the Cloudinary URL
@@ -267,28 +308,12 @@ const createProduct = async (req, res) => {
     if (catLower === "comics") {
       productData.volumes = volumes;
       productData.genres = genres;
-
-      // Validate that stock exists for each volume
-      if (Array.isArray(volumes) && typeof stockData === "object" && stockData !== null) {
-        volumes.forEach((volume) => {
-          if (typeof productData.stock[volume] === "undefined")
-            throw new Error(`Stock value missing for volume ${volume}`);
-        });
-      }
     } else if (
       catLower === "clothes" ||
       catLower === "shoes"
     ) {
       productData.sizes = sizes;
       productData.merchType = req.body.merchType;
-
-      // Validate that stock exists for each size
-      if (Array.isArray(sizes) && typeof stockData === "object" && stockData !== null) {
-        sizes.forEach((size) => {
-          if (typeof productData.stock[size] === "undefined")
-            throw new Error(`Stock value missing for size ${size}`);
-        });
-      }
     } else if (catLower === "toys")
       productData.toyType = req.body.toyType;
 
@@ -300,6 +325,17 @@ const createProduct = async (req, res) => {
       product: newProduct,
     });
   } catch (error) {
+    if (
+      error.name === "ValidationError" ||
+      error.name === "CastError" ||
+      error.message?.startsWith("Stock value missing or invalid") ||
+      error.message?.startsWith("Invalid category")
+    )
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+
     console.error("Error creating product:", error);
     res.status(500).json({
       success: false,
@@ -327,13 +363,27 @@ const updateProduct = async (req, res) => {
         message: "Product id is required",
       });
 
-    if (!name || !price || !stock || !category) {
-      console.error("Missing required fields:", req.body);
+    // Use explicit null/undefined and trimmed string checks so 0 and "0" are preserved,
+    // while whitespace-only strings ("     ") are immediately rejected as missing fields
+    if (
+      !name ||
+      (typeof name === "string" && !name.trim()) ||
+      price == null ||
+      (typeof price === "string" && !price.trim()) ||
+      stock == null ||
+      (typeof stock === "string" && !stock.trim()) ||
+      !category ||
+      (typeof category === "string" && !category.trim())
+    )
       return res.status(400).json({
         success: false,
         message: "fields in data from client are missing",
       });
-    }
+
+    // Validate numeric range for price
+    const parsedPrice = typeof price === "number" ? price : Number(typeof price === "string" ? price.trim() : price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0)
+      return res.status(400).json({ success: false, message: "Price must be a valid non-negative number" });
 
     const validCategories = ["comics", "toys", "clothes", "shoes"];
     const catLower = typeof category === "string" ? category.toLowerCase() : "";
@@ -352,12 +402,15 @@ const updateProduct = async (req, res) => {
 
     if (catLower === "toys") {
       stockData = typeof stockData === "number" ? stockData : Number(stockData);
-      if (typeof stockData !== "number" || isNaN(stockData) || stockData < 0)
+      if (typeof stockData !== "number" || !Number.isInteger(stockData) || stockData < 0)
         return res.status(400).json({ success: false, message: "Invalid stock value for toy" });
     }
 
     let volumes, genres, sizes;
     if (catLower === "comics") {
+      if (stockData !== undefined && (typeof stockData !== "object" || stockData === null || Array.isArray(stockData)))
+        return res.status(400).json({ success: false, message: "Stock must be an object for comics" });
+
       try {
         volumes = req.body.volumes !== undefined
           ? (typeof req.body.volumes === "string" ? JSON.parse(req.body.volumes) : req.body.volumes)
@@ -368,13 +421,40 @@ const updateProduct = async (req, res) => {
       } catch {
         return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
       }
+
+      // Validate that stock exists for each volume and is non-negative
+      if (Array.isArray(volumes) && typeof stockData === "object" && stockData !== null) {
+        for (const volume of volumes) {
+          const volStock = stockData[volume];
+          if (volStock == null || typeof volStock === "boolean" || !Number.isInteger(Number(volStock)) || Number(volStock) < 0)
+            return res.status(400).json({
+              success: false,
+              message: `Stock value missing or invalid for volume ${volume}`,
+            });
+        }
+      }
     } else if (catLower === "clothes" || catLower === "shoes") {
+      if (stockData !== undefined && (typeof stockData !== "object" || stockData === null || Array.isArray(stockData)))
+        return res.status(400).json({ success: false, message: "Stock must be an object for this category" });
+
       try {
         sizes = req.body.sizes !== undefined
           ? (typeof req.body.sizes === "string" ? JSON.parse(req.body.sizes) : req.body.sizes)
           : undefined;
       } catch {
         return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      }
+
+      // Validate that stock exists for each size and is non-negative
+      if (Array.isArray(sizes) && typeof stockData === "object" && stockData !== null) {
+        for (const size of sizes) {
+          const sizeStock = stockData[size];
+          if (sizeStock == null || typeof sizeStock === "boolean" || !Number.isInteger(Number(sizeStock)) || Number(sizeStock) < 0)
+            return res.status(400).json({
+              success: false,
+              message: `Stock value missing or invalid for size ${size}`,
+            });
+        }
       }
     }
 
@@ -400,7 +480,7 @@ const updateProduct = async (req, res) => {
 
     const productData = {
       name,
-      price: parseFloat(price),
+      price: parsedPrice,
       category,
       description,
       image: imageUrl,
@@ -412,28 +492,12 @@ const updateProduct = async (req, res) => {
     if (catLower === "comics") {
       productData.volumes = volumes;
       productData.genres = genres;
-
-      // Validate that stock exists for each volume
-      if (Array.isArray(volumes) && typeof stockData === "object" && stockData !== null) {
-        volumes.forEach((volume) => {
-          if (typeof productData.stock[volume] === "undefined")
-            throw new Error(`Stock value missing for volume ${volume}`);
-        });
-      }
     } else if (
       catLower === "clothes" ||
       catLower === "shoes"
     ) {
       productData.sizes = sizes;
       productData.merchType = merchType;
-
-      // Validate that stock exists for each size
-      if (Array.isArray(sizes) && typeof stockData === "object" && stockData !== null) {
-        sizes.forEach((size) => {
-          if (typeof productData.stock[size] === "undefined")
-            throw new Error(`Stock value missing for size ${size}`);
-        });
-      }
     } else if (catLower === "toys")
       productData.toyType = toyType;
 
@@ -458,6 +522,17 @@ const updateProduct = async (req, res) => {
       product: updatedProduct,
     });
   } catch (error) {
+    if (
+      error.name === "ValidationError" ||
+      error.name === "CastError" ||
+      error.message?.startsWith("Stock value missing or invalid") ||
+      error.message?.startsWith("Invalid category")
+    )
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+
     console.error("Error updating product:", error);
     res.status(500).json({
       success: false,
@@ -470,7 +545,7 @@ const deleteProduct = async (req, res) => {
   try {
     const productID = req.body?.productID;
 
-    if (!productID)
+    if (!productID || (typeof productID === "string" && !productID.trim()))
       return res.status(400).json({ message: "The productID is required!" });
 
     await dbConnect();

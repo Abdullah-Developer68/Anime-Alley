@@ -8,6 +8,10 @@ const path = require("path"); // Use path module for file paths
 const port = process.env.PORT;
 const app = express();
 
+// Trust reverse proxy in production, Vercel, or test environments
+if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.NODE_ENV === "test")
+  app.set("trust proxy", 1);
+
 // Stripe webhook must be registered before any body parser middleware because Stripe webhooks
 // must use raw body parsing while regular API routes use JSON body parsing to handle requests
 //  and so that is why it is not in strip.routes.js

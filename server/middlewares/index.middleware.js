@@ -9,7 +9,7 @@ const morganMiddleware = require("./modules/morgan.middleware.js");
 module.exports = (app) => {
   app.use(cookieParserMiddleware); // Cookie parser
   app.use(corsMiddleware); // CORS
-  app.options("*", corsMiddleware); // Handle preflight requests () for all routes
+  app.options(/.*/, corsMiddleware); // Handle preflight requests for all routes (RegExp matches / and all subpaths in Express 5)
   app.use(jsonParserMiddleware); // Parses JSON bodies
   app.use(urlEncodedParser); // Parses URL-encoded bodies
   app.use(morganMiddleware); // Logs requests for debugging

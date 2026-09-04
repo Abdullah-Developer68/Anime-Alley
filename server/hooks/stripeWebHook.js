@@ -12,6 +12,19 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const webHookSecretKey = process.env.STRIPE_WEBHOOK_SECRET;
 const processedSessions = new Set(); // In-memory store for processed sessions
 
+// Strictly coerces and validates non-negative finite numeric values
+// Rejects partially numeric strings ("10abc"), booleans, arrays, whitespace, and negative values
+const parseValidAmount = (value, defaultValue = 0) => {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0)
+    return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const num = Number(value.trim());
+    if (Number.isFinite(num) && num >= 0)
+      return num;
+  }
+  return defaultValue;
+};
+
 const processSuccessfulPayment = async (StripeSession) => {
   // Prevent double processing
   if (processedSessions.has(StripeSession.id)) {
@@ -95,22 +108,29 @@ const processSuccessfulPayment = async (StripeSession) => {
       console.warn(`   Using metadata email for consistency`);
     }
 
+    const validSubtotal = parseValidAmount(originalTotal, 0);
+    const validShipping = parseValidAmount(shippingCost, 5);
+    const validDiscount = parseValidAmount(discountAmount, 0);
+    const validFinalTotal = parseValidAmount(finalTotal, 0);
+
     // Create order from reservation data matching your Order model structure
     const orderData = {
       orderID: `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       stripeSessionID: StripeSession.id, // Add this field
-      products: reservation.products.map((item) => ({
-        productId: item.productId._id,
-        quantity: item.quantity,
-        price: item.productId.price,
-      })),
+      products: reservation.products
+        .filter((item) => item?.productId)
+        .map((item) => ({
+          productId: item.productId._id || item.productId,
+          quantity: item.quantity,
+          price: item.productId.price || 0,
+        })),
       user: user._id, // Required field in your Order model
       shippingAddress,
       paymentMethod: "stripe",
-      subtotal: parseFloat(originalTotal),
-      shippingCost: parseFloat(shippingCost) || 5,
-      discount: parseFloat(discountAmount) || 0,
-      finalAmount: parseFloat(finalTotal),
+      subtotal: validSubtotal,
+      shippingCost: validShipping,
+      discount: validDiscount,
+      finalAmount: validFinalTotal,
       couponCode: couponCode || null,
       status: "processing", // Using your enum values
       orderDate: new Date(),
@@ -132,7 +152,7 @@ const processSuccessfulPayment = async (StripeSession) => {
           {
             $inc: {
               totalUsage: 1,
-              lifeTimeDiscount: discountAmount,
+              lifeTimeDiscount: validDiscount,
             },
           },
           { session: mongoSession }
@@ -179,7 +199,7 @@ const processSuccessfulPayment = async (StripeSession) => {
   } catch (error) {
     // Remove from processed set if transaction fails
     processedSessions.delete(StripeSession.id);
-    if (mongoSession && mongoSession.inTransaction()) {
+    if (mongoSession && (typeof mongoSession.inTransaction === "function" ? mongoSession.inTransaction() : true)) {
       try {
         await mongoSession.abortTransaction();
       } catch (abortErr) {
@@ -190,7 +210,7 @@ const processSuccessfulPayment = async (StripeSession) => {
     throw error;
   } finally {
     if (mongoSession) {
-      if (mongoSession.inTransaction()) {
+      if (typeof mongoSession.inTransaction === "function" ? mongoSession.inTransaction() : false) {
         try {
           await mongoSession.abortTransaction();
         } catch (abortErr) {
@@ -288,4 +308,6 @@ const handleStripeWebhook = async (req, res) => {
 
 module.exports = {
   handleStripeWebhook,
+  processSuccessfulPayment,
+  parseValidAmount,
 };

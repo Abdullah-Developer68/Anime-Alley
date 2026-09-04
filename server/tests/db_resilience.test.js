@@ -620,6 +620,37 @@ test("7. Stripe Webhook: Database Resilience", async (t) => {
     assert.ok(res._json.error);
     dbConnectShouldFail = false;
   });
+
+  await t.test("processSuccessfulPayment strictly coerces malformed discount amounts to 0", async () => {
+    const { parseValidAmount } = stripeHook;
+    const testCases = [
+      { val: "10abc", expected: 0 },
+      { val: "-10", expected: 0 },
+      { val: "invalid", expected: 0 },
+      { val: "15.50", expected: 15.5 },
+      { val: 20, expected: 20 },
+      { val: true, expected: 0 },
+      { val: false, expected: 0 },
+      { val: [20], expected: 0 },
+      { val: "   ", expected: 0 },
+      { val: "", expected: 0 },
+      { val: null, expected: 0 },
+      { val: undefined, expected: 0 },
+      { val: Infinity, expected: 0 },
+      { val: -5, expected: 0 },
+    ];
+    for (const { val, expected } of testCases) {
+      assert.strictEqual(parseValidAmount(val), expected, `Failed for val: ${val}`);
+    }
+
+    // Shipping cost fallback to default 5 when empty or missing, but preserves 0 (free shipping)
+    assert.strictEqual(parseValidAmount(undefined, 5), 5);
+    assert.strictEqual(parseValidAmount("", 5), 5);
+    assert.strictEqual(parseValidAmount("   ", 5), 5);
+    assert.strictEqual(parseValidAmount("0", 5), 0);
+    assert.strictEqual(parseValidAmount(0, 5), 0);
+    assert.strictEqual(parseValidAmount("10", 5), 10);
+  });
 });
 
 // ==========================================
@@ -628,16 +659,17 @@ test("7. Stripe Webhook: Database Resilience", async (t) => {
 test("8. Express Global Error Handler", async (t) => {
   // Read server/app.js to inspect error-handling middleware
   const app = require("../app.js");
+  const router = app.router || app._router;
 
   await t.test("Global error handler is registered with 4 arguments", () => {
-    const errorMiddleware = app._router.stack.filter(
+    const errorMiddleware = router.stack.filter(
       (layer) => layer.handle && layer.handle.length === 4
     );
     assert.ok(errorMiddleware.length >= 1, "Global 4-argument error handling middleware must be registered");
   });
 
   await t.test("Global error handler returns status code and JSON", () => {
-    const errorMiddleware = app._router.stack.filter(
+    const errorMiddleware = router.stack.filter(
       (layer) => layer.handle && layer.handle.length === 4
     )[0].handle;
 
@@ -652,7 +684,7 @@ test("8. Express Global Error Handler", async (t) => {
   });
 
   await t.test("Global error handler delegates to next(err) if headersSent is true", () => {
-    const errorMiddleware = app._router.stack.filter(
+    const errorMiddleware = router.stack.filter(
       (layer) => layer.handle && layer.handle.length === 4
     )[0].handle;
 
@@ -820,6 +852,28 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     assert.strictEqual(res2.statusCode, 400);
   });
 
+  await t.test("createCheckoutSession returns 400 without dbConnect on non-string deliveryAddress or couponCode", async () => {
+    // Non-string deliveryAddress: object
+    const reqObj = { user: { id: "u1" }, body: { paymentData: { deliveryAddress: { street: "123 Main" } } } };
+    const resObj = createMockRes();
+    await stripeService.createCheckoutSession(reqObj, resObj);
+    assert.strictEqual(resObj.statusCode, 400);
+    assert.strictEqual(resObj._json.error, "Delivery address is required and must be a string");
+
+    // Non-string deliveryAddress: number
+    const reqNum = { user: { id: "u1" }, body: { paymentData: { deliveryAddress: 12345 } } };
+    const resNum = createMockRes();
+    await stripeService.createCheckoutSession(reqNum, resNum);
+    assert.strictEqual(resNum.statusCode, 400);
+
+    // Non-string couponCode: object
+    const reqCoupon = { user: { id: "u1" }, body: { paymentData: { deliveryAddress: "123 Main St", couponCode: { code: "SAVE10" } } } };
+    const resCoupon = createMockRes();
+    await stripeService.createCheckoutSession(reqCoupon, resCoupon);
+    assert.strictEqual(resCoupon.statusCode, 400);
+    assert.strictEqual(resCoupon._json.error, "Coupon code must be a string");
+  });
+
   await t.test("reserveStock returns 400 without dbConnect or session on missing fields", async () => {
     activeSessions.length = 0;
     const req = { user: { id: "u1" }, body: {} };
@@ -899,6 +953,63 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     const res2 = createMockRes();
     await productController.createProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
+
+    // Negative price
+    const req3 = { body: { name: "Toy A", price: -5, stock: 0, category: "toys" } };
+    const res3 = createMockRes();
+    await productController.createProduct(req3, res3);
+    assert.strictEqual(res3.statusCode, 400);
+    assert.strictEqual(res3._json.message, "Price must be a valid non-negative number");
+
+    // Negative stock for toy
+    const req4 = { body: { name: "Toy A", price: 0, stock: -1, category: "toys" } };
+    const res4 = createMockRes();
+    await productController.createProduct(req4, res4);
+    assert.strictEqual(res4.statusCode, 400);
+    assert.strictEqual(res4._json.message, "Invalid stock value for toy");
+
+    // Partially numeric price
+    const reqPartNumeric = { body: { name: "Toy A", price: "20abc", stock: 0, category: "toys" } };
+    const resPartNumeric = createMockRes();
+    await productController.createProduct(reqPartNumeric, resPartNumeric);
+    assert.strictEqual(resPartNumeric.statusCode, 400);
+    assert.strictEqual(resPartNumeric._json.message, "Price must be a valid non-negative number");
+
+    // Float stock for toy
+    const reqFloatStock = { body: { name: "Toy A", price: 10, stock: 2.5, category: "toys" } };
+    const resFloatStock = createMockRes();
+    await productController.createProduct(reqFloatStock, resFloatStock);
+    assert.strictEqual(resFloatStock.statusCode, 400);
+    assert.strictEqual(resFloatStock._json.message, "Invalid stock value for toy");
+
+    // Number stock for comic
+    const reqComicNumStock = { body: { name: "Comic A", price: 10, stock: 10, category: "comics" } };
+    const resComicNumStock = createMockRes();
+    await productController.createProduct(reqComicNumStock, resComicNumStock);
+    assert.strictEqual(resComicNumStock.statusCode, 400);
+    assert.strictEqual(resComicNumStock._json.message, "Stock must be an object for comics");
+
+    // Whitespace price
+    const reqSpacePrice = { body: { name: "Toy A", price: "   ", stock: 10, category: "toys" } };
+    const resSpacePrice = createMockRes();
+    await productController.createProduct(reqSpacePrice, resSpacePrice);
+    assert.strictEqual(resSpacePrice.statusCode, 400);
+    assert.strictEqual(resSpacePrice._json.message, "fields in data from client are missing");
+
+    // Whitespace stock
+    const reqSpaceStock = { body: { name: "Toy A", price: 10, stock: "   ", category: "toys" } };
+    const resSpaceStock = createMockRes();
+    await productController.createProduct(reqSpaceStock, resSpaceStock);
+    assert.strictEqual(resSpaceStock.statusCode, 400);
+    assert.strictEqual(resSpaceStock._json.message, "fields in data from client are missing");
+  });
+
+  await t.test("deleteProduct returns 400 on whitespace productID", async () => {
+    const req = { body: { productID: "   " } };
+    const res = createMockRes();
+    await productController.deleteProduct(req, res);
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res._json.message, "The productID is required!");
   });
 
   await t.test("updateProduct returns 400 without dbConnect on missing fields or invalid stock", async () => {
@@ -911,6 +1022,116 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     const res2 = createMockRes();
     await productController.updateProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
+
+    // Negative price
+    const req3 = { body: { _id: "prod123", name: "Toy A", price: -10, stock: 0, category: "toys" } };
+    const res3 = createMockRes();
+    await productController.updateProduct(req3, res3);
+    assert.strictEqual(res3.statusCode, 400);
+    assert.strictEqual(res3._json.message, "Price must be a valid non-negative number");
+
+    // Partially numeric price
+    const reqUpdatePartNumeric = { body: { _id: "prod123", name: "Toy A", price: "10abc", stock: 0, category: "toys" } };
+    const resUpdatePartNumeric = createMockRes();
+    await productController.updateProduct(reqUpdatePartNumeric, resUpdatePartNumeric);
+    assert.strictEqual(resUpdatePartNumeric.statusCode, 400);
+    assert.strictEqual(resUpdatePartNumeric._json.message, "Price must be a valid non-negative number");
+
+    // Negative stock for toy
+    const req4 = { body: { _id: "prod123", name: "Toy A", price: 0, stock: -2, category: "toys" } };
+    const res4 = createMockRes();
+    await productController.updateProduct(req4, res4);
+    assert.strictEqual(res4.statusCode, 400);
+    assert.strictEqual(res4._json.message, "Invalid stock value for toy");
+
+    // Float stock for toy
+    const reqUpdateFloatStock = { body: { _id: "prod123", name: "Toy A", price: 0, stock: 1.5, category: "toys" } };
+    const resUpdateFloatStock = createMockRes();
+    await productController.updateProduct(reqUpdateFloatStock, resUpdateFloatStock);
+    assert.strictEqual(resUpdateFloatStock.statusCode, 400);
+    assert.strictEqual(resUpdateFloatStock._json.message, "Invalid stock value for toy");
+
+    // Number stock for comic in update
+    const reqUpdateComicNumStock = { body: { _id: "prod123", name: "Comic A", price: 10, stock: 10, category: "comics" } };
+    const resUpdateComicNumStock = createMockRes();
+    await productController.updateProduct(reqUpdateComicNumStock, resUpdateComicNumStock);
+    assert.strictEqual(resUpdateComicNumStock.statusCode, 400);
+    assert.strictEqual(resUpdateComicNumStock._json.message, "Stock must be an object for comics");
+
+    // Whitespace price
+    const reqUpdateSpacePrice = { body: { _id: "prod123", name: "Toy A", price: "   ", stock: 10, category: "toys" } };
+    const resUpdateSpacePrice = createMockRes();
+    await productController.updateProduct(reqUpdateSpacePrice, resUpdateSpacePrice);
+    assert.strictEqual(resUpdateSpacePrice.statusCode, 400);
+    assert.strictEqual(resUpdateSpacePrice._json.message, "fields in data from client are missing");
+
+    // Whitespace stock
+    const reqUpdateSpaceStock = { body: { _id: "prod123", name: "Toy A", price: 10, stock: "   ", category: "toys" } };
+    const resUpdateSpaceStock = createMockRes();
+    await productController.updateProduct(reqUpdateSpaceStock, resUpdateSpaceStock);
+    assert.strictEqual(resUpdateSpaceStock.statusCode, 400);
+    assert.strictEqual(resUpdateSpaceStock._json.message, "fields in data from client are missing");
+  });
+
+  await t.test("createProduct and updateProduct allow price = 0 and stock = 0 without returning 400 missing fields", async () => {
+    dbConnectShouldFail = true;
+    const reqCreate = { body: { name: "Free Toy", price: 0, stock: 0, category: "toys" } };
+    const resCreate = createMockRes();
+    await productController.createProduct(reqCreate, resCreate);
+    assert.strictEqual(resCreate.statusCode, 500);
+
+    const reqUpdate = { body: { _id: "prod123", name: "Out of Stock Toy", price: 0, stock: 0, category: "toys" } };
+    const resUpdate = createMockRes();
+    await productController.updateProduct(reqUpdate, resUpdate);
+    assert.strictEqual(resUpdate.statusCode, 500);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("createProduct returns 400 without dbConnect on missing or invalid comic volume stock", async () => {
+    const req1 = {
+      body: {
+        name: "One Piece",
+        price: 10,
+        category: "comics",
+        stock: JSON.stringify({ "Vol 1": 5 }),
+        volumes: JSON.stringify(["Vol 1", "Vol 2"]),
+      },
+    };
+    const res1 = createMockRes();
+    await productController.createProduct(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+    assert.ok(res1._json.message.includes("Stock value missing or invalid for volume Vol 2"));
+
+    const req2 = {
+      body: {
+        name: "One Piece",
+        price: 10,
+        category: "comics",
+        stock: JSON.stringify({ "Vol 1": -5 }),
+        volumes: JSON.stringify(["Vol 1"]),
+      },
+    };
+    const res2 = createMockRes();
+    await productController.createProduct(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+    assert.ok(res2._json.message.includes("Stock value missing or invalid for volume Vol 1"));
+  });
+
+  await t.test("updateProduct returns 400 without dbConnect on missing or invalid size stock", async () => {
+    const req1 = {
+      body: {
+        _id: "507f1f77bcf86cd799439011",
+        name: "Anime Hoodie",
+        price: 45,
+        category: "clothes",
+        stock: JSON.stringify({ S: 10, M: "invalid_number" }),
+        sizes: JSON.stringify(["S", "M"]),
+      },
+    };
+    const res1 = createMockRes();
+    await productController.updateProduct(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+    assert.ok(res1._json.message.includes("Stock value missing or invalid for size M"));
   });
 
   await t.test("updateCartItem returns 400 without dbConnect or session on missing productId or invalid quantity", async () => {
@@ -970,6 +1191,220 @@ test("10. Cleanup Routes & Vercel Cron GET Support", async (t) => {
     assert.strictEqual(res.statusCode, 500);
     assert.strictEqual(res._json.success, false);
     dbConnectShouldFail = false;
+  });
+
+  await t.test("cleanUpReservation deduplicates product IDs when querying productModel", async () => {
+    const reservationModel = require("../models/reservation.model.js");
+    const productModel = require("../models/product.model.js");
+    const cleanupExpiredReservations = require("../cron jobs/cleanUpReservation.js");
+
+    const originalFindReservation = reservationModel.find;
+    const originalFindProduct = productModel.find;
+    const originalBulkWrite = productModel.bulkWrite;
+    const originalDeleteMany = reservationModel.deleteMany;
+
+    let queriedProductIds = null;
+    reservationModel.find = () => ({
+      session: () => [
+        {
+          _id: "res1",
+          products: [
+            { productId: "prod_dup_1", quantity: 2, variant: "M" },
+            { productId: "prod_dup_1", quantity: 1, variant: "S" },
+          ],
+        },
+        {
+          _id: "res2",
+          products: [
+            { productId: "prod_dup_1", quantity: 3, variant: "M" },
+            { productId: "prod_dup_2", quantity: 1 },
+          ],
+        },
+      ],
+    });
+
+    productModel.find = (filter) => {
+      queriedProductIds = filter._id.$in;
+      return {
+        session: () => [
+          { _id: "prod_dup_1", category: "clothes", stock: { S: 10, M: 10 } },
+          { _id: "prod_dup_2", category: "toys", stock: 5 },
+        ],
+      };
+    };
+
+    productModel.bulkWrite = async () => {};
+    reservationModel.deleteMany = async () => {};
+
+    try {
+      await cleanupExpiredReservations();
+      assert.ok(queriedProductIds, "productModel.find must be called with $in array");
+      assert.strictEqual(queriedProductIds.length, 2, "Product IDs must be deduplicated (2 unique IDs instead of 4 duplicates)");
+      assert.deepStrictEqual(queriedProductIds.sort(), ["prod_dup_1", "prod_dup_2"]);
+    } finally {
+      reservationModel.find = originalFindReservation;
+      productModel.find = originalFindProduct;
+      productModel.bulkWrite = originalBulkWrite;
+      reservationModel.deleteMany = originalDeleteMany;
+    }
+  });
+});
+
+// ==========================================
+// 11. REVERSE PROXY & RATE LIMITER VALIDATION
+// ==========================================
+test("11. Reverse Proxy & Rate Limiter Header Safety", async (t) => {
+  const app = require("../app.js");
+  const rateLimiters = require("../middlewares/custom/rateLimiters.middleware.js");
+
+  await t.test("app has trust proxy configured to 1 for Vercel deployment", () => {
+    assert.strictEqual(app.get("trust proxy"), 1, "app must trust proxy hop for Vercel/reverse-proxy IP resolution");
+  });
+
+  await t.test("productSearchLimiter handles X-Forwarded-For and Forwarded headers without throwing or validation errors when proxy is trusted", async () => {
+    const req = {
+      app,
+      method: "GET",
+      url: "/api/product/getProducts",
+      headers: {
+        "x-forwarded-for": "203.0.113.195",
+        forwarded: "for=203.0.113.195;proto=https",
+      },
+      query: {},
+      socket: { remoteAddress: "10.0.0.1" },
+      ip: "203.0.113.195",
+    };
+    const headers = {};
+    const res = {
+      ...createMockRes(),
+      setHeader(k, v) { headers[k.toLowerCase()] = v; },
+      getHeader(k) { return headers[k.toLowerCase()]; },
+    };
+
+    const originalConsoleError = console.error;
+    const capturedErrors = [];
+    console.error = (err) => {
+      capturedErrors.push(err);
+    };
+
+    let passed = false;
+    let errorThrown = null;
+    try {
+      await new Promise((resolve, reject) => {
+        rateLimiters.productSearchLimiter(req, res, (err) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+      passed = true;
+    } catch (err) {
+      errorThrown = err;
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    assert.ok(passed, "Rate limiter must execute next without throwing");
+    assert.strictEqual(errorThrown, null, "Must not throw ValidationError for proxy headers");
+    assert.strictEqual(capturedErrors.length, 0, "Must not log validation errors when proxy is trusted");
+  });
+
+  await t.test("rate limiters retain active validation against untrusted proxy headers (not silenced)", async () => {
+    const untrustedApp = { get: (key) => (key === "trust proxy" ? false : undefined) };
+    const req = {
+      app: untrustedApp,
+      method: "POST",
+      url: "/api/user/login",
+      headers: {
+        "x-forwarded-for": "203.0.113.195",
+      },
+      body: {},
+      socket: { remoteAddress: "10.0.0.1" },
+      ip: "10.0.0.1",
+    };
+    const headers = {};
+    const res = {
+      ...createMockRes(),
+      setHeader(k, v) { headers[k.toLowerCase()] = v; },
+      getHeader(k) { return headers[k.toLowerCase()]; },
+    };
+
+    const originalConsoleError = console.error;
+    const capturedErrors = [];
+    console.error = (err) => {
+      capturedErrors.push(err);
+    };
+
+    try {
+      await new Promise((resolve) => {
+        rateLimiters.loginLimiter(req, res, () => resolve());
+      });
+    } finally {
+      console.error = originalConsoleError;
+    }
+
+    const unexpectedXffError = capturedErrors.find((err) => err?.code === "ERR_ERL_UNEXPECTED_X_FORWARDED_FOR");
+    assert.ok(unexpectedXffError, "express-rate-limit validation should catch untrusted X-Forwarded-For header when trust proxy is false");
+  });
+
+  await t.test("trust proxy is gated by environment (production/Vercel/test vs development)", () => {
+    const express = require("express");
+    const testEnvApp = express();
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.NODE_ENV === "test")
+      testEnvApp.set("trust proxy", 1);
+    assert.strictEqual(testEnvApp.get("trust proxy"), 1);
+
+    const devEnvApp = express();
+    const originalEnv = process.env.NODE_ENV;
+    const originalVercel = process.env.VERCEL;
+    delete process.env.VERCEL;
+    process.env.NODE_ENV = "development";
+    if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.NODE_ENV === "test")
+      devEnvApp.set("trust proxy", 1);
+    assert.strictEqual(devEnvApp.get("trust proxy"), false);
+    process.env.NODE_ENV = originalEnv;
+    if (originalVercel !== undefined) process.env.VERCEL = originalVercel;
+  });
+
+  await t.test("Express 5 CORS options wildcard uses RegExp /.*/ to match root and subpaths", () => {
+    const regex = /.*/;
+    assert.strictEqual(regex.test("/"), true, "Must match root path");
+    assert.strictEqual(regex.test("/api"), true, "Must match /api");
+    assert.strictEqual(regex.test("/api/products"), true, "Must match subpaths");
+  });
+
+  await t.test("Express 5 CORS preflight OPTIONS / and subpaths respond with CORS headers", () => {
+    const express = require("express");
+    const corsMiddleware = require("../middlewares/modules/cors.middleware.js");
+    const preflightApp = express();
+    preflightApp.use(corsMiddleware);
+    preflightApp.options(/.*/, corsMiddleware);
+
+    const testPaths = ["/", "/api", "/api/products", "/api/order/verify"];
+    for (const testPath of testPaths) {
+      let resHeaders = {};
+      const req = {
+        method: "OPTIONS",
+        url: testPath,
+        path: testPath,
+        headers: {
+          origin: "http://localhost:5173",
+          "access-control-request-method": "POST",
+          "access-control-request-headers": "content-type",
+        },
+      };
+      const res = {
+        setHeader(k, v) { resHeaders[k.toLowerCase()] = v; },
+        getHeader(k) { return resHeaders[k.toLowerCase()]; },
+        statusCode: 200,
+        status(code) { this.statusCode = code; return this; },
+        end() {},
+        send() {},
+        sendStatus(code) { this.statusCode = code; },
+      };
+      preflightApp.handle(req, res, () => {});
+      assert.strictEqual(resHeaders["access-control-allow-origin"], "http://localhost:5173", `CORS origin header must be set for ${testPath}`);
+      assert.ok(resHeaders["access-control-allow-methods"]?.includes("OPTIONS"), `CORS methods header must include OPTIONS for ${testPath}`);
+    }
   });
 });
 

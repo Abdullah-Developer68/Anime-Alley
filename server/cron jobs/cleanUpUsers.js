@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const userModel = require("../models/user.model.js");
 const reservationModel = require("../models/reservation.model.js");
 const productModel = require("../models/product.model.js");
@@ -6,53 +7,119 @@ const productModel = require("../models/product.model.js");
 // Restores inventory stock for active reservations belonging to users before deletion
 // Deletes users with accountStatus "verifying" OR isDemo: true created > 7 days ago
 async function cleanupUnverifiedUsers() {
-  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const mongoSession = await mongoose.startSession();
 
   try {
-    const expiredUsers = await userModel.find({
-      $or: [
-        { accountStatus: "verifying", createdAt: { $lt: oneWeekAgo } },
-        { isDemo: true, createdAt: { $lt: oneWeekAgo } },
-      ],
-    });
+    mongoSession.startTransaction();
+
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const expiredUsers = await userModel
+      .find({
+        $or: [
+          { accountStatus: "verifying", createdAt: { $lt: oneWeekAgo } },
+          { isDemo: true, createdAt: { $lt: oneWeekAgo } },
+        ],
+      })
+      .session(mongoSession);
 
     const userIds = expiredUsers
       .map((user) => user?._id)
       .filter((userId) => Boolean(userId));
 
-    if (!userIds.length)
+    if (!userIds.length) {
+      await mongoSession.commitTransaction();
       return { deletedCount: 0, restoredReservationsCount: 0 };
-
-    const reservations = await reservationModel.find({
-      userId: { $in: userIds },
-    });
-
-    for (const reservation of reservations) {
-      const products = reservation?.products || [];
-      for (const item of products) {
-        const { productId, variant, quantity } = item || {};
-        const product = await productModel.findById(productId);
-
-        if (product && typeof quantity === "number" && quantity > 0) {
-          const category = product?.category?.toLowerCase();
-          let updateField = null;
-
-          if (["comics", "clothes", "shoes"].includes(category) && variant) 
-            updateField = `stock.${variant}`;
-          else if (category === "toys")
-             updateField = "stock";
-
-          if (updateField)
-            await productModel.updateOne(
-              { _id: product._id },
-              { $inc: { [updateField]: quantity } },
-            );
-        }
-      }
     }
 
-    await reservationModel.deleteMany({ userId: { $in: userIds } });
-    await userModel.deleteMany({ _id: { $in: userIds } });
+    const reservations = await reservationModel
+      .find({ userId: { $in: userIds } })
+      .session(mongoSession);
+
+    if (reservations.length > 0) {
+      // Collect deduplicated referenced product IDs across all reservations
+      const productIdsSet = new Set();
+      for (const reservation of reservations) {
+        const products = reservation?.products || [];
+        for (const item of products) {
+          const productId = item?.productId?._id || item?.productId;
+          if (productId)
+            productIdsSet.add(String(productId));
+        }
+      }
+
+      if (productIdsSet.size > 0) {
+        // Prefetch all referenced products in a single database query
+        const products = await productModel
+          .find({ _id: { $in: Array.from(productIdsSet) } })
+          .session(mongoSession);
+        const productMap = new Map();
+        for (const product of products)
+          productMap.set(String(product?._id), product);
+
+        // Aggregate stock increments in memory per product
+        const stockUpdates = new Map();
+
+        for (const reservation of reservations) {
+          const productsList = reservation?.products || [];
+          for (const item of productsList) {
+            const rawProductId = item?.productId?._id || item?.productId;
+            const { variant, quantity } = item || {};
+            if (!rawProductId || typeof quantity !== "number" || quantity <= 0)
+              continue;
+
+            const product = productMap.get(String(rawProductId));
+            if (!product)
+              continue;
+
+            const category = product?.category?.toLowerCase();
+            let updateField = null;
+
+            if (["comics", "clothes", "shoes"].includes(category) && variant)
+              updateField = `stock.${variant}`;
+            else if (category === "toys")
+              updateField = "stock";
+
+            if (updateField) {
+              const prodIdStr = String(product._id);
+              if (!stockUpdates.has(prodIdStr))
+                stockUpdates.set(prodIdStr, { id: product._id, inc: {} });
+
+              const target = stockUpdates.get(prodIdStr);
+              target.inc[updateField] = (target.inc[updateField] || 0) + quantity;
+            }
+          }
+        }
+
+        // Apply batched increments using bulkWrite
+        if (stockUpdates.size > 0) {
+          const bulkOps = [];
+          for (const { id, inc } of stockUpdates.values()) {
+            bulkOps.push({
+              updateOne: {
+                filter: { _id: id },
+                update: { $inc: inc },
+              },
+            });
+          }
+
+          if (bulkOps.length > 0)
+            await productModel.bulkWrite(bulkOps, { session: mongoSession });
+        }
+      }
+
+      await reservationModel.deleteMany(
+        { userId: { $in: userIds } },
+        { session: mongoSession },
+      );
+    }
+
+    await userModel.deleteMany(
+      { _id: { $in: userIds } },
+      { session: mongoSession },
+    );
+
+    await mongoSession.commitTransaction();
 
     console.log(
       `[CLEANUP] Deleted ${userIds.length} unverified/expired demo users and restored ${reservations.length} reservations`,
@@ -63,8 +130,30 @@ async function cleanupUnverifiedUsers() {
       restoredReservationsCount: reservations.length,
     };
   } catch (err) {
+    if (mongoSession && (typeof mongoSession.inTransaction === "function" ? mongoSession.inTransaction() : true)) {
+      try {
+        await mongoSession.abortTransaction();
+      } catch (abortErr) {
+        console.error("Error aborting transaction:", abortErr);
+      }
+    }
     console.error("[CLEANUP] Error deleting unverified/demo users:", err);
     throw err;
+  } finally {
+    if (mongoSession) {
+      if (typeof mongoSession.inTransaction === "function" ? mongoSession.inTransaction() : false) {
+        try {
+          await mongoSession.abortTransaction();
+        } catch (abortErr) {
+          console.error("Error aborting transaction in finally:", abortErr);
+        }
+      }
+      try {
+        await mongoSession.endSession();
+      } catch (endErr) {
+        console.error("Error ending session:", endErr);
+      }
+    }
   }
 }
 

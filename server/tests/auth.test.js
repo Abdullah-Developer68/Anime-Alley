@@ -41,6 +41,7 @@ const mockUserModel = {
       sort: () => queryObj,
       skip: () => queryObj,
       limit: () => queryObj,
+      session: () => queryObj,
       then: (resolve, reject) => Promise.resolve(results).then(resolve, reject),
       catch: (reject) => Promise.resolve(results).catch(reject),
       [Symbol.iterator]: () => results[Symbol.iterator](),
@@ -143,6 +144,7 @@ const mockReservationModel = {
       results = results.filter((r) => allowedUserIds.includes(String(r.userId)));
     }
     const queryObj = {
+      session: () => queryObj,
       then: (resolve, reject) => Promise.resolve(results).then(resolve, reject),
       catch: (reject) => Promise.resolve(results).catch(reject),
       [Symbol.iterator]: () => results[Symbol.iterator](),
@@ -189,6 +191,20 @@ const mockProductModel = {
   findById: async (id) => {
     return productsDB.find((p) => String(p._id) === String(id)) || null;
   },
+  find: (query = {}) => {
+    let results = productsDB.slice();
+    if (query?._id?.$in) {
+      const ids = query._id.$in.map(String);
+      results = results.filter((p) => ids.includes(String(p._id)));
+    }
+    const queryObj = {
+      session: () => queryObj,
+      then: (resolve, reject) => Promise.resolve(results).then(resolve, reject),
+      catch: (reject) => Promise.resolve(results).catch(reject),
+      [Symbol.iterator]: () => results[Symbol.iterator](),
+    };
+    return queryObj;
+  },
   updateOne: async (filter, update) => {
     const product = productsDB.find(
       (p) => String(p._id) === String(filter?._id),
@@ -205,6 +221,17 @@ const mockProductModel = {
       }
     }
     return { acknowledged: true, modifiedCount: product ? 1 : 0 };
+  },
+  bulkWrite: async (ops = []) => {
+    let modifiedCount = 0;
+    for (const op of ops) {
+      if (op?.updateOne) {
+        const { filter, update } = op.updateOne;
+        const res = await mockProductModel.updateOne(filter, update);
+        modifiedCount += res.modifiedCount;
+      }
+    }
+    return { acknowledged: true, modifiedCount };
   },
   create: async (data) => {
     const doc = {
@@ -277,6 +304,12 @@ MockSchema.Types = {
 
 const mockMongoose = {
   Schema: MockSchema,
+  startSession: async () => ({
+    startTransaction: () => {},
+    commitTransaction: async () => {},
+    abortTransaction: async () => {},
+    endSession: () => {},
+  }),
   model: (name) => {
     if (name === "reservations") return mockReservationModel;
     if (name === "products") return mockProductModel;
@@ -324,17 +357,58 @@ Module._load = function (request, parent, isMain) {
     return {
       Router: () => {
         const routes = [];
-        const routerObj = {
-          post: (path, fn) => routerObj,
-          get: (path, fn) => routerObj,
-          use: (fn) => routerObj,
-          put: (path, fn) => routerObj,
-          delete: (path, fn) => routerObj,
-          route: (path) => {
-            const r = createRoute(path);
+        const findOrCreateRoute = (path) => {
+          let r = routes.find((entry) => entry.path === path);
+          if (!r) {
+            r = createRoute(path);
             routes.push(r);
-            return r;
+          }
+          return r;
+        };
+
+        const routerObj = {
+          post: (path, ...handlers) => {
+            if (typeof path === "string") {
+              const r = findOrCreateRoute(path);
+              r.methods.post = true;
+              r.postHandler = handlers[handlers.length - 1];
+            }
+            return routerObj;
           },
+          get: (path, ...handlers) => {
+            if (typeof path === "string") {
+              const r = findOrCreateRoute(path);
+              r.methods.get = true;
+              r.getHandler = handlers[handlers.length - 1];
+            }
+            return routerObj;
+          },
+          use: (...args) => routerObj,
+          put: (path, ...handlers) => {
+            if (typeof path === "string") {
+              const r = findOrCreateRoute(path);
+              r.methods.put = true;
+              r.putHandler = handlers[handlers.length - 1];
+            }
+            return routerObj;
+          },
+          delete: (path, ...handlers) => {
+            if (typeof path === "string") {
+              const r = findOrCreateRoute(path);
+              r.methods.delete = true;
+              r.deleteHandler = handlers[handlers.length - 1];
+            }
+            return routerObj;
+          },
+          patch: (path, ...handlers) => {
+            if (typeof path === "string") {
+              const r = findOrCreateRoute(path);
+              r.methods.patch = true;
+              r.patchHandler = handlers[handlers.length - 1];
+            }
+            return routerObj;
+          },
+          route: (path) => findOrCreateRoute(path),
           _routes: routes,
         };
         return routerObj;
@@ -1054,6 +1128,45 @@ test("Cleanup routes support GET and POST methods for /users and /reservations",
   assert.strictEqual(reservationsRoute.methods.post, true, "/reservations must support POST method");
 });
 
+test("Express Router mock records direct method calls (get, post, put, delete, patch) into _routes", async () => {
+  const express = require("express");
+  const testRouter = express.Router();
+
+  const mockHandler1 = () => {};
+  const mockHandler2 = () => {};
+  const mockMiddleware = () => {};
+
+  testRouter.get("/direct-get", mockHandler1);
+  testRouter.post("/direct-post", mockHandler2);
+  testRouter.put("/direct-multi", mockMiddleware, mockHandler1);
+  testRouter.delete("/direct-multi", mockHandler2);
+  testRouter.patch("/direct-patch", mockHandler1);
+
+  assert.ok(Array.isArray(testRouter._routes), "_routes must be an array");
+
+  const getRoute = testRouter._routes.find((r) => r.path === "/direct-get");
+  assert.ok(getRoute, "/direct-get must be recorded in _routes");
+  assert.strictEqual(getRoute.methods.get, true);
+  assert.strictEqual(getRoute.getHandler, mockHandler1);
+
+  const postRoute = testRouter._routes.find((r) => r.path === "/direct-post");
+  assert.ok(postRoute, "/direct-post must be recorded in _routes");
+  assert.strictEqual(postRoute.methods.post, true);
+  assert.strictEqual(postRoute.postHandler, mockHandler2);
+
+  const multiRoute = testRouter._routes.find((r) => r.path === "/direct-multi");
+  assert.ok(multiRoute, "/direct-multi must be recorded in _routes");
+  assert.strictEqual(multiRoute.methods.put, true);
+  assert.strictEqual(multiRoute.methods.delete, true);
+  assert.strictEqual(multiRoute.putHandler, mockHandler1);
+  assert.strictEqual(multiRoute.deleteHandler, mockHandler2);
+
+  const patchRoute = testRouter._routes.find((r) => r.path === "/direct-patch");
+  assert.ok(patchRoute, "/direct-patch must be recorded in _routes");
+  assert.strictEqual(patchRoute.methods.patch, true);
+  assert.strictEqual(patchRoute.patchHandler, mockHandler1);
+});
+
 test("cleanupUnverifiedUsers handles edge cases: deleted products, missing variants, case-insensitive categories, and users without reservations", async (t) => {
   usersDB.length = 0;
   reservationsDB.length = 0;
@@ -1194,6 +1307,208 @@ test("cleanupUnverifiedUsersController supports GET and POST invocations returni
   assert.strictEqual(postRes.jsonData.deletedCount, 1);
   assert.strictEqual(postRes.jsonData.restoredReservationsCount, 1);
   assert.strictEqual(toy.stock, 28, "Toy stock restored from 25 to 28");
+});
+
+test("cleanupUnverifiedUsers batches stock restoration across multiple reservations for same product and variant using bulkWrite", async (t) => {
+  usersDB.length = 0;
+  reservationsDB.length = 0;
+  productsDB.length = 0;
+
+  const now = Date.now();
+  const eightDaysAgo = new Date(now - 8 * 24 * 60 * 60 * 1000);
+
+  // Setup products
+  const comic = await mockProductModel.create({
+    name: "Bleach",
+    category: "comics",
+    stock: { vol1: 10, vol2: 5 },
+  });
+  const clothes = await mockProductModel.create({
+    name: "Anime Hoodie",
+    category: "clothes",
+    stock: { S: 2, M: 4 },
+  });
+  const toy = await mockProductModel.create({
+    name: "Ichigo Figure",
+    category: "toys",
+    stock: 10,
+  });
+
+  // Setup 3 expired demo users
+  const user1 = await mockUserModel.create({
+    username: "batchDemo1",
+    email: "batch1@demo.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: true,
+    createdAt: eightDaysAgo,
+  });
+  const user2 = await mockUserModel.create({
+    username: "batchDemo2",
+    email: "batch2@demo.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: true,
+    createdAt: eightDaysAgo,
+  });
+  const user3 = await mockUserModel.create({
+    username: "batchDemo3",
+    email: "batch3@demo.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: true,
+    createdAt: eightDaysAgo,
+  });
+
+  // User 1 reservation
+  await mockReservationModel.create({
+    userId: user1._id,
+    products: [
+      { productId: comic._id, variant: "vol1", quantity: 3 },
+      { productId: clothes._id, variant: "M", quantity: 2 },
+      { productId: toy._id, quantity: 4 },
+    ],
+  });
+
+  // User 2 reservation (overlaps with user 1 products and variants)
+  await mockReservationModel.create({
+    userId: user2._id,
+    products: [
+      { productId: comic._id, variant: "vol1", quantity: 5 },
+      { productId: comic._id, variant: "vol2", quantity: 2 },
+      { productId: clothes._id, variant: "M", quantity: 3 },
+      { productId: toy._id, quantity: 6 },
+    ],
+  });
+
+  // User 3 reservation (overlaps with comic vol1 and clothes)
+  await mockReservationModel.create({
+    userId: user3._id,
+    products: [
+      { productId: comic._id, variant: "vol1", quantity: 2 },
+      { productId: clothes._id, variant: "S", quantity: 1 },
+      { productId: clothes._id, variant: "M", quantity: 1 },
+    ],
+  });
+
+  // Spy on bulkWrite to verify batching
+  let bulkWriteCalls = 0;
+  let capturedOps = null;
+  const originalBulkWrite = mockProductModel.bulkWrite;
+  mockProductModel.bulkWrite = async (ops) => {
+    bulkWriteCalls++;
+    capturedOps = ops;
+    return originalBulkWrite(ops);
+  };
+
+  try {
+    const result = await cleanUpUsers();
+
+    // Verify cleanup counts
+    assert.strictEqual(result.deletedCount, 3);
+    assert.strictEqual(result.restoredReservationsCount, 3);
+
+    // Verify bulkWrite was called exactly ONCE (batched, eliminating N+1)
+    assert.strictEqual(bulkWriteCalls, 1, "bulkWrite must be called exactly once");
+    assert.strictEqual(capturedOps.length, 3, "bulkOps must contain 1 operation per unique product");
+
+    // Verify aggregated increments per product
+    const comicOp = capturedOps.find((op) => String(op.updateOne.filter._id) === String(comic._id));
+    assert.ok(comicOp, "Comic update op must exist");
+    assert.strictEqual(comicOp.updateOne.update.$inc["stock.vol1"], 10, "vol1 aggregated increment (3 + 5 + 2 = 10)");
+    assert.strictEqual(comicOp.updateOne.update.$inc["stock.vol2"], 2, "vol2 aggregated increment (2)");
+
+    const clothesOp = capturedOps.find((op) => String(op.updateOne.filter._id) === String(clothes._id));
+    assert.ok(clothesOp, "Clothes update op must exist");
+    assert.strictEqual(clothesOp.updateOne.update.$inc["stock.M"], 6, "Clothes M aggregated increment (2 + 3 + 1 = 6)");
+    assert.strictEqual(clothesOp.updateOne.update.$inc["stock.S"], 1, "Clothes S aggregated increment (1)");
+
+    const toyOp = capturedOps.find((op) => String(op.updateOne.filter._id) === String(toy._id));
+    assert.ok(toyOp, "Toy update op must exist");
+    assert.strictEqual(toyOp.updateOne.update.$inc["stock"], 10, "Toy aggregated increment (4 + 6 = 10)");
+
+    // Verify final stock values in memory
+    assert.strictEqual(comic.stock.vol1, 20, "Comic vol1 stock restored (10 + 10 = 20)");
+    assert.strictEqual(comic.stock.vol2, 7, "Comic vol2 stock restored (5 + 2 = 7)");
+    assert.strictEqual(clothes.stock.S, 3, "Clothes S stock restored (2 + 1 = 3)");
+    assert.strictEqual(clothes.stock.M, 10, "Clothes M stock restored (4 + 6 = 10)");
+    assert.strictEqual(toy.stock, 20, "Toy stock restored (10 + 10 = 20)");
+
+    // Verify DB states
+    assert.strictEqual(usersDB.length, 0);
+    assert.strictEqual(reservationsDB.length, 0);
+  } finally {
+    mockProductModel.bulkWrite = originalBulkWrite;
+  }
+});
+
+test("cleanupUnverifiedUsers executes within a MongoDB session/transaction, committing on success and aborting on failure", async (t) => {
+  usersDB.length = 0;
+  reservationsDB.length = 0;
+  productsDB.length = 0;
+
+  let sessionEvents = [];
+  const originalStartSession = mockMongoose.startSession;
+
+  mockMongoose.startSession = async () => {
+    sessionEvents.push("startSession");
+    return {
+      startTransaction: () => sessionEvents.push("startTransaction"),
+      commitTransaction: async () => sessionEvents.push("commitTransaction"),
+      abortTransaction: async () => sessionEvents.push("abortTransaction"),
+      endSession: () => sessionEvents.push("endSession"),
+    };
+  };
+
+  try {
+    // 1. Successful run with empty database -> should start, commit, end session
+    sessionEvents = [];
+    const result = await cleanUpUsers();
+    assert.strictEqual(result.deletedCount, 0);
+    assert.deepStrictEqual(sessionEvents, [
+      "startSession",
+      "startTransaction",
+      "commitTransaction",
+      "endSession",
+    ]);
+
+    // 2. Failure during execution -> should start, abort, end session
+    const now = Date.now();
+    const eightDaysAgo = new Date(now - 8 * 24 * 60 * 60 * 1000);
+    await mockUserModel.create({
+      username: "failDemo",
+      email: "faildemo@demo.com",
+      role: "user",
+      accountStatus: "active",
+      isDemo: true,
+      createdAt: eightDaysAgo,
+    });
+
+    const originalDeleteMany = mockUserModel.deleteMany;
+    mockUserModel.deleteMany = async () => {
+      throw new Error("Simulated DB delete failure during transaction");
+    };
+
+    sessionEvents = [];
+    await assert.rejects(
+      async () => {
+        await cleanUpUsers();
+      },
+      /Simulated DB delete failure during transaction/,
+      "Must rethrow the underlying error",
+    );
+
+    assert.deepStrictEqual(sessionEvents, [
+      "startSession",
+      "startTransaction",
+      "abortTransaction",
+      "endSession",
+    ]);
+
+    mockUserModel.deleteMany = originalDeleteMany;
+  } finally {
+    mockMongoose.startSession = originalStartSession;
+  }
 });
 
 test("Complete Removal of Recruiter Bypass", async (t) => {
