@@ -16,33 +16,26 @@ async function cleanupExpiredReservations() {
     for (const reservation of expiredReservations) {
       // Process each product in the reservation
       for (const reservedProduct of reservation.products) {
+        const { productId, variant, quantity } = reservedProduct || {};
         const product = await productModel
-          .findById(reservedProduct.productId)
+          .findById(productId)
           .session(mongoSession);
 
-        if (product) {
-          if (
-            product.category === "comics" ||
-            product.category === "clothes" ||
-            product.category === "shoes"
-          ) {
-            // For variant-based products, restore stock to the specific variant
-            const update = {};
-            update[`stock.${reservedProduct.variant}`] =
-              reservedProduct.quantity;
+        if (product && typeof quantity === "number" && quantity > 0) {
+          const category = product.category?.toLowerCase();
+          let updateField = null;
+
+          if (["comics", "clothes", "shoes"].includes(category) && variant)
+            updateField = `stock.${variant}`;
+          else if (category === "toys") 
+            updateField = "stock";
+
+          if (updateField) 
             await productModel.updateOne(
               { _id: product._id },
-              { $inc: update },
-              { session: mongoSession }
+              { $inc: { [updateField]: quantity } },
+              { session: mongoSession },
             );
-          } else {
-            // For toys, restore to general stock
-            await productModel.updateOne(
-              { _id: product._id },
-              { $inc: { stock: reservedProduct.quantity } },
-              { session: mongoSession }
-            );
-          }
         }
       }
 

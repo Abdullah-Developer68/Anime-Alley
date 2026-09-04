@@ -9,13 +9,12 @@ const clientUrl = process.env.CLIENT_URL;
 // Utility function to extract token from Authorization header or cookies
 const extractToken = (req) => {
   // First, try to get token from Authorization header (Bearer token)
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
+  const authHeader = req.headers?.authorization;
+  if (authHeader && authHeader.startsWith("Bearer "))
     return authHeader.substring(7); // Remove 'Bearer ' prefix
-  }
 
   // Fallback to cookie-based token
-  return req.cookies.token;
+  return req.cookies?.token;
 };
 
 // Centralized cookie options - same as auth service
@@ -175,12 +174,11 @@ const sendUserData = async (req, res) => {
     // Use utility function to extract token from Authorization header or cookies
     const token = extractToken(req);
 
-    if (!token) {
+    if (!token)
       return res.status(401).json({
         success: false,
         message: "No authentication token found",
       });
-    }
 
     const decoded = jwt.verify(token, process.env.JWT_KEY);
 
@@ -197,19 +195,17 @@ const sendUserData = async (req, res) => {
   } catch (error) {
     console.error("Token verification error:", error);
 
-    if (error.name === "JsonWebTokenError") {
+    if (error.name === "JsonWebTokenError")
       return res.status(401).json({
         success: false,
         message: "Invalid authentication token",
       });
-    }
 
-    if (error.name === "TokenExpiredError") {
+    if (error.name === "TokenExpiredError")
       return res.status(401).json({
         success: false,
         message: "Authentication token expired",
       });
-    }
 
     return res.status(500).json({
       success: false,

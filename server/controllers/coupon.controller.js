@@ -4,59 +4,54 @@ const dbConnect = require("../config/dbConnect.js");
 const { validateCouponFields } = require("../utils/coupon.utils.js");
 
 const checkCoupon = async (req, res) => {
-  // Get email from verified token
-  const userEmail = req.user.email;
-  const { couponCode } = req.body;
-
-  if (!couponCode) {
-    return res.status(400).json({
-      success: false,
-      message: "Coupon code is required",
-    });
-  }
-
   try {
+    // Get email from verified token
+    const userEmail = req.user?.email;
+    const couponCode = req.body?.couponCode;
+
+    if (!couponCode)
+      return res.status(400).json({
+        success: false,
+        message: "Coupon code is required",
+      });
+
     await dbConnect();
     // Find the coupon
     const coupon = await couponModel.findOne({ couponCode });
-    if (!coupon) {
+    if (!coupon)
       return res.status(404).json({
         success: false,
         message: "Coupon not found",
       });
-    }
 
     // Check if coupon is expired
-    if (coupon.expiryDate < new Date()) {
+    if (coupon.expiryDate < new Date())
       return res.status(400).json({
         success: false,
         message: "Coupon has expired",
       });
-    }
 
     // Find user
     const user = await userModel
       .findOne({ email: userEmail })
       .populate("couponCodeUsed");
 
-    if (!user) {
+    if (!user)
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
-    }
 
     // Check if coupon was already used
     const isCouponUsed = user.couponCodeUsed.some(
       (usedCoupon) => usedCoupon._id.toString() === coupon._id.toString(),
     );
 
-    if (isCouponUsed) {
+    if (isCouponUsed)
       return res.status(400).json({
         success: false,
         message: "Coupon already used",
       });
-    }
 
     return res.status(200).json({
       success: true,
@@ -76,27 +71,25 @@ const checkCoupon = async (req, res) => {
 };
 
 const getAllCoupons = async (req, res) => {
-  // Get email from verified token
-  const viewerEmail = req.user.email;
-  const { currPage } = req.query;
-
-  // Validate required parameters
-  if (!currPage) {
-    return res.status(400).json({
-      message: "Current page is required!",
-    });
-  }
-
   try {
+    // Get email from verified token
+    const viewerEmail = req.user?.email;
+    const currPage = req.query?.currPage;
+
+    // Validate required parameters
+    if (!currPage)
+      return res.status(400).json({
+        message: "Current page is required!",
+      });
+
     await dbConnect();
     // Verify admin role from database (ultra-secure)
     const adminUser = await userModel.findOne({ email: viewerEmail });
     if (
       !adminUser ||
       (adminUser.role !== "admin" && adminUser.role !== "superAdmin")
-    ) {
+    )
       return res.status(403).json({ message: "User is not authorized!" });
-    }
 
     // --- Pagination Logic ---
     const couponsPerPage = 20;
@@ -135,18 +128,17 @@ const getAllCoupons = async (req, res) => {
 
 const deleteCoupon = async (req, res) => {
   try {
-    await dbConnect();
-    const { couponId } = req.params;
+    const couponId = req.params?.couponId;
 
-    if (!couponId) {
+    if (!couponId)
       return res.status(400).json({ message: "Coupon ID is required." });
-    }
+
+    await dbConnect();
 
     const result = await couponModel.findByIdAndDelete(couponId);
 
-    if (!result) {
+    if (!result)
       return res.status(404).json({ message: "Coupon not found." });
-    }
 
     res.status(200).json({
       success: true,
@@ -163,21 +155,20 @@ const deleteCoupon = async (req, res) => {
 
 const updateCoupon = async (req, res) => {
   try {
-    await dbConnect();
-    const { couponId } = req.params;
-    const { discountPercentage, expiryDate } = req.body;
+    const couponId = req.params?.couponId;
+    const { discountPercentage, expiryDate } = req.body || {};
 
-    if (!couponId) {
+    if (!couponId)
       return res.status(400).json({ message: "Coupon ID is required." });
-    }
 
     const fieldValidation = validateCouponFields({ discountPercentage, expiryDate });
-    if (!fieldValidation.valid) {
+    if (!fieldValidation.valid)
       return res.status(fieldValidation.status).json({
         success: false,
         message: fieldValidation.message,
       });
-    }
+
+    await dbConnect();
 
     const updatedCoupon = await couponModel.findByIdAndUpdate(
       couponId,
@@ -185,9 +176,8 @@ const updateCoupon = async (req, res) => {
       { new: true, runValidators: true },
     );
 
-    if (!updatedCoupon) {
+    if (!updatedCoupon)
       return res.status(404).json({ message: "Coupon not found." });
-    }
 
     res.status(200).json({
       success: true,
@@ -205,45 +195,42 @@ const updateCoupon = async (req, res) => {
 
 const createCoupon = async (req, res) => {
   try {
-    await dbConnect();
     // Get email from verified token
-    const email = req.user.email;
-    const { couponCode, discountPercentage, expiryDate } = req.body;
+    const email = req.user?.email;
+    const { couponCode, discountPercentage, expiryDate } = req.body || {};
 
-    if (!couponCode || !discountPercentage) {
+    if (!couponCode || !discountPercentage)
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields." });
-    }
 
     const fieldValidation = validateCouponFields({ discountPercentage, expiryDate });
-    if (!fieldValidation.valid) {
+    if (!fieldValidation.valid)
       return res.status(fieldValidation.status).json({
         success: false,
         message: fieldValidation.message,
       });
-    }
+
+    await dbConnect();
 
     // Verify admin role from database (ultra-secure)
     const user = await userModel.findOne({ email });
-    if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
+    if (!user || (user.role !== "admin" && user.role !== "superAdmin"))
       return res
         .status(403)
         .json({ success: false, message: "User is not authorized!" });
-    }
 
     // Check for existing coupon with same code
     const existing = await couponModel.findOne({ couponCode });
     if (existing) {
-      if (existing.expiryDate > new Date()) {
+      if (existing.expiryDate > new Date())
         return res.status(400).json({
           success: false,
           message: "Coupon with this code already exists and is still active.",
         });
-      } else {
+      else
         // Remove expired coupon
         await couponModel.deleteOne({ _id: existing._id });
-      }
     }
 
     // Create new coupon
@@ -268,15 +255,18 @@ const createCoupon = async (req, res) => {
 
 const getCouponStats = async (req, res) => {
   try {
-    await dbConnect();
     // Get email from verified token
-    const email = req.user.email;
+    const email = req.user?.email;
+
+    if (!email)
+      return res.status(401).json({ message: "User is not authorized!" });
+
+    await dbConnect();
 
     // Verify admin role from database (ultra-secure)
     const user = await userModel.findOne({ email });
-    if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
+    if (!user || (user.role !== "admin" && user.role !== "superAdmin"))
       return res.status(403).json({ message: "User is not authorized!" });
-    }
 
     const now = new Date();
     const activeCoupons = await couponModel.countDocuments({

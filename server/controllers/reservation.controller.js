@@ -6,34 +6,29 @@ const dbConnect = require("../config/dbConnect.js");
 const reserveStock = async (req, res) => {
   let mongoSession = null;
   try {
+    const userId = req.user?.id; // Get userId from verified token
+
+    if (!userId)
+      return res.status(401).json({ success: false, message: "Invalid user session" });
+
+    const { productId, variant, quantity } = req.body || {};
+
+    // productId and quantity are required
+    if (!productId || quantity === undefined || quantity === null)
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields" });
+
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1)
+      return res
+        .status(400)
+        .json({ success: false, message: "Quantity must be a positive integer" });
+
     await dbConnect();
     // Start a MongoDB session to track/record multiple operations as a single transaction.
     // This allows us to commit all changes together or roll them back entirely if any operation fails.
     mongoSession = await mongoose.startSession();
     mongoSession.startTransaction();
-    const userId = req.user.id; // Get userId from verified token
-
-    if (!userId) {
-      await mongoSession.abortTransaction();
-      return res.status(401).json({ success: false, message: "Invalid user session" });
-    }
-
-    const { productId, variant, quantity } = req.body;
-
-    // productId and quantity are required
-    if (!productId || quantity === undefined || quantity === null) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields" });
-    }
-
-    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(400)
-        .json({ success: false, message: "Quantity must be a positive integer" });
-    }
 
     let requestedQuantity = quantity;
 
@@ -77,9 +72,8 @@ const reserveStock = async (req, res) => {
         });
       }
 
-      if (stockAvailable < requestedQuantity) {
+      if (stockAvailable < requestedQuantity)
         actualQuantity = stockAvailable; // Give the max available stock to the user
-      }
 
       // Retry logic for stock update
       let updated = null;
@@ -147,9 +141,8 @@ const reserveStock = async (req, res) => {
         });
       }
 
-      if (stockAvailable < requestedQuantity) {
+      if (stockAvailable < requestedQuantity)
         actualQuantity = stockAvailable; // Give the max available stock to the user
-      }
 
       // Retry logic for toys
       let updated = null;
@@ -209,12 +202,11 @@ const reserveStock = async (req, res) => {
       .findOne({ userId })
       .session(mongoSession);
 
-    if (!reservation) {
+    if (!reservation)
       reservation = new reservationModel({
         userId,
         products: [],
       });
-    }
 
     // Find if product already reserved
     const prodIdx = reservation.products.findIndex(
@@ -222,21 +214,21 @@ const reserveStock = async (req, res) => {
     );
 
     // If index is found, increment quantity, else add new product
-    if (prodIdx !== -1) {
+    if (prodIdx !== -1)
       reservation.products[prodIdx].quantity += actualQuantity;
-    } else {
+    else
       reservation.products.push({
         productId,
         variant,
         quantity: actualQuantity,
       });
-    }
+
     reservation.reservedAt = new Date();
     await reservation.save({ session: mongoSession }); // attach the session to the save operation
     // Commit the transaction
     await mongoSession.commitTransaction();
 
-    if (stockAvailable < requestedQuantity) {
+    if (stockAvailable < requestedQuantity)
       return res.json({
         success: true,
         stock: stockAvailable - actualQuantity,
@@ -244,7 +236,6 @@ const reserveStock = async (req, res) => {
         reservedQuantity: actualQuantity,
         requestedQuantity: requestedQuantity,
       });
-    }
     return res.json({
       success: true,
       stock: stockAvailable - actualQuantity,
@@ -291,25 +282,24 @@ const reserveStock = async (req, res) => {
 // Get user's cart items from server
 const getCart = async (req, res) => {
   try {
-    await dbConnect();
-    const userId = req.user.id; // Get userId from verified token
+    const userId = req.user?.id; // Get userId from verified token
 
-    if (!userId) {
+    if (!userId)
       return res.status(401).json({ success: false, message: "Invalid user session" });
-    }
+
+    await dbConnect();
 
     // Find user's cart reservation
     const reservation = await reservationModel
       .findOne({ userId })
       .populate("products.productId");
 
-    if (!reservation) {
+    if (!reservation)
       return res.json({
         success: true,
         cartItems: [],
         message: "Cart is empty",
       });
-    }
 
     // Transform reservation data to cart format, filtering out any products deleted from DB
     const validProducts = (reservation.products || []).filter(
@@ -348,25 +338,28 @@ const updateCartItem = async (req, res) => {
   let session = null;
 
   try {
-    await dbConnect();
-    session = await mongoose.startSession();
-    session.startTransaction();
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
-    if (!userId) {
-      await session.abortTransaction();
+    if (!userId)
       return res.status(401).json({ success: false, message: "Invalid user session" });
-    }
 
-    const { productId, variant, newQuantity } = req.body;
+    const { productId, variant, newQuantity } = req.body || {};
 
-    if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0) {
-      await session.abortTransaction();
+    if (!productId)
+      return res.status(400).json({
+        success: false,
+        message: "productId is required",
+      });
+
+    if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0)
       return res.status(400).json({
         success: false,
         message: "newQuantity must be a non-negative integer",
       });
-    }
+
+    await dbConnect();
+    session = await mongoose.startSession();
+    session.startTransaction();
 
     const reservation = await reservationModel
       .findOne({ userId })
@@ -441,21 +434,19 @@ const updateCartItem = async (req, res) => {
     }
 
     // Update reservation
-    if (newQuantity === 0) {
+    if (newQuantity === 0)
       reservation.products.splice(productIndex, 1);
-    } else {
+    else
       reservation.products[productIndex].quantity = newQuantity;
-    }
 
     reservation.reservedAt = new Date();
 
-    if (reservation.products.length === 0) {
+    if (reservation.products.length === 0)
       await reservationModel
         .deleteOne({ _id: reservation._id })
         .session(session);
-    } else {
+    else
       await reservation.save({ session });
-    }
 
     await session.commitTransaction();
 
@@ -499,15 +490,14 @@ const clearCart = async (req, res) => {
   let session = null;
 
   try {
+    const userId = req.user?.id;
+
+    if (!userId)
+      return res.status(401).json({ success: false, message: "Invalid user session" });
+
     await dbConnect();
     session = await mongoose.startSession();
     session.startTransaction();
-    const userId = req.user.id;
-
-    if (!userId) {
-      await session.abortTransaction();
-      return res.status(401).json({ success: false, message: "Invalid user session" });
-    }
 
     const reservation = await reservationModel
       .findOne({ userId })

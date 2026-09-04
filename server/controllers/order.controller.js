@@ -10,31 +10,27 @@ const placeOrder = async (req, res) => {
   let session = null;
 
   try {
-    await dbConnect();
-    session = await mongoose.startSession();
-    session.startTransaction();
-
     const userId = req.user?.id; // Get userId from verified token
     const { couponCode, userInfo, deliveryAddress, paymentMethod } = req.body || {};
 
     // Validate essential order information
-    if (!userInfo?.email || !deliveryAddress || !paymentMethod) {
-      await session.abortTransaction();
+    if (!userInfo?.email || !deliveryAddress || !paymentMethod)
       return res.status(400).json({
         success: false,
         message:
           "User information, delivery address and payment method are required",
       });
-    }
 
     const VALID_PAYMENT_METHODS = ["cod", "stripe"];
-    if (!VALID_PAYMENT_METHODS.includes(paymentMethod)) {
-      await session.abortTransaction();
+    if (!VALID_PAYMENT_METHODS.includes(paymentMethod))
       return res.status(400).json({
         success: false,
         message: `Invalid payment method. Must be one of: ${VALID_PAYMENT_METHODS.join(", ")}`,
       });
-    }
+
+    await dbConnect();
+    session = await mongoose.startSession();
+    session.startTransaction();
 
     // Pricing validation removed - all calculations done server-side for security
 
@@ -113,12 +109,10 @@ const placeOrder = async (req, res) => {
         .session(session);
 
       // Fail entire order if any product is not found
-      if (!product) {
-        // throws an error and moves onto executing the catch block skipping the rest of the try block
+      if (!product)
         throw new Error(
           `Product not found for ID: ${item.productId}. Order cannot be processed.`
         );
-      }
 
       item.price = product.price;
     }
@@ -176,7 +170,7 @@ const placeOrder = async (req, res) => {
       );
 
       // Add coupon to user's couponCodeUsed array with session
-      if (couponDoc && !user.couponCodeUsed.includes(couponDoc._id)) {
+      if (couponDoc && !user.couponCodeUsed.includes(couponDoc._id))
         await userModel.findByIdAndUpdate(
           user._id,
           {
@@ -184,7 +178,6 @@ const placeOrder = async (req, res) => {
           },
           { session }
         );
-      }
     }
 
     // === USER ORDER HISTORY UPDATE  ===
@@ -227,12 +220,11 @@ const placeOrder = async (req, res) => {
       }
     }
     console.error("Error placing order:", error);
-    if (!res.headersSent) {
+    if (!res.headersSent)
       res.status(500).json({
         success: false,
         message: error.message || "Internal server error",
       });
-    }
   } finally {
     // Always clean up session and abort if still in transaction
     if (session) {
@@ -253,27 +245,25 @@ const placeOrder = async (req, res) => {
 };
 
 const getOrderHistory = async (req, res) => {
-  const { email, currPage } = req.query;
-
-  // Validate user email and current page
-  if (!email || !currPage) {
-    return res.status(400).json({
-      success: false,
-      message: "User email and current page are required",
-    });
-  }
-
   try {
+    const { email, currPage } = req.query || {};
+
+    // Validate user email and current page
+    if (!email || !currPage)
+      return res.status(400).json({
+        success: false,
+        message: "User email and current page are required",
+      });
+
     await dbConnect();
     // Verify user exists
     const user = await userModel.findOne({ email });
 
-    if (!user) {
+    if (!user)
       return res.status(404).json({
         success: false,
         message: "User not found",
       });
-    }
 
     const ordersPerPage = 2;
     const page = parseInt(currPage, 10) || 1;
@@ -282,7 +272,7 @@ const getOrderHistory = async (req, res) => {
     // Get the total count of orders for this specific user
     const totalOrders = await orderModel.countDocuments({ user: user._id });
 
-    if (totalOrders === 0) {
+    if (totalOrders === 0)
       return res.status(200).json({
         success: true,
         message: "No orders found for this user",
@@ -290,7 +280,6 @@ const getOrderHistory = async (req, res) => {
         totalPages: 0,
         totalOrders: 0,
       });
-    }
 
     const totalPages = Math.ceil(totalOrders / ordersPerPage);
 
@@ -324,19 +313,18 @@ const getOrderHistory = async (req, res) => {
 
 const allOrdersList = async (req, res) => {
   try {
-    await dbConnect();
-    const { currPage } = req.query;
-    const email = req.user.email; // Get email from authenticated user token
+    const currPage = req.query?.currPage;
+    const email = req.user?.email; // Get email from authenticated user token
 
-    if (!currPage) {
+    if (!currPage)
       return res.status(400).json({ message: "Current page is required!" });
-    }
+
+    await dbConnect();
 
     const user = await userModel.findOne({ email });
     // Check if user exists and is either admin or superAdmin
-    if (!user || (user.role !== "admin" && user.role !== "superAdmin")) {
+    if (!user || (user.role !== "admin" && user.role !== "superAdmin"))
       return res.status(403).json("User is not authorized!");
-    }
 
     const ordersPerPage = 20;
     // Parse the current page number, default to 1 if invalid
@@ -379,18 +367,17 @@ const allOrdersList = async (req, res) => {
 
 const deleteOrder = async (req, res) => {
   try {
-    await dbConnect();
-    const { orderId } = req.params;
+    const orderId = req.params?.orderId;
 
-    if (!orderId) {
+    if (!orderId)
       return res.status(400).json({ message: "Order ID is required." });
-    }
+
+    await dbConnect();
 
     const result = await orderModel.findByIdAndDelete(orderId);
 
-    if (!result) {
+    if (!result)
       return res.status(404).json({ message: "Order not found." });
-    }
 
     // Optional: You might want to remove the order reference from the user's order history as well.
     // await userModel.updateMany({}, { $pull: { orders: orderId } });
@@ -410,20 +397,19 @@ const deleteOrder = async (req, res) => {
 
 const updateOrder = async (req, res) => {
   try {
-    await dbConnect();
-    const { orderId } = req.params;
-    const { status } = req.body;
+    const orderId = req.params?.orderId;
+    const status = req.body?.status;
 
-    if (!orderId) {
+    if (!orderId)
       return res.status(400).json({ message: "Order ID is required." });
-    }
 
     const VALID_STATUSES = ["pending", "processing", "shipped", "delivered"];
-    if (!status || !VALID_STATUSES.includes(status)) {
+    if (!status || !VALID_STATUSES.includes(status))
       return res.status(400).json({
         message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
       });
-    }
+
+    await dbConnect();
 
     const updatedOrder = await orderModel.findByIdAndUpdate(
       orderId,
@@ -431,9 +417,8 @@ const updateOrder = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!updatedOrder) {
+    if (!updatedOrder)
       return res.status(404).json({ message: "Order not found." });
-    }
 
     res.status(200).json({
       success: true,
@@ -469,16 +454,22 @@ const getOrderStats = async (req, res) => {
 // This is used when the payment is made through stripe
 const verifyOrder = async (req, res) => {
   try {
+    const stripeSessionID = req.query?.stripeSessionID;
+
+    if (!stripeSessionID)
+      return res.status(400).json({
+        success: false,
+        message: "Stripe session ID is required.",
+      });
+
     await dbConnect();
-    const { stripeSessionID } = req.query;
     // Find if the recent order has been saved to the database
     const order = await orderModel.findOne({ stripeSessionID });
 
-    if (order) {
+    if (order)
       return res.json({ success: true });
-    } else {
+    else
       return res.json({ success: false });
-    }
   } catch (error) {
     console.error("Error verifying order:", error);
     return res.status(500).json({

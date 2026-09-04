@@ -11,11 +11,10 @@ const MONGODB_URI = process.env.MONGODB_URI;
 //  to cache the connection
 let cached = global.mongoose;
 
-if (!cached) {
+if (!cached)
   // if the connection is not cached yet, create an object to store the info that tells not to create
   // a new connection the next time dbConnect is called in the codebase
   cached = global.mongoose = { conn: null, promise: null };
-}
 
 const createConnection = async (opts) => {
   // mongoose.connect resolves and returns a connection object when the first handshake is complete, not when the connection is fully ready, so using
@@ -31,9 +30,8 @@ const createConnection = async (opts) => {
 
 const dbConnect = async () => {
   // If already connected, return existing connection. 1st time it will be null so it will skip this
-  if (cached.conn) {
+  if (cached.conn)
     return cached.conn;
-  }
 
   // If connection is in progress, wait for it. 1st time it will be null so it will run the code below to create new connection
   if (!cached.promise) {

@@ -13,9 +13,15 @@ const { verifyCronSecret } = require("../../middlewares/custom/cron.middleware.j
 router.use(verifyCronSecret);
 
 // Cleanup unverified users (called by cron job)
-router.post("/users", cleanupUnverifiedUsersController);
+router
+  .route("/users")
+  .get(cleanupUnverifiedUsersController)
+  .post(cleanupUnverifiedUsersController);
 
 // Cleanup expired reservations (called by cron job)
-router.post("/reservations", cleanupReservationsController);
+router
+  .route("/reservations")
+  .get(cleanupReservationsController)
+  .post(cleanupReservationsController);
 
 module.exports = router;

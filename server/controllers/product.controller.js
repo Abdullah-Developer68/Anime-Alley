@@ -21,9 +21,8 @@ const generateProductID = async (category) => {
     };
 
     const prefix = categoryPrefixes[category.toLowerCase()];
-    if (!prefix) {
+    if (!prefix)
       throw new Error(`Invalid category: ${category}`);
-    }
 
     // Find all existing product IDs for this category
     const existingProducts = await productModel
@@ -45,9 +44,8 @@ const generateProductID = async (category) => {
 
     // Find the first gap or use the next sequential number
     for (let i = 0; i < existingNumbers.length; i++) {
-      if (existingNumbers[i] !== nextNumber) {
+      if (existingNumbers[i] !== nextNumber)
         break;
-      }
       nextNumber++;
     }
 
@@ -57,10 +55,9 @@ const generateProductID = async (category) => {
     const existingProduct = await productModel.findOne({
       productID: generatedID,
     });
-    if (existingProduct) {
+    if (existingProduct)
       // If somehow the ID exists, recursively try again
       return await generateProductID(category);
-    }
 
     return generatedID;
   } catch (error) {
@@ -71,33 +68,49 @@ const generateProductID = async (category) => {
 
 const getProducts = async (req, res) => {
   try {
-    await dbConnect();
     // Destructure the productConstraints from the request query
-    const { productConstraints } = req.query;
-    const constraints = JSON.parse(productConstraints);
-
-    const { category, productTypes, price, sortBy, page, searchQuery } =
-      constraints;
-
-    if (!category || !page) {
+    const productConstraints = req.query?.productConstraints;
+    if (!productConstraints)
       return res.status(400).json({
         success: false,
         message: "Category and page is required",
       });
+
+    let constraints;
+    if (typeof productConstraints === "object" && productConstraints !== null)
+      constraints = productConstraints;
+    else {
+      try {
+        constraints = JSON.parse(productConstraints);
+      } catch {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid product constraints",
+        });
+      }
     }
+
+    const { category, productTypes, price, sortBy, page, searchQuery } =
+      constraints || {};
+
+    if (!category || !page)
+      return res.status(400).json({
+        success: false,
+        message: "Category and page is required",
+      });
+
+    await dbConnect();
 
     // Build the query object
     const query = { category: category.toLowerCase() };
 
     // Add text search if searchQuery exists and is not empty
-    if (searchQuery && searchQuery.trim() !== "") {
+    if (searchQuery && searchQuery.trim() !== "")
       query.$text = { $search: searchQuery.trim() };
-    }
 
     // Add price filter if price exists
-    if (price) {
+    if (price)
       query.price = { $lte: price };
-    }
 
     // Add filter to the query of the respective category
     // Note: Using case-insensitive regex matching to handle frontend lowercase conversion
@@ -173,20 +186,10 @@ const getProducts = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
-    await dbConnect();
-    // Cloudinary returns the URL in req.file.path
-    const imageUrl = req.file ? req.file.path : null;
-    const imagePublicId = req.file
-      ? extractPublicIdFromCloudinaryUrl(req.file.path)
-      : null;
+    const { name, price, stock, category } = req.body || {};
 
     // Remove productID from required fields validation since it's auto-generated
-    if (
-      !req.body.name ||
-      !req.body.price ||
-      !req.body.stock ||
-      !req.body.category
-    ) {
+    if (!name || !price || !stock || !category) {
       console.error("Missing required fields:", req.body);
       return res.status(400).json({
         success: false,
@@ -196,24 +199,58 @@ const createProduct = async (req, res) => {
 
     // Validate category before generating ID
     const validCategories = ["comics", "toys", "clothes", "shoes"];
-    if (!validCategories.includes(req.body.category.toLowerCase())) {
+    if (!validCategories.includes(category.toLowerCase()))
       return res.status(400).json({
         success: false,
-        message: `Invalid category: ${
-          req.body.category
-        }. Valid categories are: ${validCategories.join(", ")}`,
+        message: `Invalid category: ${category}. Valid categories are: ${validCategories.join(", ")}`,
       });
-    }
 
-    // Generate unique product ID based on category
-    const generatedProductID = await generateProductID(req.body.category);
+    const catLower = category.toLowerCase();
 
     let stockData;
     try {
-      stockData = JSON.parse(req.body.stock);
+      stockData = typeof stock === "string" ? JSON.parse(stock) : stock;
     } catch {
       return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
     }
+
+    if (catLower === "toys") {
+      stockData = typeof stockData === "number" ? stockData : Number(stockData);
+      if (typeof stockData !== "number" || isNaN(stockData) || stockData < 0)
+        return res.status(400).json({ success: false, message: "Invalid stock value for toy" });
+    }
+
+    let volumes, genres, sizes;
+    if (catLower === "comics") {
+      try {
+        volumes = req.body.volumes !== undefined
+          ? (typeof req.body.volumes === "string" ? JSON.parse(req.body.volumes) : req.body.volumes)
+          : undefined;
+        genres = req.body.genres !== undefined
+          ? (typeof req.body.genres === "string" ? JSON.parse(req.body.genres) : req.body.genres)
+          : undefined;
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
+      }
+    } else if (catLower === "clothes" || catLower === "shoes") {
+      try {
+        sizes = req.body.sizes !== undefined
+          ? (typeof req.body.sizes === "string" ? JSON.parse(req.body.sizes) : req.body.sizes)
+          : undefined;
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      }
+    }
+
+    await dbConnect();
+    // Cloudinary returns the URL in req.file.path
+    const imageUrl = req.file ? req.file.path : null;
+    const imagePublicId = req.file
+      ? extractPublicIdFromCloudinaryUrl(req.file.path)
+      : null;
+
+    // Generate unique product ID based on category
+    const generatedProductID = await generateProductID(category);
 
     const productData = {
       productID: generatedProductID, // Use auto-generated ID
@@ -227,51 +264,33 @@ const createProduct = async (req, res) => {
     };
 
     // Add category-specific fields
-    if (req.body.category === "comics") {
-      let volumes, genres;
-      try {
-        volumes = JSON.parse(req.body.volumes);
-        genres = JSON.parse(req.body.genres);
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
-      }
-
+    if (catLower === "comics") {
       productData.volumes = volumes;
       productData.genres = genres;
 
       // Validate that stock exists for each volume
-      volumes.forEach((volume) => {
-        if (typeof productData.stock[volume] === "undefined") {
-          throw new Error(`Stock value missing for volume ${volume}`);
-        }
-      });
-    } else if (
-      req.body.category === "clothes" ||
-      req.body.category === "shoes"
-    ) {
-      let sizes;
-      try {
-        sizes = JSON.parse(req.body.sizes);
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      if (Array.isArray(volumes) && typeof stockData === "object" && stockData !== null) {
+        volumes.forEach((volume) => {
+          if (typeof productData.stock[volume] === "undefined")
+            throw new Error(`Stock value missing for volume ${volume}`);
+        });
       }
+    } else if (
+      catLower === "clothes" ||
+      catLower === "shoes"
+    ) {
       productData.sizes = sizes;
       productData.merchType = req.body.merchType;
 
       // Validate that stock exists for each size
-      sizes.forEach((size) => {
-        if (typeof productData.stock[size] === "undefined") {
-          throw new Error(`Stock value missing for size ${size}`);
-        }
-      });
-    } else if (req.body.category === "toys") {
-      productData.toyType = req.body.toyType;
-
-      // For toys, stock should be a number
-      if (typeof productData.stock !== "number") {
-        throw new Error("Invalid stock value for toy");
+      if (Array.isArray(sizes) && typeof stockData === "object" && stockData !== null) {
+        sizes.forEach((size) => {
+          if (typeof productData.stock[size] === "undefined")
+            throw new Error(`Stock value missing for size ${size}`);
+        });
       }
-    }
+    } else if (catLower === "toys")
+      productData.toyType = req.body.toyType;
 
     const newProduct = await productModel.create(productData);
 
@@ -291,22 +310,24 @@ const createProduct = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
-    await dbConnect();
-    const { _id } = req.body;
+    const {
+      _id,
+      name,
+      price,
+      stock,
+      category,
+      description,
+      merchType,
+      toyType,
+    } = req.body || {};
 
-    if (!_id) {
+    if (!_id)
       return res.status(400).json({
         success: false,
         message: "Product id is required",
       });
-    }
 
-    if (
-      !req.body.name ||
-      !req.body.price ||
-      !req.body.stock ||
-      !req.body.category
-    ) {
+    if (!name || !price || !stock || !category) {
       console.error("Missing required fields:", req.body);
       return res.status(400).json({
         success: false,
@@ -314,14 +335,58 @@ const updateProduct = async (req, res) => {
       });
     }
 
+    const validCategories = ["comics", "toys", "clothes", "shoes"];
+    const catLower = typeof category === "string" ? category.toLowerCase() : "";
+    if (!validCategories.includes(catLower))
+      return res.status(400).json({
+        success: false,
+        message: `Invalid category: ${category}. Valid categories are: ${validCategories.join(", ")}`,
+      });
+
+    let stockData;
+    try {
+      stockData = typeof req.body.stock === "string" ? JSON.parse(req.body.stock) : req.body.stock;
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
+    }
+
+    if (catLower === "toys") {
+      stockData = typeof stockData === "number" ? stockData : Number(stockData);
+      if (typeof stockData !== "number" || isNaN(stockData) || stockData < 0)
+        return res.status(400).json({ success: false, message: "Invalid stock value for toy" });
+    }
+
+    let volumes, genres, sizes;
+    if (catLower === "comics") {
+      try {
+        volumes = req.body.volumes !== undefined
+          ? (typeof req.body.volumes === "string" ? JSON.parse(req.body.volumes) : req.body.volumes)
+          : undefined;
+        genres = req.body.genres !== undefined
+          ? (typeof req.body.genres === "string" ? JSON.parse(req.body.genres) : req.body.genres)
+          : undefined;
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
+      }
+    } else if (catLower === "clothes" || catLower === "shoes") {
+      try {
+        sizes = req.body.sizes !== undefined
+          ? (typeof req.body.sizes === "string" ? JSON.parse(req.body.sizes) : req.body.sizes)
+          : undefined;
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      }
+    }
+
+    await dbConnect();
+
     const existingProduct = await productModel.findById(_id);
 
-    if (!existingProduct) {
+    if (!existingProduct)
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
-    }
 
     const imageUrl = req.file
       ? req.file.path
@@ -333,69 +398,44 @@ const updateProduct = async (req, res) => {
         : existingProduct.imagePublicId ||
           extractPublicIdFromCloudinaryUrl(existingProduct.image);
 
-    let stockData;
-    try {
-      stockData = JSON.parse(req.body.stock);
-    } catch {
-      return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
-    }
-
     const productData = {
-      name: req.body.name,
-      price: parseFloat(req.body.price),
-      category: req.body.category,
-      description: req.body.description,
+      name,
+      price: parseFloat(price),
+      category,
+      description,
       image: imageUrl,
       imagePublicId,
       stock: stockData,
     };
 
     // Add category-specific fields
-    if (req.body.category === "comics") {
-      let volumes, genres;
-      try {
-        volumes = JSON.parse(req.body.volumes);
-        genres = JSON.parse(req.body.genres);
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
-      }
-
+    if (catLower === "comics") {
       productData.volumes = volumes;
       productData.genres = genres;
 
       // Validate that stock exists for each volume
-      volumes.forEach((volume) => {
-        if (typeof productData.stock[volume] === "undefined") {
-          throw new Error(`Stock value missing for volume ${volume}`);
-        }
-      });
-    } else if (
-      req.body.category === "clothes" ||
-      req.body.category === "shoes"
-    ) {
-      let sizes;
-      try {
-        sizes = JSON.parse(req.body.sizes);
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
+      if (Array.isArray(volumes) && typeof stockData === "object" && stockData !== null) {
+        volumes.forEach((volume) => {
+          if (typeof productData.stock[volume] === "undefined")
+            throw new Error(`Stock value missing for volume ${volume}`);
+        });
       }
+    } else if (
+      catLower === "clothes" ||
+      catLower === "shoes"
+    ) {
       productData.sizes = sizes;
-      productData.merchType = req.body.merchType;
+      productData.merchType = merchType;
 
       // Validate that stock exists for each size
-      sizes.forEach((size) => {
-        if (typeof productData.stock[size] === "undefined") {
-          throw new Error(`Stock value missing for size ${size}`);
-        }
-      });
-    } else if (req.body.category === "toys") {
-      productData.toyType = req.body.toyType;
-
-      // For toys, stock should be a number
-      if (typeof productData.stock !== "number") {
-        throw new Error("Invalid stock value for toy");
+      if (Array.isArray(sizes) && typeof stockData === "object" && stockData !== null) {
+        sizes.forEach((size) => {
+          if (typeof productData.stock[size] === "undefined")
+            throw new Error(`Stock value missing for size ${size}`);
+        });
       }
-    }
+    } else if (catLower === "toys")
+      productData.toyType = toyType;
 
     const updatedProduct = await productModel.findByIdAndUpdate(
       _id,
@@ -408,9 +448,8 @@ const updateProduct = async (req, res) => {
         existingProduct.imagePublicId ||
         extractPublicIdFromCloudinaryUrl(existingProduct.image);
 
-      if (oldPublicId && oldPublicId !== imagePublicId) {
+      if (oldPublicId && oldPublicId !== imagePublicId)
         await destroyCloudinaryImage(existingProduct.image, oldPublicId);
-      }
     }
 
     res.status(200).json({
@@ -429,29 +468,27 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
-    await dbConnect();
-    const { productID } = req.body || {};
+    const productID = req.body?.productID;
 
-    if (!productID) {
+    if (!productID)
       return res.status(400).json({ message: "The productID is required!" });
-    }
+
+    await dbConnect();
 
     const deletedProduct = await productModel.findOneAndDelete({ productID });
 
-    if (!deletedProduct) {
+    if (!deletedProduct)
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
-    }
 
     const publicId =
       deletedProduct.imagePublicId ||
       extractPublicIdFromCloudinaryUrl(deletedProduct.image);
 
-    if (publicId) {
+    if (publicId)
       await destroyCloudinaryImage(deletedProduct.image, publicId);
-    }
 
     res.status(200).json({
       message: `Product with ID: ${productID} has been deleted!`,

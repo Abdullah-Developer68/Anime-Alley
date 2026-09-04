@@ -51,9 +51,8 @@ const orderSchema = new Schema(
     stripeSessionID: {
       type: String,
       required: function () {
-        if (this.paymentMethod === "stripe") {
+        if (this.paymentMethod === "stripe")
           return true;
-        }
       },
     },
     subtotal: {

@@ -17,9 +17,8 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
-    if (token) {
+    if (token)
       config.headers.Authorization = `Bearer ${token}`;
-    }
     return config;
   },
   (error) => {
@@ -35,10 +34,9 @@ api.interceptors.response.use(
   },
   (error) => {
     // If we get a 401 error, the token might be expired or invalid
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401)
       // Clear all user data from localStorage
       clearAllUserData();
-    }
     return Promise.reject(error);
   },
 );
@@ -150,9 +148,8 @@ api.verifyOrder = (stripeSessionID) => {
 api.updateUser = (userId, userData) => {
   const formData = new FormData();
   Object.entries(userData).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
+    if (value !== undefined && value !== null)
       formData.append(key, value);
-    }
   });
   return api.put(`/user/update/${userId}`, formData, {
     headers: { "Content-Type": "multipart/form-data" },

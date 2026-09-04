@@ -16,13 +16,12 @@ const getSecretKey = () => process.env.JWT_KEY || secretKey;
 // Utility function to extract token from Authorization header or cookies
 const extractToken = (req) => {
   // First, try to get token from Authorization header (Bearer token)
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
+  const authHeader = req.headers?.authorization;
+  if (authHeader && authHeader.startsWith("Bearer "))
     return authHeader.substring(7); // Remove 'Bearer ' prefix
-  }
 
   // Fallback to cookie-based token
-  return req.cookies.token;
+  return req.cookies?.token;
 };
 
 // Centralized cookie configuration for consistent JWT-only auth
@@ -61,8 +60,15 @@ const getClearCookieOptions = () => {
 
 const sendSignupOtp = async (req, res) => {
   try {
+    const email = req.body?.email;
+
+    if (!email)
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+
     await dbConnect();
-    const { email } = req.body;
 
     let otp;
     let otpExpiry;
@@ -116,11 +122,11 @@ const sendSignupOtp = async (req, res) => {
       user.otpExpiry = otpExpiry;
       user.isOtpVerified = false;
       await user.save();
-    } else if (user.accountStatus === "active") {
+    } else if (user.accountStatus === "active")
       return res
         .status(200)
         .json({ message: "You already have an account, so please Sign In" });
-    } else {
+    else {
       // if the user is signing up for the first time this runs
       msg = "OTP sent to your email! Please use that to Sign In!";
       // generates a new otp
@@ -145,14 +151,14 @@ const sendSignupOtp = async (req, res) => {
 
 const verifyOTP = async (req, res) => {
   try {
-    await dbConnect();
-    const { email, otp } = req.body;
+    const { email, otp } = req.body || {};
 
-    if (!email || !otp) {
+    if (!email || !otp)
       return res
         .status(400)
         .json({ success: false, message: "Email and OTP are required" });
-    }
+
+    await dbConnect();
 
     const user = await userModel.findOne({ email, accountStatus: "verifying" });
     if (
@@ -160,11 +166,10 @@ const verifyOTP = async (req, res) => {
       !user.otp ||
       user.otp.toString() !== otp.toString() ||
       user.otpExpiry < new Date()
-    ) {
+    )
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired OTP" });
-    }
 
     // Mark user as having verified OTP in database
     user.isOtpVerified = true;
@@ -194,33 +199,29 @@ const verifyOTP = async (req, res) => {
 
 const signUp = async (req, res) => {
   try {
-    await dbConnect();
-    const { email, password, username, verificationToken } = req.body;
+    const { email, password, username, verificationToken } = req.body || {};
 
-    if (!email || !password || !username) {
+    if (!email || !password || !username)
       return res.status(400).json({
         success: false,
         message: "Email, password, and username are required!",
       });
-    }
 
     // Strict check: verificationToken must be present
-    if (!verificationToken) {
+    if (!verificationToken)
       return res.status(400).json({
         success: false,
         message: "OTP verification is required before signup. Verification token missing.",
       });
-    }
 
     // Verify token signature and purpose
     try {
       const decoded = jwt.verify(verificationToken, getSecretKey());
-      if (decoded.email !== email || decoded.purpose !== "otp_verification") {
+      if (decoded.email !== email || decoded.purpose !== "otp_verification")
         return res.status(400).json({
           success: false,
           message: "Invalid verification token. Please verify OTP again.",
         });
-      }
     } catch (tokenErr) {
       return res.status(400).json({
         success: false,
@@ -228,22 +229,22 @@ const signUp = async (req, res) => {
       });
     }
 
+    await dbConnect();
+
     // Find user with accountStatus verifying
     const user = await userModel.findOne({ email, accountStatus: "verifying" });
-    if (!user) {
+    if (!user)
       return res.status(400).json({
         success: false,
         message: "There is no pending verification. Please start signup again.",
       });
-    }
 
     // Strict check: database flag isOtpVerified must be true
-    if (!user.isOtpVerified) {
+    if (!user.isOtpVerified)
       return res.status(400).json({
         success: false,
         message: "OTP has not been verified. Please complete OTP verification first.",
       });
-    }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -298,56 +299,52 @@ const signUp = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    await dbConnect();
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     // Check if credentials are provided
-    if (!email || !password) {
+    if (!email || !password)
       return res.status(400).json({
         success: false,
         status: false,
         message: "Email and password are required for login!",
       });
-    }
+
+    await dbConnect();
 
     // Check if user exists
     const userExist = await userModel.findOne({ email });
 
-    if (!userExist) {
+    if (!userExist)
       return res
         .status(401)
         .json({ success: false, status: false, message: "User not found!" });
-    }
 
-    if (userExist.accountStatus === "verifying") {
+    if (userExist.accountStatus === "verifying")
       return res.status(403).json({
         success: false,
         status: false,
         message:
           "Your account is still verifying. Please complete OTP verification first.",
       });
-    }
 
     // Check if user was registered through Google (no password but has googleId)
     if (
       (!userExist.password || userExist.password === "N/A") &&
       userExist.googleId
-    ) {
+    )
       return res.status(400).json({
         success: false,
         status: false,
         message:
           "You are registered through Google. Please use Google login to sign in.",
       });
-    }
 
     const passwordMatch = await bcrypt.compare(password, userExist.password);
-    if (!passwordMatch) {
+    if (!passwordMatch)
       return res.status(401).json({
         status: false,
         message: "Either email or password is incorrect!",
       });
-    }
 
     // Create token and send as cookie
     const token = jwt.sign(
@@ -417,11 +414,10 @@ const verifyToken = async (req, res) => {
   try {
     // Use utility function to extract token from Authorization header or cookies
     const token = extractToken(req);
-    if (!token) {
+    if (!token)
       return res
         .status(401)
         .json({ success: false, message: "No authentication token found" });
-    }
 
     const decoded = jwt.verify(token, getSecretKey());
 
@@ -440,19 +436,17 @@ const verifyToken = async (req, res) => {
     console.error("Token verification error:", error);
 
     // Handle specific JWT errors
-    if (error.name === "JsonWebTokenError") {
+    if (error.name === "JsonWebTokenError")
       return res.status(401).json({
         success: false,
         message: "Invalid authentication token.",
       });
-    }
 
-    if (error.name === "TokenExpiredError") {
+    if (error.name === "TokenExpiredError")
       return res.status(401).json({
         success: false,
         message: "Authentication token expired.",
       });
-    }
 
     res
       .status(401)
@@ -462,10 +456,11 @@ const verifyToken = async (req, res) => {
 
 const demoLogin = async (req, res) => {
   try {
-    await dbConnect();
     const requestedRole =
       (req.body?.role || req.query?.role) === "admin" ? "admin" : "user";
     const base = requestedRole === "admin" ? "demoAdmin" : "demoUser";
+
+    await dbConnect();
 
     // Find existing users with this base pattern to determine the next sequence number
     const regex = new RegExp(`^${base}(\\d*)$`, "i");
@@ -478,9 +473,8 @@ const demoLogin = async (req, res) => {
       const match = u.username.match(regex);
       if (match) {
         const num = match[1] ? parseInt(match[1], 10) : 0;
-        if (!isNaN(num) && num > maxNum) {
+        if (!isNaN(num) && num > maxNum)
           maxNum = num;
-        }
       }
     }
 
@@ -535,13 +529,12 @@ const demoLogin = async (req, res) => {
       }
     }
 
-    if (!user) {
+    if (!user)
       return res.status(500).json({
         success: false,
         message:
           "Failed to allocate unique demo account sequence after multiple attempts.",
       });
-    }
 
     // Create JWT token
     const token = jwt.sign(

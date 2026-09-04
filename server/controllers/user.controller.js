@@ -9,27 +9,25 @@ const {
 } = require("../utils/cloudinary.utils.js");
 
 const getUsers = async (req, res) => {
-  // The user object has other details such as role as well but we will still verify it from the database for high security
-  const viewerEmail = req.user.email;
-  // This is sent from the frontend (searching constraints)
-  const { currPage, searchQuery = "", role = "allUsers" } = req.query;
-  // Validate required parameters
-  if (!currPage) {
-    return res.status(400).json({
-      message: "Current page is required!",
-    });
-  }
-
   try {
+    // The user object has other details such as role as well but we will still verify it from the database for high security
+    const viewerEmail = req.user?.email;
+    // This is sent from the frontend (searching constraints)
+    const { currPage, searchQuery = "", role = "allUsers" } = req.query || {};
+    // Validate required parameters
+    if (!currPage)
+      return res.status(400).json({
+        message: "Current page is required!",
+      });
+
     await dbConnect();
     // Check if the requesting user is an admin or superAdmin
     const adminUser = await userModel.findOne({ email: viewerEmail });
     if (
       !adminUser ||
       (adminUser.role !== "admin" && adminUser.role !== "superAdmin")
-    ) {
+    )
       return res.status(403).json({ message: "User is not authorized!" });
-    }
 
     // --- Pagination Logic ---
     const usersPerPage = 20;
@@ -38,17 +36,15 @@ const getUsers = async (req, res) => {
 
     // Build query filter
     let query = {};
-    if (role !== "allUsers") {
+    if (role !== "allUsers")
       query.role = role;
-    }
     if (searchQuery && searchQuery.length > 0) {
-      if (searchQuery.includes("@") || searchQuery.includes(".")) {
+      if (searchQuery.includes("@") || searchQuery.includes("."))
         // Looks like an email, use regex for email
         query.email = { $regex: searchQuery, $options: "i" };
-      } else {
+      else
         // Use text search for username/email
         query.$text = { $search: searchQuery };
-      }
     }
 
     // Get total count of filtered users
@@ -69,9 +65,8 @@ const getUsers = async (req, res) => {
       const roleA = roleOrder[a.role] || 4;
       const roleB = roleOrder[b.role] || 4;
 
-      if (roleA !== roleB) {
+      if (roleA !== roleB)
         return roleA - roleB; // Sort by role first
-      }
 
       // If roles are the same, sort by creation date (newest first)
       return new Date(b.createdAt) - new Date(a.createdAt);
@@ -96,87 +91,73 @@ const getUsers = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   try {
-    await dbConnect();
     // Id of the user who is to be deleted
-    const { userId } = req.params;
-
-    // Get editor info from verified token
-    const editorEmail = req.user.email;
-    const editorId = req.user.id;
-    console.log(editorId);
+    const userId = req.params?.userId;
 
     // Validate required parameters
-    if (!userId) {
+    if (!userId)
       return res.status(400).json({ message: "User ID is required." });
-    }
 
     // Validata ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!mongoose.Types.ObjectId.isValid(userId))
       return res.status(400).json({ message: "Invalid User ID format." });
-    }
+
+    await dbConnect();
+
+    // Get editor info from verified token
+    const editorEmail = req.user?.email;
+    const editorId = req.user?.id;
+    console.log(editorId);
 
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
-    if (!editor) {
+    if (!editor)
       return res.status(404).json({ message: "editor not found." });
-    }
     // Get the user being deleted
     const userToDelete = await userModel.findById(userId);
-    if (!userToDelete) {
+    if (!userToDelete)
       return res.status(404).json({ message: "User not found." });
-    }
     // Prevent self-deletion
-    if (userToDelete._id.toString() === editorId.toString()) {
+    if (userToDelete._id.toString() === editorId.toString())
       return res.status(403).json({ message: "You cannot delete yourself." });
-    }
     // Users cannot delete anyone
-    if (editor.role === "user") {
+    if (editor.role === "user")
       return res
         .status(403)
         .json({ message: "Users are not authorized to delete anyone." });
-    }
     // Admins can only delete users
-    if (editor.role === "admin") {
-      if (userToDelete.role !== "user") {
-        return res
-          .status(403)
-          .json({ message: "Admins can only delete users." });
-      }
-    }
+    if (editor.role === "admin" && userToDelete.role !== "user")
+      return res
+        .status(403)
+        .json({ message: "Admins can only delete users." });
     // SuperAdmin can delete users and admins, but not other superAdmins
-    if (editor.role === "superAdmin") {
-      if (userToDelete.role === "superAdmin") {
-        return res
-          .status(403)
-          .json({ message: "SuperAdmin cannot delete other superAdmins." });
-      }
-    }
+    if (editor.role === "superAdmin" && userToDelete.role === "superAdmin")
+      return res
+        .status(403)
+        .json({ message: "SuperAdmin cannot delete other superAdmins." });
     // Prevent deletion of the last superAdmin
     if (userToDelete.role === "superAdmin") {
       const superAdminCount = await userModel.countDocuments({
         role: "superAdmin",
       });
-      if (superAdminCount <= 1) {
+      if (superAdminCount <= 1)
         return res
           .status(403)
           .json({ message: "Cannot delete the last superAdmin." });
-      }
     }
     // Proceed to delete the user (This returns the deleted document)
     const isDeleted = await userModel.findByIdAndDelete(userId);
     console.log("isDeleted:", isDeleted);
-    if (!isDeleted) {
+    if (!isDeleted)
       return res
         .status(404)
         .json({ message: "User not found or already deleted." });
-    }
 
     const publicId =
       userToDelete.profilePicPublicId ||
       extractPublicIdFromCloudinaryUrl(userToDelete.profilePic);
-    if (publicId) {
+    if (publicId)
       await destroyCloudinaryImage(userToDelete.profilePic, publicId);
-    }
 
     res.status(200).json({
       success: true,
@@ -195,88 +176,80 @@ const deleteUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   try {
-    await dbConnect();
     // This is the id of the user to be updated
-    const { userId } = req.params;
+    const userId = req.params?.userId;
 
-    if (!userId) {
+    if (!userId)
       return res.status(400).json({ message: "User ID is required." });
-    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId))
+      return res.status(400).json({ message: "Invalid User ID format." });
+
+    await dbConnect();
 
     // These are the fields of the user to be updated
-    const { username, email, role, password } = req.body;
+    const { username, email, role, password } = req.body || {};
     // This is the email of the editor (admin making the change) from the token
-    const editorEmail = req.user.email;
-    const editorId = req.user.id;
+    const editorEmail = req.user?.email;
+    const editorId = req.user?.id;
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
 
-    if (!editor) {
+    if (!editor)
       return res.status(404).json({ message: "Editor not found." });
-    }
-    if (editor.role !== "admin" && editor.role !== "superAdmin") {
+    if (editor.role !== "admin" && editor.role !== "superAdmin")
       return res
         .status(403)
         .json({ message: "Not authorized to update users." });
-    }
 
     // Get the user being updated
     const userToUpdate = await userModel.findById(userId);
 
-    if (!userToUpdate) {
+    if (!userToUpdate)
       return res.status(404).json({ message: "User not found." });
-    }
 
     // Allow users to update themselves (except their own role)
     if (editor._id.toString() === userToUpdate._id.toString()) {
-      if (role && role !== userToUpdate.role) {
+      if (role && role !== userToUpdate.role)
         return res
           .status(403)
           .json({ message: "You cannot change your own role." });
-      }
       // Proceed to update self (other fields)
     } else {
       // Users cannot update anyone
-      if (editor.role === "user") {
+      if (editor.role === "user")
         return res
           .status(403)
           .json({ message: "Users are not authorized to update anyone." });
-      }
       // Admins can only update users, and cannot change roles
       if (editor.role === "admin") {
-        if (userToUpdate.role !== "user") {
+        if (userToUpdate.role !== "user")
           return res
             .status(403)
             .json({ message: "Admins can only update users." });
-        }
-        if (role && role !== userToUpdate.role) {
+        if (role && role !== userToUpdate.role)
           return res
             .status(403)
             .json({ message: "Admins cannot change user roles." });
-        }
       }
       // SuperAdmin can update users and admins, but not other superAdmins
       if (editor.role === "superAdmin") {
-        if (userToUpdate.role === "superAdmin") {
+        if (userToUpdate.role === "superAdmin")
           return res
             .status(403)
             .json({ message: "SuperAdmin cannot update other superAdmins." });
-        }
         // SuperAdmin can only change roles between user/admin, not to superAdmin
         if (role && role !== userToUpdate.role) {
-          if (role === "superAdmin") {
+          if (role === "superAdmin")
             return res
               .status(403)
               .json({ message: "Cannot promote anyone to superAdmin." });
-          }
-          if (userToUpdate.role === "superAdmin") {
+          if (userToUpdate.role === "superAdmin")
             return res
               .status(403)
               .json({ message: "Cannot change role of a superAdmin." });
-          }
-          if (role !== "user" && role !== "admin") {
+          if (role !== "user" && role !== "admin")
             return res.status(400).json({ message: "Invalid role change." });
-          }
         }
       }
     }
@@ -291,26 +264,23 @@ const updateUser = async (req, res) => {
         req.file.path,
       );
     }
-    if (password) {
+    if (password)
       updateObj.password = await bcrypt.hash(password, 10);
-    }
     // Only allow role change if superAdmin and valid
     if (
       editor.role === "superAdmin" &&
       role &&
       role !== userToUpdate.role &&
       role !== "superAdmin"
-    ) {
+    )
       updateObj.role = role;
-    }
     const updatedUser = await userModel.findByIdAndUpdate(userId, updateObj, {
       new: true,
       runValidators: true,
     });
 
-    if (!updatedUser) {
+    if (!updatedUser)
       return res.status(404).json({ message: "User not found after update." });
-    }
 
     if (req.file) {
       const oldPublicId =
@@ -318,9 +288,8 @@ const updateUser = async (req, res) => {
         extractPublicIdFromCloudinaryUrl(userToUpdate.profilePic);
 
       const newPublicId = updateObj.profilePicPublicId;
-      if (oldPublicId && oldPublicId !== newPublicId) {
+      if (oldPublicId && oldPublicId !== newPublicId)
         await destroyCloudinaryImage(userToUpdate.profilePic, oldPublicId);
-      }
     }
 
     res.status(200).json({

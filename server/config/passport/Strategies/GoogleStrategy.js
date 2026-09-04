@@ -16,7 +16,7 @@ const findOrCreateUser = async (profile) => {
         user.googleId = profile.id;
         user.profilePic = profile.photos[0].value; // Optionally update
         await user.save();
-      } else {
+      } else
         // Create new user
         user = await User.create({
           googleId: profile.id,
@@ -25,7 +25,6 @@ const findOrCreateUser = async (profile) => {
           profilePic: profile.photos[0].value,
           accountStatus: "active",
         });
-      }
     }
 
     return user;

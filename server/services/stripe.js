@@ -10,18 +10,19 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const createCheckoutSession = async (req, res) => {
   try {
+    const paymentData = req.body?.paymentData;
+    if (!paymentData)
+      return res.status(400).json({ error: "Payment data is required" });
+
+    const { couponCode = "", deliveryAddress = "" } = paymentData || {};
+    if (!deliveryAddress || (typeof deliveryAddress === "string" && !deliveryAddress.trim()))
+      return res.status(400).json({ error: "Delivery address is required" });
+
     await dbConnect();
 
     // Extract user info from verified JWT token (set by verifyTokenMiddleware)
     const userId = req.user?.id;
     const authenticatedUserEmail = req.user?.email;
-
-    const { paymentData } = req.body || {};
-    if (!paymentData) {
-      return res.status(400).json({ error: "Payment data is required" });
-    }
-
-    const { couponCode = "", deliveryAddress = "" } = paymentData;
     const shippingCost = 5;
 
     // Find reservation by userId from verified token
@@ -33,11 +34,10 @@ const createCheckoutSession = async (req, res) => {
       !reservation ||
       !reservation.products ||
       reservation.products.length === 0
-    ) {
+    )
       return res
         .status(404)
         .json({ error: "No reservations found for this cart" });
-    }
 
     // Create line items using the FINAL discounted prices
 
@@ -53,17 +53,15 @@ const createCheckoutSession = async (req, res) => {
       // find the coupon used
       coupon = await couponModel.findOne({ couponCode: trimmedCouponCode });
 
-      if (!coupon) {
+      if (!coupon)
         // do not proceed further because we do not want to procced with the payment if coupon was not applied
         return res.status(400).json({ error: "Coupon not found" });
-      }
       // calculate the discount
       discountAmount = Math.round(
         calculatedSubtotal * (coupon.discountPercentage / 100)
       );
-    } else {
+    } else
       discountAmount = 0;
-    }
 
     // calculate final Total
     const finalTotal = calculatedSubtotal + shippingCost - discountAmount;
@@ -89,9 +87,8 @@ const createCheckoutSession = async (req, res) => {
 
     // Get coupon info for display (if provided)
     let appliedCoupon = null;
-    if (couponCode && authenticatedUserEmail) {
+    if (couponCode && authenticatedUserEmail)
       appliedCoupon = await couponModel.findOne({ couponCode });
-    }
 
     // Create checkout session configuration with locked email
     const sessionConfig = {

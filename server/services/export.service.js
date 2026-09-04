@@ -11,17 +11,15 @@ const orderModel = require("../models/order.model.js");
 // --- Helper function to format stock for display ---
 
 const formatStock = (product) => {
-  if (product.category === "toys") {
+  if (product.category === "toys")
     return product.stock > 0 ? `${product.stock} available` : "Out of Stock";
-  }
 
   // For products with object-based stock (e.g., sizes, variants)
   // Display as key-value pairs (e.g., "S: 10, M: 5, L: 2")
-  if (typeof product.stock === "object" && product.stock !== null) {
+  if (typeof product.stock === "object" && product.stock !== null)
     return Object.entries(product.stock)
       .map(([key, value]) => `${key}: ${value}`)
       .join(", ");
-  }
 
   // Fallback for unknown stock format
   return "N/A";
@@ -29,9 +27,8 @@ const formatStock = (product) => {
 
 const formatUser = (order) => {
   // If user data is populated, return formatted string with username and email
-  if (order.user) {
+  if (order.user)
     return `${order.user.username} (${order.user.email})`;
-  }
   // Fallback for orders without user data
   return "Unknown User";
 };
@@ -119,9 +116,8 @@ const generateExcel = async (res, config) => {
   // Build database query with optional population
   let query = config.model.find(); // ← This becomes userModel/productModel/couponModel/orderModel.find()
 
-  if (config.populate) {
+  if (config.populate)
     query = query.populate(config.populate); // populate loads data for referenced fields
-  }
 
   // Execute query and sort by creation date (newest first)
   const data = await query.sort({ createdAt: -1 });
@@ -144,13 +140,11 @@ const generateExcel = async (res, config) => {
       let value = item[field.key];
 
       // Apply custom formatter if specified
-      if (field.formatter) {
+      if (field.formatter)
         value = field.formatter(item);
-      }
       // Format dates to YYYY-MM-DD format
-      else if (field.isDate && value) {
+      else if (field.isDate && value)
         value = new Date(value).toISOString().split("T")[0];
-      }
 
       row[field.key] = value;
     });
@@ -181,9 +175,8 @@ const generateExcel = async (res, config) => {
 const generatePdf = async (res, config) => {
   // Build database query with population just for referenced fields
   let query = config.model.find();
-  if (config.populate) {
+  if (config.populate)
     query = query.populate(config.populate);
-  }
 
   // Execute query and sort by creation date (newest first)
   const data = await query.sort({ createdAt: -1 });
@@ -244,13 +237,11 @@ const generatePdf = async (res, config) => {
       let value = item[field.key];
 
       // Apply custom formatter if specified
-      if (field.formatter) {
+      if (field.formatter)
         value = field.formatter(item);
-      }
       // Format dates to YYYY-MM-DD format
-      else if (field.isDate && value) {
+      else if (field.isDate && value)
         value = new Date(value).toISOString().split("T")[0];
-      }
 
       // Add text to PDF with specified width constraint
       doc

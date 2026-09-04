@@ -76,9 +76,8 @@ const productSchema = new mongoose.Schema({
               (key) => sizes.includes(key) && Number.isInteger(value[key]),
             );
           return isObject && isValidSizes;
-        } else {
+        } else
           return typeof value === "number" && Number.isInteger(value);
-        }
       },
       message: "Invalid stock format for this category",
     },

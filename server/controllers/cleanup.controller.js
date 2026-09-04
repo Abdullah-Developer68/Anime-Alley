@@ -2,10 +2,8 @@ const cleanupUnverifiedUsers = require("../cron jobs/cleanUpUsers.js");
 const cleanupExpiredReservations = require("../cron jobs/cleanUpReservation.js");
 const dbConnect = require("../config/dbConnect.js");
 
-/**
- * Cleanup Unverified Users Controller
- * HTTP endpoint wrapper for the cleanup utility function
- */
+// Cleanup Unverified Users Controller
+// HTTP endpoint wrapper for the cleanup utility function
 const cleanupUnverifiedUsersController = async (req, res) => {
   try {
     await dbConnect();
@@ -13,8 +11,9 @@ const cleanupUnverifiedUsersController = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Successfully deleted ${result.deletedCount} unverified/demo users`,
-      deletedCount: result.deletedCount,
+      message: `Successfully deleted ${result?.deletedCount || 0} unverified/demo users and restored ${result?.restoredReservationsCount || 0} reservations`,
+      deletedCount: result?.deletedCount || 0,
+      restoredReservationsCount: result?.restoredReservationsCount || 0,
       timestamp: new Date().toISOString(),
     });
   } catch (err) {
@@ -27,10 +26,8 @@ const cleanupUnverifiedUsersController = async (req, res) => {
   }
 };
 
-/**
- * Cleanup Expired Reservations Controller
- * HTTP endpoint wrapper for the cleanup utility function
- */
+// Cleanup Expired Reservations Controller
+// HTTP endpoint wrapper for the cleanup utility function
 const cleanupReservationsController = async (req, res) => {
   try {
     await dbConnect();

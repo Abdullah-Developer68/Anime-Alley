@@ -43,9 +43,8 @@ app.get("/", (req, res) => {
 // Global error-handling middleware
 app.use((err, req, res, next) => {
   console.error("Unhandled server error:", err);
-  if (res.headersSent) {
+  if (res.headersSent)
     return next(err);
-  }
   const statusCode = err.statusCode || err.status || 500;
   res.status(statusCode).json({
     success: false,
@@ -53,10 +52,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-if (process.env.NODE_ENV !== "test") {
+if (process.env.NODE_ENV !== "test")
   app.listen(port, () => {
     console.log(`Server is running at: http://localhost:${port}`);
   });
-}
 
 module.exports = app; // <-- Add this line for Vercel

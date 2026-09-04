@@ -31,7 +31,6 @@ const reservationSchema = new Schema({
     type: Date,
     default: Date.now,
     index: true,
-    expires: 172800, // 2 days in seconds
   },
 });
 

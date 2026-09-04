@@ -7,29 +7,26 @@
  * @returns {{ valid: false, status: number, message: string } | { valid: true }}
  */
 const validateCouponFields = ({ discountPercentage, expiryDate }) => {
-  if (discountPercentage !== undefined) {
-    if (
-      typeof discountPercentage !== "number" ||
+  if (
+    discountPercentage !== undefined &&
+    (typeof discountPercentage !== "number" ||
       discountPercentage <= 0 ||
-      discountPercentage > 100
-    ) {
-      return {
-        valid: false,
-        status: 400,
-        message: "Discount percentage must be a number between 1 and 100",
-      };
-    }
-  }
+      discountPercentage > 100)
+  )
+    return {
+      valid: false,
+      status: 400,
+      message: "Discount percentage must be a number between 1 and 100",
+    };
 
   if (expiryDate !== undefined) {
     const parsed = new Date(expiryDate);
-    if (isNaN(parsed.getTime())) {
+    if (isNaN(parsed.getTime()))
       return {
         valid: false,
         status: 400,
         message: "Invalid expiry date",
       };
-    }
   }
 
   return { valid: true };

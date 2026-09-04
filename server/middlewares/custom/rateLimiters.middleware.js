@@ -62,12 +62,19 @@ const signupLimiter = rateLimit({
 const productSearchLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: (req) => {
-    const constraints = JSON.parse(req.query.productConstraints || "{}");
+    let constraints = {};
+    try {
+      if (typeof req.query?.productConstraints === "object" && req.query.productConstraints !== null)
+        constraints = req.query.productConstraints;
+      else if (req.query?.productConstraints)
+        constraints = JSON.parse(req.query.productConstraints);
+    } catch {
+      constraints = {};
+    }
 
     // Higher limit for simple browsing (no search)
-    if (!constraints.searchQuery) {
+    if (!constraints.searchQuery)
       return 100; // 100 requests/min for browsing
-    }
 
     // Stricter limit for text search (expensive DB queries)
     return 30; // 30 requests/min for searching

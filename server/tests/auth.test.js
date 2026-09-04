@@ -19,9 +19,33 @@ const mockUserModel = {
     if (query?.username instanceof RegExp) {
       results = results.filter((u) => query.username.test(u.username));
     }
-    return {
-      select: () => results,
+    if (query?.$or) {
+      results = results.filter((u) =>
+        query.$or.some((sub) => {
+          if (sub.accountStatus && u.accountStatus === sub.accountStatus) {
+            if (sub.createdAt?.$lt && u.createdAt < sub.createdAt.$lt) {
+              return true;
+            }
+          }
+          if (sub.isDemo && u.isDemo === true) {
+            if (sub.createdAt?.$lt && u.createdAt < sub.createdAt.$lt) {
+              return true;
+            }
+          }
+          return false;
+        }),
+      );
+    }
+    const queryObj = {
+      select: () => queryObj,
+      sort: () => queryObj,
+      skip: () => queryObj,
+      limit: () => queryObj,
+      then: (resolve, reject) => Promise.resolve(results).then(resolve, reject),
+      catch: (reject) => Promise.resolve(results).catch(reject),
+      [Symbol.iterator]: () => results[Symbol.iterator](),
     };
+    return queryObj;
   },
   findOne: async (query) => {
     return (
@@ -73,7 +97,7 @@ const mockUserModel = {
     const toKeep = [];
     for (const u of usersDB) {
       let shouldDelete = false;
-      if (query.$or) {
+      if (query?.$or) {
         for (const sub of query.$or) {
           if (sub.accountStatus && u.accountStatus === sub.accountStatus) {
             if (sub.createdAt?.$lt && u.createdAt < sub.createdAt.$lt) {
@@ -89,6 +113,12 @@ const mockUserModel = {
           }
         }
       }
+      if (query?._id?.$in) {
+        const idStrings = query._id.$in.map((id) => String(id));
+        if (idStrings.includes(String(u._id))) {
+          shouldDelete = true;
+        }
+      }
       if (shouldDelete) {
         deletedCount++;
       } else {
@@ -98,6 +128,92 @@ const mockUserModel = {
     usersDB.length = 0;
     usersDB.push(...toKeep);
     return { acknowledged: true, deletedCount };
+  },
+};
+
+// In-memory reservation store
+const reservationsDB = [];
+
+// Mock reservationModel
+const mockReservationModel = {
+  find: (query) => {
+    let results = reservationsDB.slice();
+    if (query?.userId?.$in) {
+      const allowedUserIds = query.userId.$in.map(String);
+      results = results.filter((r) => allowedUserIds.includes(String(r.userId)));
+    }
+    const queryObj = {
+      then: (resolve, reject) => Promise.resolve(results).then(resolve, reject),
+      catch: (reject) => Promise.resolve(results).catch(reject),
+      [Symbol.iterator]: () => results[Symbol.iterator](),
+    };
+    return queryObj;
+  },
+  deleteMany: async (query) => {
+    let deletedCount = 0;
+    const toKeep = [];
+    for (const r of reservationsDB) {
+      let shouldDelete = false;
+      if (query?.userId?.$in) {
+        const allowedUserIds = query.userId.$in.map(String);
+        if (allowedUserIds.includes(String(r.userId))) {
+          shouldDelete = true;
+        }
+      }
+      if (shouldDelete) {
+        deletedCount++;
+      } else {
+        toKeep.push(r);
+      }
+    }
+    reservationsDB.length = 0;
+    reservationsDB.push(...toKeep);
+    return { acknowledged: true, deletedCount };
+  },
+  create: async (data) => {
+    const doc = {
+      _id: "res_id_" + Math.random().toString(36).substring(2, 9),
+      products: [],
+      ...data,
+    };
+    reservationsDB.push(doc);
+    return doc;
+  },
+};
+
+// In-memory product store
+const productsDB = [];
+
+// Mock productModel
+const mockProductModel = {
+  findById: async (id) => {
+    return productsDB.find((p) => String(p._id) === String(id)) || null;
+  },
+  updateOne: async (filter, update) => {
+    const product = productsDB.find(
+      (p) => String(p._id) === String(filter?._id),
+    );
+    if (product && update?.$inc) {
+      for (const [key, incVal] of Object.entries(update.$inc)) {
+        if (key.startsWith("stock.")) {
+          const variant = key.split(".")[1];
+          product.stock = product.stock || {};
+          product.stock[variant] = (product.stock[variant] || 0) + incVal;
+        } else if (key === "stock") {
+          product.stock = (product.stock || 0) + incVal;
+        }
+      }
+    }
+    return { acknowledged: true, modifiedCount: product ? 1 : 0 };
+  },
+  create: async (data) => {
+    const doc = {
+      _id: "prod_id_" + Math.random().toString(36).substring(2, 9),
+      stock: data?.stock,
+      ...data,
+    };
+    productsDB.push(doc);
+    return doc;
   },
 };
 
@@ -150,12 +266,22 @@ const mockJwt = {
 };
 
 // Mock mongoose
+class MockSchema {
+  constructor() {}
+  index() {}
+}
+MockSchema.Types = {
+  ObjectId: String,
+  Mixed: Object,
+};
+
 const mockMongoose = {
-  Schema: class {
-    constructor() {}
-    index() {}
+  Schema: MockSchema,
+  model: (name) => {
+    if (name === "reservations") return mockReservationModel;
+    if (name === "products") return mockProductModel;
+    return mockUserModel;
   },
-  model: () => mockUserModel,
 };
 
 // Intercept module requires
@@ -169,19 +295,71 @@ Module._load = function (request, parent, isMain) {
     return { v2: { config: () => {}, uploader: { destroy: async () => {} } } };
   }
   if (request === "express") {
+    const createRoute = (path) => {
+      const routeObj = {
+        path,
+        methods: {},
+        get(fn) {
+          routeObj.methods.get = true;
+          routeObj.getHandler = fn;
+          return routeObj;
+        },
+        post(fn) {
+          routeObj.methods.post = true;
+          routeObj.postHandler = fn;
+          return routeObj;
+        },
+        put(fn) {
+          routeObj.methods.put = true;
+          return routeObj;
+        },
+        delete(fn) {
+          routeObj.methods.delete = true;
+          return routeObj;
+        },
+      };
+      return routeObj;
+    };
+
     return {
-      Router: () => ({
-        post: () => {},
-        get: () => {},
-        use: () => {},
-        put: () => {},
-        delete: () => {},
-      }),
+      Router: () => {
+        const routes = [];
+        const routerObj = {
+          post: (path, fn) => routerObj,
+          get: (path, fn) => routerObj,
+          use: (fn) => routerObj,
+          put: (path, fn) => routerObj,
+          delete: (path, fn) => routerObj,
+          route: (path) => {
+            const r = createRoute(path);
+            routes.push(r);
+            return r;
+          },
+          _routes: routes,
+        };
+        return routerObj;
+      },
     };
   }
   if (request === "express-rate-limit") return () => (req, res, next) => next();
-  if (request === "../models/user.model.js") return mockUserModel;
-  if (request === "../../models/user.model.js") return mockUserModel;
+  if (
+    request === "../models/user.model.js" ||
+    request === "../../models/user.model.js"
+  ) {
+    return mockUserModel;
+  }
+  if (
+    request === "../models/reservation.model.js" ||
+    request === "../../models/reservation.model.js"
+  ) {
+    return mockReservationModel;
+  }
+  if (
+    request === "../models/product.model.js" ||
+    request === "../../models/product.model.js"
+  ) {
+    return mockProductModel;
+  }
   if (request === "../config/dbConnect.js") return async () => {};
   if (request === "../../config/dbConnect.js") return async () => {};
   if (request === "../utils/sendOTP.js") return async () => {};
@@ -210,6 +388,8 @@ Module._load = function (request, parent, isMain) {
 const authService = require("../services/auth.js");
 const cleanUpUsers = require("../cron jobs/cleanUpUsers.js");
 const userController = require("../controllers/user.controller.js");
+const cleanupRoutes = require("../routes/modules/cleanup.route.js");
+const cleanupController = require("../controllers/cleanup.controller.js");
 
 function createMockRes() {
   const res = {
@@ -721,6 +901,299 @@ test("Automatic Cleanup of Demo Accounts and Unverified Users", async (t) => {
     !remainingUsernames.includes("unverifiedOld"),
     "Expired unverified user was deleted",
   );
+});
+
+test("cleanupUnverifiedUsers properly restores stock for demo users and unverified users with reservations", async (t) => {
+  usersDB.length = 0;
+  reservationsDB.length = 0;
+  productsDB.length = 0;
+
+  const now = Date.now();
+  const eightDaysAgo = new Date(now - 8 * 24 * 60 * 60 * 1000);
+  const twoDaysAgo = new Date(now - 2 * 24 * 60 * 60 * 1000);
+
+  // Setup products in productsDB
+  const comicProduct = await mockProductModel.create({
+    name: "One Piece Vol 1",
+    category: "comics",
+    stock: { vol1: 10, vol2: 5 },
+  });
+  const clothesProduct = await mockProductModel.create({
+    name: "Anime Hoodie",
+    category: "clothes",
+    stock: { M: 4, L: 8 },
+  });
+  const shoesProduct = await mockProductModel.create({
+    name: "Anime Sneakers",
+    category: "shoes",
+    stock: { "42": 3, "43": 6 },
+  });
+  const toyProduct = await mockProductModel.create({
+    name: "Luffy Figurine",
+    category: "toys",
+    stock: 15,
+  });
+
+  // Setup users in usersDB
+  // 1. Expired demo user (> 7 days)
+  const expiredDemo = await mockUserModel.create({
+    username: "expiredDemoWithRes",
+    email: "expireddemo_res@demo.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: true,
+    createdAt: eightDaysAgo,
+  });
+
+  // 2. Expired unverified user (> 7 days)
+  const expiredUnverified = await mockUserModel.create({
+    username: "expiredUnverifiedWithRes",
+    email: "expiredunverified_res@example.com",
+    role: "user",
+    accountStatus: "verifying",
+    isDemo: false,
+    createdAt: eightDaysAgo,
+  });
+
+  // 3. Fresh demo user (< 7 days)
+  const freshDemo = await mockUserModel.create({
+    username: "freshDemoWithRes",
+    email: "freshdemo_res@demo.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: true,
+    createdAt: twoDaysAgo,
+  });
+
+  // 4. Regular active user (> 7 days)
+  const activeUser = await mockUserModel.create({
+    username: "activeUserWithRes",
+    email: "active_res@example.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: false,
+    createdAt: eightDaysAgo,
+  });
+
+  // Setup reservations in reservationsDB
+  // Reservation for expired demo user
+  await mockReservationModel.create({
+    userId: expiredDemo._id,
+    products: [
+      { productId: comicProduct._id, variant: "vol1", quantity: 2 },
+      { productId: clothesProduct._id, variant: "M", quantity: 3 },
+      { productId: shoesProduct._id, variant: "42", quantity: 1 },
+      { productId: toyProduct._id, quantity: 4 },
+    ],
+  });
+
+  // Reservation for expired unverified user
+  await mockReservationModel.create({
+    userId: expiredUnverified._id,
+    products: [
+      { productId: comicProduct._id, variant: "vol2", quantity: 1 },
+      { productId: toyProduct._id, quantity: 2 },
+    ],
+  });
+
+  // Reservation for active user (must NOT be touched)
+  await mockReservationModel.create({
+    userId: activeUser._id,
+    products: [
+      { productId: toyProduct._id, quantity: 5 },
+    ],
+  });
+
+  assert.strictEqual(usersDB.length, 4);
+  assert.strictEqual(reservationsDB.length, 3);
+
+  // Run cleanup
+  const cleanupResult = await cleanUpUsers();
+
+  // Verify return value
+  assert.strictEqual(cleanupResult.deletedCount, 2);
+  assert.strictEqual(cleanupResult.restoredReservationsCount, 2);
+
+  // Verify stock restoration
+  assert.strictEqual(comicProduct.stock.vol1, 12, "Comic vol1 stock restored (+2)");
+  assert.strictEqual(comicProduct.stock.vol2, 6, "Comic vol2 stock restored (+1)");
+  assert.strictEqual(clothesProduct.stock.M, 7, "Clothes M stock restored (+3)");
+  assert.strictEqual(clothesProduct.stock.L, 8, "Clothes L stock unaffected");
+  assert.strictEqual(shoesProduct.stock["42"], 4, "Shoes 42 stock restored (+1)");
+  assert.strictEqual(toyProduct.stock, 21, "Toys stock restored (+4 + 2)");
+
+  // Verify user deletion
+  assert.strictEqual(usersDB.length, 2);
+  const remainingUsernames = usersDB.map((u) => u.username);
+  assert.ok(remainingUsernames.includes("freshDemoWithRes"), "Fresh demo account preserved");
+  assert.ok(remainingUsernames.includes("activeUserWithRes"), "Active account preserved");
+  assert.ok(!remainingUsernames.includes("expiredDemoWithRes"), "Expired demo user deleted");
+  assert.ok(!remainingUsernames.includes("expiredUnverifiedWithRes"), "Expired unverified user deleted");
+
+  // Verify reservation deletion
+  assert.strictEqual(reservationsDB.length, 1);
+  assert.strictEqual(String(reservationsDB[0].userId), String(activeUser._id), "Active user reservation preserved");
+
+  // Edge case: running cleanup again with no expired users
+  const secondRunResult = await cleanUpUsers();
+  assert.strictEqual(secondRunResult.deletedCount, 0);
+  assert.strictEqual(secondRunResult.restoredReservationsCount, 0);
+});
+
+test("Cleanup routes support GET and POST methods for /users and /reservations", async (t) => {
+  assert.ok(cleanupRoutes._routes, "cleanupRoutes must define routes");
+
+  const usersRoute = cleanupRoutes._routes.find((r) => r.path === "/users");
+  assert.ok(usersRoute, "/users route must be registered");
+  assert.strictEqual(usersRoute.methods.get, true, "/users must support GET method");
+  assert.strictEqual(usersRoute.methods.post, true, "/users must support POST method");
+
+  const reservationsRoute = cleanupRoutes._routes.find((r) => r.path === "/reservations");
+  assert.ok(reservationsRoute, "/reservations route must be registered");
+  assert.strictEqual(reservationsRoute.methods.get, true, "/reservations must support GET method");
+  assert.strictEqual(reservationsRoute.methods.post, true, "/reservations must support POST method");
+});
+
+test("cleanupUnverifiedUsers handles edge cases: deleted products, missing variants, case-insensitive categories, and users without reservations", async (t) => {
+  usersDB.length = 0;
+  reservationsDB.length = 0;
+  productsDB.length = 0;
+
+  const now = Date.now();
+  const eightDaysAgo = new Date(now - 8 * 24 * 60 * 60 * 1000);
+
+  // 1. Product with mixed-case category
+  const mixedCaseProduct = await mockProductModel.create({
+    name: "Naruto Manga",
+    category: "Comics",
+    stock: { ch1: 5 },
+  });
+
+  // 2. Toy product with uppercase category
+  const upperToyProduct = await mockProductModel.create({
+    name: "Zoro Figure",
+    category: "TOYS",
+    stock: 10,
+  });
+
+  // 3. Expired demo user with reservation
+  const expiredDemo = await mockUserModel.create({
+    username: "edgeDemoUser",
+    email: "edgedemo@demo.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: true,
+    createdAt: eightDaysAgo,
+  });
+
+  // 4. Expired unverified user WITHOUT reservation
+  const expiredNoRes = await mockUserModel.create({
+    username: "edgeNoResUser",
+    email: "edgenores@example.com",
+    role: "user",
+    accountStatus: "verifying",
+    isDemo: false,
+    createdAt: eightDaysAgo,
+  });
+
+  // Setup reservation for expiredDemo with edge case items:
+  // - nonExistentProduct: productId not in DB
+  // - invalidQuantity: quantity is 0 or negative or non-number
+  // - missingVariant: comic item without variant
+  // - valid items with mixed case categories
+  await mockReservationModel.create({
+    userId: expiredDemo._id,
+    products: [
+      { productId: "non_existent_prod_123", variant: "default", quantity: 5 },
+      { productId: mixedCaseProduct._id, variant: undefined, quantity: 2 },
+      { productId: mixedCaseProduct._id, variant: "ch1", quantity: 0 },
+      { productId: mixedCaseProduct._id, variant: "ch1", quantity: 3 },
+      { productId: upperToyProduct._id, quantity: 4 },
+    ],
+  });
+
+  assert.strictEqual(usersDB.length, 2);
+  assert.strictEqual(reservationsDB.length, 1);
+
+  const result = await cleanUpUsers();
+
+  // Both users deleted, 1 reservation restored
+  assert.strictEqual(result.deletedCount, 2);
+  assert.strictEqual(result.restoredReservationsCount, 1);
+  assert.strictEqual(usersDB.length, 0);
+  assert.strictEqual(reservationsDB.length, 0);
+
+  // Stock verified
+  assert.strictEqual(mixedCaseProduct.stock.ch1, 8, "Mixed case category comic stock incremented by valid quantity (+3)");
+  assert.strictEqual(upperToyProduct.stock, 14, "Upper case category toy stock incremented (+4)");
+  assert.strictEqual(mixedCaseProduct.stock.undefined, undefined, "Undefined variant must not corrupt stock object");
+});
+
+test("cleanupUnverifiedUsersController supports GET and POST invocations returning success and counts", async (t) => {
+  usersDB.length = 0;
+  reservationsDB.length = 0;
+  productsDB.length = 0;
+
+  const now = Date.now();
+  const eightDaysAgo = new Date(now - 8 * 24 * 60 * 60 * 1000);
+
+  // Setup 1 expired demo user with a toy reservation
+  const toy = await mockProductModel.create({
+    name: "Goku Figure",
+    category: "toys",
+    stock: 20,
+  });
+
+  const demoUser = await mockUserModel.create({
+    username: "controllerDemoUser",
+    email: "controllerdemo@demo.com",
+    role: "user",
+    accountStatus: "active",
+    isDemo: true,
+    createdAt: eightDaysAgo,
+  });
+
+  await mockReservationModel.create({
+    userId: demoUser._id,
+    products: [{ productId: toy._id, quantity: 5 }],
+  });
+
+  // Test GET request
+  const getReq = { method: "GET" };
+  const getRes = createMockRes();
+  await cleanupController.cleanupUnverifiedUsersController(getReq, getRes);
+
+  assert.strictEqual(getRes.statusCode, 200);
+  assert.strictEqual(getRes.jsonData.success, true);
+  assert.strictEqual(getRes.jsonData.deletedCount, 1);
+  assert.strictEqual(getRes.jsonData.restoredReservationsCount, 1);
+  assert.strictEqual(toy.stock, 25, "Toy stock restored from 20 to 25");
+
+  // Setup another expired user for POST request
+  const demoUserPost = await mockUserModel.create({
+    username: "controllerDemoUserPost",
+    email: "controllerdemopost@demo.com",
+    role: "user",
+    accountStatus: "verifying",
+    isDemo: false,
+    createdAt: eightDaysAgo,
+  });
+
+  await mockReservationModel.create({
+    userId: demoUserPost._id,
+    products: [{ productId: toy._id, quantity: 3 }],
+  });
+
+  // Test POST request
+  const postReq = { method: "POST" };
+  const postRes = createMockRes();
+  await cleanupController.cleanupUnverifiedUsersController(postReq, postRes);
+
+  assert.strictEqual(postRes.statusCode, 200);
+  assert.strictEqual(postRes.jsonData.success, true);
+  assert.strictEqual(postRes.jsonData.deletedCount, 1);
+  assert.strictEqual(postRes.jsonData.restoredReservationsCount, 1);
+  assert.strictEqual(toy.stock, 28, "Toy stock restored from 25 to 28");
 });
 
 test("Complete Removal of Recruiter Bypass", async (t) => {

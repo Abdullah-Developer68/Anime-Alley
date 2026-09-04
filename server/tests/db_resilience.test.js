@@ -7,10 +7,8 @@ process.env.JWT_KEY = "test-resilience-jwt-secret-key-12345";
 process.env.NODE_ENV = "test";
 process.env.CLIENT_URL = "http://localhost:5173";
 
-/**
- * Creates a mock response object that strictly simulates Node.js ServerResponse.
- * If headersSent is true, attempting to set status or send json throws ERR_HTTP_HEADERS_SENT.
- */
+// Creates a mock response object that strictly simulates Node.js ServerResponse.
+// If headersSent is true, attempting to set status or send json throws ERR_HTTP_HEADERS_SENT.
 const createMockRes = () => {
   const res = {
     statusCode: 200,
@@ -151,6 +149,7 @@ const exportController = require("../controllers/export.controller.js");
 const stripeService = require("../services/stripe.js");
 const googleAuth = require("../services/googleAuth.js");
 const stripeHook = require("../hooks/stripeWebHook.js");
+const authService = require("../services/auth.js");
 const mongoose = require("mongoose");
 const userModel = require("../models/user.model.js");
 const productModel = require("../models/product.model.js");
@@ -183,7 +182,7 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     dbConnectShouldFail = false;
   });
 
-  await t.test("placeOrder aborts transaction on missing essential fields", async () => {
+  await t.test("placeOrder aborts before transaction on missing essential fields", async () => {
     activeSessions.length = 0;
     const req = {
       user: { id: "user123" },
@@ -194,12 +193,10 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     await orderController.placeOrder(req, res);
     assert.strictEqual(res.statusCode, 400);
     assert.strictEqual(res._json.success, false);
-    assert.strictEqual(activeSessions.length, 1);
-    assert.strictEqual(activeSessions[0].isAborted, true);
-    assert.strictEqual(activeSessions[0].isEnded, true);
+    assert.strictEqual(activeSessions.length, 0);
   });
 
-  await t.test("placeOrder aborts transaction on invalid payment method", async () => {
+  await t.test("placeOrder aborts before transaction on invalid payment method", async () => {
     activeSessions.length = 0;
     const req = {
       user: { id: "user123" },
@@ -214,9 +211,7 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     await orderController.placeOrder(req, res);
     assert.strictEqual(res.statusCode, 400);
     assert.strictEqual(res._json.success, false);
-    assert.strictEqual(activeSessions.length, 1);
-    assert.strictEqual(activeSessions[0].isAborted, true);
-    assert.strictEqual(activeSessions[0].isEnded, true);
+    assert.strictEqual(activeSessions.length, 0);
   });
 
   await t.test("placeOrder catches transaction commit failure without ERR_HTTP_HEADERS_SENT", async () => {
@@ -558,7 +553,7 @@ test("5. User & Export Controllers: Database Resilience", async (t) => {
 test("6. Stripe Service & Google Auth: Database Resilience", async (t) => {
   await t.test("createCheckoutSession returns 500 on dbConnect failure", async () => {
     dbConnectShouldFail = true;
-    const req = { user: { id: "u1", email: "u@t.com" }, body: { paymentData: { couponCode: "" } } };
+    const req = { user: { id: "u1", email: "u@t.com" }, body: { paymentData: { couponCode: "", deliveryAddress: "123 Main St" } } };
     const res = createMockRes();
     await stripeService.createCheckoutSession(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -568,6 +563,14 @@ test("6. Stripe Service & Google Auth: Database Resilience", async (t) => {
 
   await t.test("createCheckoutSession handles missing paymentData with 400", async () => {
     const req = { user: { id: "u1", email: "u@t.com" }, body: {} };
+    const res = createMockRes();
+    await stripeService.createCheckoutSession(req, res);
+    assert.strictEqual(res.statusCode, 400);
+    assert.ok(res._json.error);
+  });
+
+  await t.test("createCheckoutSession handles missing deliveryAddress with 400", async () => {
+    const req = { user: { id: "u1", email: "u@t.com" }, body: { paymentData: { couponCode: "" } } };
     const res = createMockRes();
     await stripeService.createCheckoutSession(req, res);
     assert.strictEqual(res.statusCode, 400);
@@ -665,3 +668,308 @@ test("8. Express Global Error Handler", async (t) => {
     assert.strictEqual(delegatedError, err, "Should delegate to next(err) when headers are already sent");
   });
 });
+
+// ==========================================
+// 9. FAIL-FAST EARLY RETURN IN-MEMORY VALIDATION
+// ==========================================
+test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", async (t) => {
+  // With dbConnectShouldFail = true, any function calling dbConnect() would return 500.
+  // Returning 400 proves that in-memory validation returns BEFORE connecting to DB.
+  dbConnectShouldFail = true;
+
+  await t.test("sendSignupOtp returns 400 without dbConnect on missing email", async () => {
+    const req = { body: {} };
+    const res = createMockRes();
+    await authService.sendSignupOtp(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("verifyOTP returns 400 without dbConnect on missing email or otp", async () => {
+    const req1 = { body: { email: "test@test.com" } };
+    const res1 = createMockRes();
+    await authService.verifyOTP(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+
+    const req2 = { body: { otp: "123456" } };
+    const res2 = createMockRes();
+    await authService.verifyOTP(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+  });
+
+  await t.test("signUp returns 400 without dbConnect on missing fields or invalid token", async () => {
+    const req1 = { body: { email: "test@test.com", password: "pwd" } };
+    const res1 = createMockRes();
+    await authService.signUp(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+
+    const req2 = {
+      body: {
+        email: "test@test.com",
+        password: "pwd",
+        username: "user1",
+        verificationToken: "invalid.token.signature",
+      },
+    };
+    const res2 = createMockRes();
+    await authService.signUp(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+  });
+
+  await t.test("login returns 400 without dbConnect on missing credentials", async () => {
+    const req = { body: { email: "test@test.com" } };
+    const res = createMockRes();
+    await authService.login(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("placeOrder returns 400 without dbConnect or session on missing fields", async () => {
+    activeSessions.length = 0;
+    const req = { user: { id: "u1" }, body: {} };
+    const res = createMockRes();
+    await orderController.placeOrder(req, res);
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(activeSessions.length, 0);
+  });
+
+  await t.test("deleteOrder returns 400 without dbConnect on missing orderId", async () => {
+    const req = { params: {} };
+    const res = createMockRes();
+    await orderController.deleteOrder(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("updateOrder returns 400 without dbConnect on missing orderId or invalid status", async () => {
+    const req = { params: { orderId: "ord1" }, body: { status: "invalid_status" } };
+    const res = createMockRes();
+    await orderController.updateOrder(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("verifyOrder returns 400 without dbConnect on missing stripeSessionID", async () => {
+    const req = { query: {} };
+    const res = createMockRes();
+    await orderController.verifyOrder(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("createProduct returns 400 without dbConnect on missing fields", async () => {
+    const req = { body: { name: "Product" } };
+    const res = createMockRes();
+    await productController.createProduct(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("deleteProduct returns 400 without dbConnect on missing productID", async () => {
+    const req = { body: {} };
+    const res = createMockRes();
+    await productController.deleteProduct(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("checkCoupon returns 400 without dbConnect on missing couponCode", async () => {
+    const req = { user: { email: "u@t.com" }, body: {} };
+    const res = createMockRes();
+    await couponController.checkCoupon(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("createCoupon returns 400 without dbConnect on missing fields", async () => {
+    const req = { user: { email: "a@t.com" }, body: { couponCode: "DISC" } };
+    const res = createMockRes();
+    await couponController.createCoupon(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("deleteCoupon returns 400 without dbConnect on missing couponId", async () => {
+    const req = { params: {} };
+    const res = createMockRes();
+    await couponController.deleteCoupon(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("updateCoupon returns 400 without dbConnect on missing couponId", async () => {
+    const req = { params: {} };
+    const res = createMockRes();
+    await couponController.updateCoupon(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("deleteUser returns 400 without dbConnect on missing userId or invalid ObjectId", async () => {
+    const req = { params: { userId: "not-a-valid-id" } };
+    const res = createMockRes();
+    await userController.deleteUser(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("updateUser returns 400 without dbConnect on missing userId or invalid ObjectId", async () => {
+    const req = { params: { userId: "not-a-valid-id" } };
+    const res = createMockRes();
+    await userController.updateUser(req, res);
+    assert.strictEqual(res.statusCode, 400);
+  });
+
+  await t.test("createCheckoutSession returns 400 without dbConnect on missing paymentData or deliveryAddress", async () => {
+    const req1 = { user: { id: "u1" }, body: {} };
+    const res1 = createMockRes();
+    await stripeService.createCheckoutSession(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+
+    const req2 = { user: { id: "u1" }, body: { paymentData: { couponCode: "" } } };
+    const res2 = createMockRes();
+    await stripeService.createCheckoutSession(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+  });
+
+  await t.test("reserveStock returns 400 without dbConnect or session on missing fields", async () => {
+    activeSessions.length = 0;
+    const req = { user: { id: "u1" }, body: {} };
+    const res = createMockRes();
+    await reservationController.reserveStock(req, res);
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(activeSessions.length, 0);
+  });
+
+  await t.test("getAllCoupons returns 400 without dbConnect on missing currPage", async () => {
+    const req = { user: { email: "u@t.com" }, query: {} };
+    const res = createMockRes();
+    await couponController.getAllCoupons(req, res);
+    assert.strictEqual(res.statusCode, 400);
+
+    const emptyReq = {};
+    const emptyRes = createMockRes();
+    await couponController.getAllCoupons(emptyReq, emptyRes);
+    assert.strictEqual(emptyRes.statusCode, 400);
+  });
+
+  await t.test("getOrderHistory returns 400 without dbConnect on missing email or currPage", async () => {
+    const req = { query: { email: "test@test.com" } };
+    const res = createMockRes();
+    await orderController.getOrderHistory(req, res);
+    assert.strictEqual(res.statusCode, 400);
+
+    const emptyReq = {};
+    const emptyRes = createMockRes();
+    await orderController.getOrderHistory(emptyReq, emptyRes);
+    assert.strictEqual(emptyRes.statusCode, 400);
+  });
+
+  await t.test("getUsers returns 400 without dbConnect on missing currPage", async () => {
+    const req = { user: { email: "admin@t.com" }, query: {} };
+    const res = createMockRes();
+    await userController.getUsers(req, res);
+    assert.strictEqual(res.statusCode, 400);
+
+    const emptyReq = {};
+    const emptyRes = createMockRes();
+    await userController.getUsers(emptyReq, emptyRes);
+    assert.strictEqual(emptyRes.statusCode, 400);
+  });
+
+  await t.test("exportData returns 400 without dbConnect on missing format or dataType", async () => {
+    const req = { params: { dataType: "products" }, query: {} };
+    const res = createMockRes();
+    await exportController.exportData(req, res);
+    assert.strictEqual(res.statusCode, 400);
+
+    const emptyReq = {};
+    const emptyRes = createMockRes();
+    await exportController.exportData(emptyReq, emptyRes);
+    assert.strictEqual(emptyRes.statusCode, 400);
+  });
+
+  await t.test("exportData returns 400 without dbConnect on invalid format or dataType", async () => {
+    const req1 = { params: { dataType: "invalid_type" }, query: { format: "excel" } };
+    const res1 = createMockRes();
+    await exportController.exportData(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+
+    const req2 = { params: { dataType: "products" }, query: { format: "csv_invalid" } };
+    const res2 = createMockRes();
+    await exportController.exportData(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+  });
+
+  await t.test("createProduct returns 400 without dbConnect on invalid category or stock JSON", async () => {
+    const req1 = { body: { name: "Product", price: "20", stock: "10", category: "invalid_cat" } };
+    const res1 = createMockRes();
+    await productController.createProduct(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+
+    const req2 = { body: { name: "Comic A", price: "20", stock: "invalid-json", category: "comics" } };
+    const res2 = createMockRes();
+    await productController.createProduct(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+  });
+
+  await t.test("updateProduct returns 400 without dbConnect on missing fields or invalid stock", async () => {
+    const req1 = { body: { _id: "prod123" } };
+    const res1 = createMockRes();
+    await productController.updateProduct(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+
+    const req2 = { body: { _id: "prod123", name: "Product", price: "20", stock: "invalid-json", category: "comics" } };
+    const res2 = createMockRes();
+    await productController.updateProduct(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+  });
+
+  await t.test("updateCartItem returns 400 without dbConnect or session on missing productId or invalid quantity", async () => {
+    activeSessions.length = 0;
+    const req1 = { user: { id: "u1" }, body: { newQuantity: 2 } };
+    const res1 = createMockRes();
+    await reservationController.updateCartItem(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+    assert.strictEqual(activeSessions.length, 0);
+
+    const req2 = { user: { id: "u1" }, body: { productId: "p1", newQuantity: -1 } };
+    const res2 = createMockRes();
+    await reservationController.updateCartItem(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+    assert.strictEqual(activeSessions.length, 0);
+  });
+
+  dbConnectShouldFail = false;
+});
+
+// ==========================================
+// 10. CLEANUP ROUTES & VERCEL CRON GET SUPPORT
+// ==========================================
+test("10. Cleanup Routes & Vercel Cron GET Support", async (t) => {
+  const cleanupRouter = require("../routes/modules/cleanup.route.js");
+  const cleanupController = require("../controllers/cleanup.controller.js");
+
+  await t.test("cleanupRouter registers both GET and POST for /users and /reservations", () => {
+    const routeLayers = cleanupRouter.stack.filter((layer) => layer.route);
+    const usersRoute = routeLayers.find((layer) => layer.route?.path === "/users");
+    const reservationsRoute = routeLayers.find((layer) => layer.route?.path === "/reservations");
+
+    assert.ok(usersRoute, "/users route must exist in cleanup router");
+    assert.strictEqual(usersRoute.route.methods.get, true, "/users must support GET");
+    assert.strictEqual(usersRoute.route.methods.post, true, "/users must support POST");
+
+    assert.ok(reservationsRoute, "/reservations route must exist in cleanup router");
+    assert.strictEqual(reservationsRoute.route.methods.get, true, "/reservations must support GET");
+    assert.strictEqual(reservationsRoute.route.methods.post, true, "/reservations must support POST");
+  });
+
+  await t.test("cleanupUnverifiedUsersController returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { method: "GET" };
+    const res = createMockRes();
+    await cleanupController.cleanupUnverifiedUsersController(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+
+  await t.test("cleanupReservationsController returns 500 when dbConnect fails", async () => {
+    dbConnectShouldFail = true;
+    const req = { method: "GET" };
+    const res = createMockRes();
+    await cleanupController.cleanupReservationsController(req, res);
+    assert.strictEqual(res.statusCode, 500);
+    assert.strictEqual(res._json.success, false);
+    dbConnectShouldFail = false;
+  });
+});
+

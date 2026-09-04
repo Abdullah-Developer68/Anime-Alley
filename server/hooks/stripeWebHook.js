@@ -51,7 +51,7 @@ const processSuccessfulPayment = async (StripeSession) => {
       shippingAddress,
       shippingCost,
       userEmail: metadataUserEmail,
-    } = StripeSession.metadata;
+    } = StripeSession.metadata || {};
 
     // Find the reservation by userId from verified token
     const reservation = await reservationModel
@@ -139,7 +139,7 @@ const processSuccessfulPayment = async (StripeSession) => {
         );
 
         // Add coupon to user's used coupons array (prevent reuse)
-        if (!user.couponCodeUsed.includes(coupon._id)) {
+        if (!user.couponCodeUsed.includes(coupon._id))
           await userModel.findByIdAndUpdate(
             user._id,
             {
@@ -150,7 +150,7 @@ const processSuccessfulPayment = async (StripeSession) => {
             },
             { session: mongoSession }
           );
-        } else {
+        else
           // Just add the order if coupon already used
           await userModel.findByIdAndUpdate(
             user._id,
@@ -159,9 +159,8 @@ const processSuccessfulPayment = async (StripeSession) => {
             },
             { session: mongoSession }
           );
-        }
       }
-    } else {
+    } else
       // No coupon used, just add order to user
       await userModel.findByIdAndUpdate(
         user._id,
@@ -170,7 +169,6 @@ const processSuccessfulPayment = async (StripeSession) => {
         },
         { session: mongoSession }
       );
-    }
 
     // Delete reservation after successful order creation
     await reservationModel.deleteOne({ userId }, { session: mongoSession });
@@ -210,7 +208,7 @@ const processSuccessfulPayment = async (StripeSession) => {
 
 const handleStripeWebhook = async (req, res) => {
   // Do NOT connect to DB yet; first verify signature to avoid expensive work on invalid calls
-  const sig = req.headers["stripe-signature"];
+  const sig = req.headers?.["stripe-signature"];
   let event;
 
   try {
