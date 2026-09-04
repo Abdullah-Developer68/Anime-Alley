@@ -6,6 +6,7 @@ const otpSendLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   skipSuccessfulRequests: true, // Tells the rate limiter to ignore (not count) requests that result in a successful response (usually HTTP status codes 2xx).
+  validate: { forwardedHeader: false },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -20,6 +21,7 @@ const otpVerifyLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   skipSuccessfulRequests: true, // Tells the rate limiter to ignore (not count) requests that result in a successful response (usually HTTP status codes 2xx).
+  validate: { forwardedHeader: false },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -35,6 +37,7 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false,
+  validate: { forwardedHeader: false },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -49,6 +52,7 @@ const signupLimiter = rateLimit({
   max: 3, // 3 signups per hour per IP
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { forwardedHeader: false },
   handler: (req, res) => {
     res.status(429).json({
       success: false,
@@ -81,6 +85,7 @@ const productSearchLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { forwardedHeader: false },
   handler: (req, res) => {
     res.status(429).json({
       success: false,

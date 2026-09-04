@@ -8,8 +8,19 @@ const path = require("path"); // Use path module for file paths
 const port = process.env.PORT;
 const app = express();
 
-// Trust reverse proxy in production, Vercel, or test environments
-if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.NODE_ENV === "test")
+// Trust reverse proxy in production, Vercel/Lambda, or test environments
+const isBehindProxy = Boolean(
+  process.env.TRUST_PROXY ||
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  process.env.NOW_REGION ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.AWS_EXECUTION_ENV ||
+  process.env.NODE_ENV === "production" ||
+  process.env.NODE_ENV === "test"
+);
+if (isBehindProxy)
   app.set("trust proxy", 1);
 
 // Stripe webhook must be registered before any body parser middleware because Stripe webhooks

@@ -1,7 +1,11 @@
 
 {
-    "version": 2,
-    "builds": [
+  "version": 2,
+  "env": {
+    "NODE_ENV": "production",
+    "TRUST_PROXY": "1"
+  },
+  "builds": [
       {
         "src": "app.js",
         "use": "@vercel/node"

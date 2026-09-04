@@ -1308,61 +1308,197 @@ test("11. Reverse Proxy & Rate Limiter Header Safety", async (t) => {
     assert.strictEqual(capturedErrors.length, 0, "Must not log validation errors when proxy is trusted");
   });
 
-  await t.test("rate limiters retain active validation against untrusted proxy headers (not silenced)", async () => {
-    const untrustedApp = { get: (key) => (key === "trust proxy" ? false : undefined) };
-    const req = {
-      app: untrustedApp,
-      method: "POST",
-      url: "/api/user/login",
-      headers: {
-        "x-forwarded-for": "203.0.113.195",
-      },
-      body: {},
-      socket: { remoteAddress: "10.0.0.1" },
-      ip: "10.0.0.1",
-    };
-    const headers = {};
-    const res = {
-      ...createMockRes(),
-      setHeader(k, v) { headers[k.toLowerCase()] = v; },
-      getHeader(k) { return headers[k.toLowerCase()]; },
-    };
+  await t.test("rateLimiters do not log ERR_ERL_FORWARDED_HEADER when receiving Forwarded headers", async () => {
+    delete require.cache[require.resolve("../middlewares/custom/rateLimiters.middleware.js")];
+    const freshRateLimiters = require("../middlewares/custom/rateLimiters.middleware.js");
+    const limitersToTest = [
+      { name: "otpSendLimiter", limiter: freshRateLimiters.otpSendLimiter, method: "POST", url: "/api/user/sendOtp" },
+      { name: "otpVerifyLimiter", limiter: freshRateLimiters.otpVerifyLimiter, method: "POST", url: "/api/user/verifyOtp" },
+      { name: "loginLimiter", limiter: freshRateLimiters.loginLimiter, method: "POST", url: "/api/user/login" },
+      { name: "signupLimiter", limiter: freshRateLimiters.signupLimiter, method: "POST", url: "/api/user/signUp" },
+      { name: "productSearchLimiter", limiter: freshRateLimiters.productSearchLimiter, method: "GET", url: "/api/product/getProducts" },
+    ];
 
-    const originalConsoleError = console.error;
-    const capturedErrors = [];
-    console.error = (err) => {
-      capturedErrors.push(err);
-    };
+    for (const item of limitersToTest) {
+      const { name, limiter, method, url } = item || {};
+      const req = {
+        app,
+        method,
+        url,
+        headers: {
+          "x-forwarded-for": "203.0.113.195",
+          forwarded: "for=203.0.113.195;proto=https",
+        },
+        body: {},
+        query: {},
+        socket: { remoteAddress: "10.0.0.1" },
+        ip: "10.0.0.1",
+      };
+      const headers = {};
+      const res = {
+        ...createMockRes(),
+        setHeader(k, v) { headers[k.toLowerCase()] = v; },
+        getHeader(k) { return headers[k.toLowerCase()]; },
+      };
 
-    try {
-      await new Promise((resolve) => {
-        rateLimiters.loginLimiter(req, res, () => resolve());
-      });
-    } finally {
-      console.error = originalConsoleError;
+      const originalConsoleError = console.error;
+      const capturedErrors = [];
+      console.error = (err) => {
+        capturedErrors.push(err);
+      };
+
+      try {
+        await new Promise((resolve) => {
+          limiter(req, res, () => resolve());
+        });
+      } finally {
+        console.error = originalConsoleError;
+      }
+
+      const forwardedError = capturedErrors.find((err) => err?.code === "ERR_ERL_FORWARDED_HEADER");
+      assert.strictEqual(
+        forwardedError,
+        undefined,
+        `${name} must not log ERR_ERL_FORWARDED_HEADER when Forwarded header is present`
+      );
     }
-
-    const unexpectedXffError = capturedErrors.find((err) => err?.code === "ERR_ERL_UNEXPECTED_X_FORWARDED_FOR");
-    assert.ok(unexpectedXffError, "express-rate-limit validation should catch untrusted X-Forwarded-For header when trust proxy is false");
   });
 
-  await t.test("trust proxy is gated by environment (production/Vercel/test vs development)", () => {
-    const express = require("express");
-    const testEnvApp = express();
-    if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.NODE_ENV === "test")
-      testEnvApp.set("trust proxy", 1);
-    assert.strictEqual(testEnvApp.get("trust proxy"), 1);
+  await t.test("rateLimiters still catch and flag ERR_ERL_UNEXPECTED_X_FORWARDED_FOR when trust proxy is false", async () => {
+    delete require.cache[require.resolve("../middlewares/custom/rateLimiters.middleware.js")];
+    const freshRateLimiters = require("../middlewares/custom/rateLimiters.middleware.js");
+    const untrustedApp = { get: (key) => (key === "trust proxy" ? false : undefined) };
+    const limitersToTest = [
+      { name: "otpSendLimiter", limiter: freshRateLimiters.otpSendLimiter, method: "POST", url: "/api/user/sendOtp" },
+      { name: "otpVerifyLimiter", limiter: freshRateLimiters.otpVerifyLimiter, method: "POST", url: "/api/user/verifyOtp" },
+      { name: "loginLimiter", limiter: freshRateLimiters.loginLimiter, method: "POST", url: "/api/user/login" },
+      { name: "signupLimiter", limiter: freshRateLimiters.signupLimiter, method: "POST", url: "/api/user/signUp" },
+      { name: "productSearchLimiter", limiter: freshRateLimiters.productSearchLimiter, method: "GET", url: "/api/product/getProducts" },
+    ];
 
-    const devEnvApp = express();
-    const originalEnv = process.env.NODE_ENV;
-    const originalVercel = process.env.VERCEL;
-    delete process.env.VERCEL;
-    process.env.NODE_ENV = "development";
-    if (process.env.NODE_ENV === "production" || process.env.VERCEL || process.env.NODE_ENV === "test")
-      devEnvApp.set("trust proxy", 1);
-    assert.strictEqual(devEnvApp.get("trust proxy"), false);
-    process.env.NODE_ENV = originalEnv;
-    if (originalVercel !== undefined) process.env.VERCEL = originalVercel;
+    for (const item of limitersToTest) {
+      const { name, limiter, method, url } = item || {};
+      const req = {
+        app: untrustedApp,
+        method,
+        url,
+        headers: {
+          "x-forwarded-for": "203.0.113.195",
+        },
+        body: {},
+        query: {},
+        socket: { remoteAddress: "10.0.0.1" },
+        ip: "10.0.0.1",
+      };
+      const headers = {};
+      const res = {
+        ...createMockRes(),
+        setHeader(k, v) { headers[k.toLowerCase()] = v; },
+        getHeader(k) { return headers[k.toLowerCase()]; },
+      };
+
+      const originalConsoleError = console.error;
+      const capturedErrors = [];
+      console.error = (err) => {
+        capturedErrors.push(err);
+      };
+
+      try {
+        await new Promise((resolve) => {
+          limiter(req, res, () => resolve());
+        });
+      } finally {
+        console.error = originalConsoleError;
+      }
+
+      const unexpectedXffError = capturedErrors.find((err) => err?.code === "ERR_ERL_UNEXPECTED_X_FORWARDED_FOR");
+      assert.ok(
+        unexpectedXffError,
+        `${name} validation should catch untrusted X-Forwarded-For header when trust proxy is false`
+      );
+    }
+  });
+
+  await t.test("trust proxy is set to 1 when LAMBDA_TASK_ROOT === '/var/task', VERCEL === '1', NOW_REGION === 'iad1', or TRUST_PROXY === '1'", () => {
+    const express = require("express");
+    const proxyEnvKeys = [
+      "TRUST_PROXY",
+      "VERCEL",
+      "VERCEL_ENV",
+      "NOW_REGION",
+      "LAMBDA_TASK_ROOT",
+      "AWS_LAMBDA_FUNCTION_NAME",
+      "AWS_EXECUTION_ENV",
+    ];
+
+    const proxyTestCases = [
+      { envKey: "LAMBDA_TASK_ROOT", envValue: "/var/task" },
+      { envKey: "VERCEL", envValue: "1" },
+      { envKey: "NOW_REGION", envValue: "iad1" },
+      { envKey: "TRUST_PROXY", envValue: "1" },
+      { envKey: "VERCEL_ENV", envValue: "production" },
+      { envKey: "AWS_LAMBDA_FUNCTION_NAME", envValue: "serverless-handler" },
+      { envKey: "AWS_EXECUTION_ENV", envValue: "AWS_Lambda_nodejs20.x" },
+      { envKey: "NODE_ENV", envValue: "production" },
+      { envKey: "NODE_ENV", envValue: "test" },
+    ];
+
+    const evaluateTrustProxy = () => {
+      const isBehindProxy = Boolean(
+        process.env.TRUST_PROXY ||
+        process.env.VERCEL ||
+        process.env.VERCEL_ENV ||
+        process.env.NOW_REGION ||
+        process.env.LAMBDA_TASK_ROOT ||
+        process.env.AWS_LAMBDA_FUNCTION_NAME ||
+        process.env.AWS_EXECUTION_ENV ||
+        process.env.NODE_ENV === "production" ||
+        process.env.NODE_ENV === "test"
+      );
+      const testApp = express();
+      if (isBehindProxy)
+        testApp.set("trust proxy", 1);
+      return testApp.get("trust proxy");
+    };
+
+    const savedEnv = {};
+    for (const key of [...proxyEnvKeys, "NODE_ENV"])
+      savedEnv[key] = process.env[key];
+
+    try {
+      for (const { envKey, envValue } of proxyTestCases) {
+        for (const k of proxyEnvKeys)
+          delete process.env[k];
+        process.env.NODE_ENV = "development";
+        process.env[envKey] = envValue;
+
+        const trustProxyValue = evaluateTrustProxy();
+        assert.strictEqual(
+          trustProxyValue,
+          1,
+          `trust proxy must be set to 1 when ${envKey}='${envValue}'`
+        );
+      }
+
+      // Verify false when in development with no proxy env vars
+      for (const k of proxyEnvKeys)
+        delete process.env[k];
+      process.env.NODE_ENV = "development";
+
+      const devTrustProxy = evaluateTrustProxy();
+      assert.strictEqual(
+        devTrustProxy,
+        false,
+        "trust proxy must remain false in development without proxy environment variables"
+      );
+    } finally {
+      for (const key of [...proxyEnvKeys, "NODE_ENV"]) {
+        if (savedEnv[key] !== undefined)
+          process.env[key] = savedEnv[key];
+        else
+          delete process.env[key];
+      }
+    }
   });
 
   await t.test("Express 5 CORS options wildcard uses RegExp /.*/ to match root and subpaths", () => {
