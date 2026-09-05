@@ -4,6 +4,7 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
+const { validateProductData } = require("../utils/product.utils.js");
 
 // Generate unique product ID based on category
 // category: Product category (comics, toys, clothes, shoes)
@@ -196,135 +197,13 @@ const getProducts = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
-    // Destructure required and optional product fields with fallback
-    const { name, price, stock, category, description, merchType, toyType } = req.body || {};
-
-    // Reject missing fields, null/undefined values, and whitespace-only strings
-    if (
-      !name ||
-      (typeof name === "string" && !name.trim()) ||
-      price == null ||
-      (typeof price === "string" && !price.trim()) ||
-      stock == null ||
-      (typeof stock === "string" && !stock.trim()) ||
-      !category ||
-      (typeof category === "string" && !category.trim())
-    )
-      return res.status(400).json({
+    // Validate and parse incoming product fields in memory before connecting to database
+    const validation = validateProductData(req.body);
+    if (!validation.valid)
+      return res.status(validation.status).json({
         success: false,
-        message: "fields in data from client are missing",
+        message: validation.message,
       });
-
-    // Validate numeric type for price (must strictly be a finite non-negative number)
-    if (typeof price !== "number" || !Number.isFinite(price) || price < 0)
-      return res.status(400).json({ success: false, message: "Price must be a valid non-negative number" });
-
-    // Validate category against allowed whitelist
-    const validCategories = ["comics", "toys", "clothes", "shoes"];
-    if (!validCategories.includes(category.toLowerCase()))
-      return res.status(400).json({
-        success: false,
-        message: `Invalid category: ${category}. Valid categories are: ${validCategories.join(", ")}`,
-      });
-
-    const catLower = category.toLowerCase();
-
-    let stockData;
-    // Handle single integer stock value for toys
-    if (catLower === "toys") {
-      if (typeof stock !== "number" || !Number.isInteger(stock) || stock < 0)
-        return res.status(400).json({ success: false, message: "Invalid stock value for toy" });
-      stockData = stock;
-    }
-
-    let volumes, genres, sizes;
-    // Handle variant-based stock and metadata for comics
-    if (catLower === "comics") {
-      // Parse stringified JSON stock if received from multipart forms
-      try {
-        stockData = typeof stock === "string" ? JSON.parse(stock) : stock;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
-      }
-
-      // Comics stock must be a plain object mapping volume names to numbers
-      if (typeof stockData !== "object" || stockData === null || Array.isArray(stockData))
-        return res.status(400).json({ success: false, message: "Stock must be an object for comics" });
-
-      // Safely parse volumes and genres arrays if provided as JSON strings
-      try {
-        volumes = req.body.volumes !== undefined
-          ? (typeof req.body.volumes === "string" ? JSON.parse(req.body.volumes) : req.body.volumes)
-          : undefined;
-        genres = req.body.genres !== undefined
-          ? (typeof req.body.genres === "string" ? JSON.parse(req.body.genres) : req.body.genres)
-          : undefined;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
-      }
-
-      // Validate that all entries in stockData have non-negative integer stock
-      for (const [volume, volStock] of Object.entries(stockData)) {
-        if (typeof volStock !== "number" || !Number.isInteger(volStock) || volStock < 0)
-          return res.status(400).json({
-            success: false,
-            message: `Stock value missing or invalid for volume ${volume}`,
-          });
-      }
-
-      // Validate that stock exists for each volume and is non-negative
-      if (Array.isArray(volumes)) {
-        for (const volume of volumes) {
-          const volStock = stockData[volume];
-          if (typeof volStock !== "number" || !Number.isInteger(volStock) || volStock < 0)
-            return res.status(400).json({
-              success: false,
-              message: `Stock value missing or invalid for volume ${volume}`,
-            });
-        }
-      }
-    } else if (catLower === "clothes" || catLower === "shoes") {
-      // Parse stringified JSON stock if received from multipart forms
-      try {
-        stockData = typeof stock === "string" ? JSON.parse(stock) : stock;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
-      }
-
-      // Clothes and shoes stock must be a plain object mapping sizes to numbers
-      if (typeof stockData !== "object" || stockData === null || Array.isArray(stockData))
-        return res.status(400).json({ success: false, message: "Stock must be an object for this category" });
-
-      // Safely parse sizes array if provided as a JSON string
-      try {
-        sizes = req.body.sizes !== undefined
-          ? (typeof req.body.sizes === "string" ? JSON.parse(req.body.sizes) : req.body.sizes)
-          : undefined;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
-      }
-
-      // Validate that all entries in stockData have non-negative integer stock
-      for (const [size, sizeStock] of Object.entries(stockData)) {
-        if (typeof sizeStock !== "number" || !Number.isInteger(sizeStock) || sizeStock < 0)
-          return res.status(400).json({
-            success: false,
-            message: `Stock value missing or invalid for size ${size}`,
-          });
-      }
-
-      // Validate that stock exists for each size and is non-negative
-      if (Array.isArray(sizes)) {
-        for (const size of sizes) {
-          const sizeStock = stockData[size];
-          if (typeof sizeStock !== "number" || !Number.isInteger(sizeStock) || sizeStock < 0)
-            return res.status(400).json({
-              success: false,
-              message: `Stock value missing or invalid for size ${size}`,
-            });
-        }
-      }
-    }
 
     // Connect to database only after in-memory validations succeed
     await dbConnect();
@@ -336,32 +215,15 @@ const createProduct = async (req, res) => {
       : null;
 
     // Generate unique product ID based on category prefix
-    const generatedProductID = await generateProductID(category);
+    const generatedProductID = await generateProductID(validation.data.category);
 
     // Assemble product document data
     const productData = {
+      ...validation.data,
       productID: generatedProductID,
-      name,
-      price,
-      category,
-      description,
       image: imageUrl,
       imagePublicId,
-      stock: stockData,
     };
-
-    // Attach category-specific fields to product document
-    if (catLower === "comics") {
-      productData.volumes = volumes;
-      productData.genres = genres;
-    } else if (
-      catLower === "clothes" ||
-      catLower === "shoes"
-    ) {
-      productData.sizes = sizes;
-      productData.merchType = merchType;
-    } else if (catLower === "toys")
-      productData.toyType = toyType;
 
     // Create and persist product document in database
     const newProduct = await productModel.create(productData);
@@ -394,17 +256,8 @@ const createProduct = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
-    // Destructure required and optional product update fields with fallback
-    const {
-      _id,
-      name,
-      price,
-      stock,
-      category,
-      description,
-      merchType,
-      toyType,
-    } = req.body || {};
+    // Extract product ID from body with optional chaining
+    const _id = req.body?._id;
 
     // Validate product ID presence before processing update
     if (!_id)
@@ -413,135 +266,13 @@ const updateProduct = async (req, res) => {
         message: "Product id is required",
       });
 
-    // Reject missing fields, null/undefined values, and whitespace-only strings
-    if (
-      !name ||
-      (typeof name === "string" && !name.trim()) ||
-      price == null ||
-      (typeof price === "string" && !price.trim()) ||
-      stock == null ||
-      (typeof stock === "string" && !stock.trim()) ||
-      !category ||
-      (typeof category === "string" && !category.trim())
-    )
-      return res.status(400).json({
+    // Validate and parse incoming product fields in memory before connecting to database
+    const validation = validateProductData(req.body);
+    if (!validation.valid)
+      return res.status(validation.status).json({
         success: false,
-        message: "fields in data from client are missing",
+        message: validation.message,
       });
-
-    // Validate numeric type for price (must strictly be a finite non-negative number)
-    if (typeof price !== "number" || !Number.isFinite(price) || price < 0)
-      return res.status(400).json({ success: false, message: "Price must be a valid non-negative number" });
-
-    // Validate category against allowed whitelist
-    const validCategories = ["comics", "toys", "clothes", "shoes"];
-    const catLower = typeof category === "string" ? category.toLowerCase() : "";
-    if (!validCategories.includes(catLower))
-      return res.status(400).json({
-        success: false,
-        message: `Invalid category: ${category}. Valid categories are: ${validCategories.join(", ")}`,
-      });
-
-    let stockData;
-    // Handle single integer stock value for toys
-    if (catLower === "toys") {
-      if (typeof stock !== "number" || !Number.isInteger(stock) || stock < 0)
-        return res.status(400).json({ success: false, message: "Invalid stock value for toy" });
-      stockData = stock;
-    }
-
-    let volumes, genres, sizes;
-    // Handle variant-based stock and metadata for comics
-    if (catLower === "comics") {
-      // Parse stringified JSON stock if received from multipart forms
-      try {
-        stockData = typeof stock === "string" ? JSON.parse(stock) : stock;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
-      }
-
-      // Comics stock must be a plain object mapping volume names to numbers
-      if (stockData !== undefined && (typeof stockData !== "object" || stockData === null || Array.isArray(stockData)))
-        return res.status(400).json({ success: false, message: "Stock must be an object for comics" });
-
-      // Safely parse volumes and genres arrays if provided as JSON strings
-      try {
-        volumes = req.body.volumes !== undefined
-          ? (typeof req.body.volumes === "string" ? JSON.parse(req.body.volumes) : req.body.volumes)
-          : undefined;
-        genres = req.body.genres !== undefined
-          ? (typeof req.body.genres === "string" ? JSON.parse(req.body.genres) : req.body.genres)
-          : undefined;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid volumes or genres format: must be valid JSON" });
-      }
-
-      // Validate that all entries in stockData have non-negative integer stock
-      if (typeof stockData === "object" && stockData !== null) {
-        for (const [volume, volStock] of Object.entries(stockData)) {
-          if (typeof volStock !== "number" || !Number.isInteger(volStock) || volStock < 0)
-            return res.status(400).json({
-              success: false,
-              message: `Stock value missing or invalid for volume ${volume}`,
-            });
-        }
-      }
-
-      // Validate that stock exists for each volume and is non-negative
-      if (Array.isArray(volumes) && typeof stockData === "object" && stockData !== null) {
-        for (const volume of volumes) {
-          const volStock = stockData[volume];
-          if (typeof volStock !== "number" || !Number.isInteger(volStock) || volStock < 0)
-            return res.status(400).json({
-              success: false,
-              message: `Stock value missing or invalid for volume ${volume}`,
-            });
-        }
-      }
-    } else if (catLower === "clothes" || catLower === "shoes") {
-      // Parse stringified JSON stock if received from multipart forms
-      try {
-        stockData = typeof stock === "string" ? JSON.parse(stock) : stock;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid stock format: must be valid JSON" });
-      }
-
-      // Clothes and shoes stock must be a plain object mapping sizes to numbers
-      if (stockData !== undefined && (typeof stockData !== "object" || stockData === null || Array.isArray(stockData)))
-        return res.status(400).json({ success: false, message: "Stock must be an object for this category" });
-
-      // Safely parse sizes array if provided as a JSON string
-      try {
-        sizes = req.body.sizes !== undefined
-          ? (typeof req.body.sizes === "string" ? JSON.parse(req.body.sizes) : req.body.sizes)
-          : undefined;
-      } catch {
-        return res.status(400).json({ success: false, message: "Invalid sizes format: must be valid JSON" });
-      }
-
-      // Validate that all entries in stockData have non-negative integer stock
-      if (typeof stockData === "object" && stockData !== null) {
-        for (const [size, sizeStock] of Object.entries(stockData)) {
-          if (typeof sizeStock !== "number" || !Number.isInteger(sizeStock) || sizeStock < 0)
-            return res.status(400).json({
-              success: false,
-              message: `Stock value missing or invalid for size ${size}`,
-            });
-        }
-      }
-
-      // Validate that stock exists for each size and is non-negative
-      if (Array.isArray(sizes) && typeof stockData === "object" && stockData !== null) {
-        for (const size of sizes) {
-          const sizeStock = stockData[size];
-          if (typeof sizeStock !== "number" || !Number.isInteger(sizeStock) || sizeStock < 0)
-            return res.status(400).json({
-              success: false,
-              message: `Stock value missing or invalid for size ${size}`,
-            });
-        }
-      }
-    }
 
     // Connect to database only after in-memory validations succeed
     await dbConnect();
@@ -558,37 +289,20 @@ const updateProduct = async (req, res) => {
     // Determine new image URL and public ID from uploaded file or existing payload
     const imageUrl = req.file
       ? req.file.path
-      : req.body.image || existingProduct.image;
+      : req.body?.image || existingProduct.image;
     const imagePublicId = req.file
       ? extractPublicIdFromCloudinaryUrl(req.file.path)
-      : req.body.image
+      : req.body?.image
         ? extractPublicIdFromCloudinaryUrl(req.body.image)
         : existingProduct.imagePublicId ||
           extractPublicIdFromCloudinaryUrl(existingProduct.image);
 
     // Assemble updated product document data
     const productData = {
-      name,
-      price,
-      category,
-      description,
+      ...validation.data,
       image: imageUrl,
       imagePublicId,
-      stock: stockData,
     };
-
-    // Attach category-specific fields to product document
-    if (catLower === "comics") {
-      productData.volumes = volumes;
-      productData.genres = genres;
-    } else if (
-      catLower === "clothes" ||
-      catLower === "shoes"
-    ) {
-      productData.sizes = sizes;
-      productData.merchType = merchType;
-    } else if (catLower === "toys")
-      productData.toyType = toyType;
 
     // Update and persist product document in database with validation
     const updatedProduct = await productModel.findByIdAndUpdate(

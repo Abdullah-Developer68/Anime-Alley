@@ -1,0 +1,10 @@
+{
+  "$schema": "https://assets.requestly.com/local/v1.15.0/metadata.json",
+  "type": "api",
+  "entryType": "http",
+  "id": "e0d03a75-8b27-4c94-a9bd-9550d468b530",
+  "rank": "",
+  "url": "http://localhost:3000/api/product/getProducts?productConstraints={\"category\":\"comics\",\"page\":1}",
+  "method": "GET",
+  "contentType": "none"
+}

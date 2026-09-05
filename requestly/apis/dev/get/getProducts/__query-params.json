@@ -1,0 +1,8 @@
+[
+  {
+    "id": 1,
+    "key": "productConstraints",
+    "value": "{\"category\":\"comics\",\"page\":1}",
+    "isEnabled": true
+  }
+]
