@@ -39,7 +39,8 @@ async function cleanupExpiredReservations() {
           productMap.set(String(product?._id), product);
 
         // Aggregate stock increments in memory per product
-        const stockUpdates = new Map();
+        const legacyStockUpdates = new Map();
+        const variantStockUpdates = new Map();
 
         for (const reservation of expiredReservations) {
           const productsList = reservation?.products || [];
@@ -53,40 +54,53 @@ async function cleanupExpiredReservations() {
             if (!product)
               continue;
 
-            const category = product?.category?.toLowerCase();
-            let updateField = null;
+            if (Array.isArray(product.variants) && product.variants.length > 0) {
+              const targetVariant = variant || (product.variants.length === 1 && product.variants[0].label === "Default" ? "Default" : product.variants[0]?.label || "Default");
+              const key = `${product._id}::${targetVariant}`;
+              variantStockUpdates.set(key, (variantStockUpdates.get(key) || 0) + quantity);
+            } else {
+              const category = product?.category?.toLowerCase();
+              let updateField = null;
 
-            if (["comics", "clothes", "shoes"].includes(category) && variant)
-              updateField = `stock.${variant}`;
-            else if (category === "toys")
-              updateField = "stock";
+              if (["comics", "clothes", "shoes"].includes(category) && variant)
+                updateField = `stock.${variant}`;
+              else if (category === "toys")
+                updateField = "stock";
 
-            if (updateField) {
-              const prodIdStr = String(product._id);
-              if (!stockUpdates.has(prodIdStr))
-                stockUpdates.set(prodIdStr, { id: product._id, inc: {} });
+              if (updateField) {
+                const prodIdStr = String(product._id);
+                if (!legacyStockUpdates.has(prodIdStr))
+                  legacyStockUpdates.set(prodIdStr, { id: product._id, inc: {} });
 
-              const target = stockUpdates.get(prodIdStr);
-              target.inc[updateField] = (target.inc[updateField] || 0) + quantity;
+                const target = legacyStockUpdates.get(prodIdStr);
+                target.inc[updateField] = (target.inc[updateField] || 0) + quantity;
+              }
             }
           }
         }
 
         // Apply batched increments using bulkWrite
-        if (stockUpdates.size > 0) {
-          const bulkOps = [];
-          for (const { id, inc } of stockUpdates.values()) {
-            bulkOps.push({
-              updateOne: {
-                filter: { _id: id },
-                update: { $inc: inc },
-              },
-            });
-          }
-
-          if (bulkOps.length > 0)
-            await productModel.bulkWrite(bulkOps, { session: mongoSession });
+        const bulkOps = [];
+        for (const { id, inc } of legacyStockUpdates.values()) {
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: id },
+              update: { $inc: inc },
+            },
+          });
         }
+        for (const [key, qty] of variantStockUpdates.entries()) {
+          const [prodId, targetVariant] = key.split("::");
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: prodId, "variants.label": targetVariant },
+              update: { $inc: { "variants.$.stock": qty } },
+            },
+          });
+        }
+
+        if (bulkOps.length > 0)
+          await productModel.bulkWrite(bulkOps, { session: mongoSession });
       }
 
       if (expiredReservationIds.length > 0)

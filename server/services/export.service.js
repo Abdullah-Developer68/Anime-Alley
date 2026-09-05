@@ -11,6 +11,12 @@ const orderModel = require("../models/order.model.js");
 // --- Helper function to format stock for display ---
 
 const formatStock = (product) => {
+  if (Array.isArray(product.variants) && product.variants.length > 0) {
+    if (product.variants.length === 1 && product.variants[0].label === "Default")
+      return product.variants[0].stock > 0 ? `${product.variants[0].stock} available` : "Out of Stock";
+    return product.variants.map((v) => `${v.label}: ${v.stock}`).join(", ");
+  }
+
   if (product.category === "toys")
     return product.stock > 0 ? `${product.stock} available` : "Out of Stock";
 

@@ -21,70 +21,85 @@ const ProductDescription = () => {
 
   const totalPrice = itemQuantity * selectedProduct.price;
 
-  // Set up variant options based on product category
+  // Set up variant options based on product variants array
   useEffect(() => {
-    if (selectedProduct.category === "comics") {
-      setVariantOptions(selectedProduct.volumes || []);
-      setVariantLabel("Select the volume:");
-      // Initialize stock status for volumes
+    if (!selectedProduct) return;
+
+    const variants = selectedProduct.variants || [];
+    const hasMultipleVariants =
+      variants.length > 1 || (variants.length === 1 && variants[0].label !== "Default");
+
+    if (hasMultipleVariants) {
+      setVariantOptions(variants.map((v) => v.label));
+      if (selectedProduct.category === "comics")
+        setVariantLabel("Select the volume:");
+      else if (
+        selectedProduct.category === "clothes" ||
+        selectedProduct.category === "shoes"
+      )
+        setVariantLabel("Select the size:");
+      else
+        setVariantLabel("Select the option:");
+
       const initialStockStatus = {};
-      selectedProduct.volumes?.forEach((volume) => {
-        initialStockStatus[volume] = {
-          stockAvailable: selectedProduct.stock[volume] || 0,
-          isAvailable: (selectedProduct.stock[volume] || 0) > 0,
+      variants.forEach((v) => {
+        initialStockStatus[v.label] = {
+          stockAvailable: v.stock || 0,
+          isAvailable: (v.stock || 0) > 0,
         };
       });
       setStockStatus(initialStockStatus);
-    } else if (
-      selectedProduct.category === "clothes" ||
-      selectedProduct.category === "shoes"
-    ) {
-      setVariantOptions(selectedProduct.sizes || []);
-      setVariantLabel("Select the size:");
-      // Initialize stock status for sizes
-      const initialStockStatus = {};
-      selectedProduct.sizes?.forEach((size) => {
-        initialStockStatus[size] = {
-          stockAvailable: selectedProduct.stock[size] || 0,
-          isAvailable: (selectedProduct.stock[size] || 0) > 0,
-        };
+      setSelectedVariant("");
+    } else {
+      // Default / single variant (e.g., toys)
+      setVariantOptions([]);
+      setVariantLabel("");
+      setSelectedVariant("Default");
+      const defStock =
+        variants[0]?.stock ??
+        (typeof selectedProduct.stock === "number" ? selectedProduct.stock : 0);
+      setStockStatus({
+        Default: {
+          stockAvailable: defStock,
+          isAvailable: defStock > 0,
+        },
       });
-      setStockStatus(initialStockStatus);
     }
   }, [selectedProduct]);
 
-  // for quantity changes
+  // For quantity changes
   const increaseQuantity = () => {
-    if (variantOptions.length === 0) {
-      setItemQuantity((prev) => prev + 1);
-    } else if (selectedVariant && selectedVariant !== "") {
-      setItemQuantity((prev) => prev + 1);
-    } else {
+    const activeVariant = variantOptions.length === 0 ? "Default" : selectedVariant;
+    const maxAvailable = stockStatus[activeVariant]?.stockAvailable || 0;
+
+    if (variantOptions.length > 0 && (!selectedVariant || selectedVariant === "")) {
       toast.error("Please select a variant before increasing quantity");
+      return;
     }
+
+    if (itemQuantity >= maxAvailable) {
+      toast.warning(`Only ${maxAvailable} item(s) available in stock`);
+      return;
+    }
+
+    setItemQuantity((prev) => prev + 1);
   };
 
   const decreaseQuantity = () => {
-    if (variantOptions.length === 0) {
+    if (itemQuantity > 0)
       setItemQuantity((prev) => prev - 1);
-    } else if (selectedVariant && selectedVariant !== "") {
-      setItemQuantity((prev) => prev - 1);
-    } else {
-      toast.error("Please select a variant before decreasing quantity");
-    }
   };
 
-  //  variant selection
+  // Variant selection
   const variantSelect = (variant) => {
     if (stockStatus[variant]?.stockAvailable > 0) {
       setSelectedVariant(variant);
       setItemQuantity(1);
-    } else {
+    } else
       toast.error("This variant is out of stock");
-    }
   };
 
-  //  add to cart
+  // Add to cart
   const handleAddToCart = async () => {
     if (isAddingToCart) return;
 
@@ -94,6 +109,8 @@ const ProductDescription = () => {
       toast.error("Please login to add items to cart");
       return;
     }
+
+    const activeVariant = variantOptions.length > 0 ? selectedVariant : "Default";
 
     // Validate selections before adding to cart
     if (!selectedVariant && variantOptions.length > 0) {
@@ -114,34 +131,33 @@ const ProductDescription = () => {
         draggable: false,
       });
 
-      // All of the Checks are made in the cartThunk.js
+      // All checks are performed in cartThunks.js
       const result = await dispatch(
         addToCartAsync({
           product: selectedProduct,
-          variant: selectedVariant,
+          variant: activeVariant,
           quantity: itemQuantity,
         }),
       ).unwrap();
 
-      // result is just the data object returned by cartThunk.js
       setItemQuantity(0);
       toast.success(result.message);
 
       setStockStatus((prev) => ({
         ...prev,
-        [selectedVariant]: {
+        [activeVariant]: {
           stockAvailable: result.stock,
           isAvailable: result.stock > 0,
         },
       }));
 
       if (result.stock < 1) {
-        // Reset UI states
-        setSelectedVariant("");
+        if (variantOptions.length > 0)
+          setSelectedVariant("");
         setItemQuantity(0);
       }
     } catch (error) {
-      // structured error responses
+      // Structured error responses
       if (error.type === "CONCURRENT_MODIFICATION") {
         toast.warning("High demand! Please try again in a moment.", {
           duration: 3000,
@@ -150,10 +166,10 @@ const ProductDescription = () => {
         toast.error("This item is out of stock");
         setStockStatus((prev) => ({
           ...prev,
-          [selectedVariant]: { stockAvailable: 0, isAvailable: false },
+          [activeVariant]: { stockAvailable: 0, isAvailable: false },
         }));
-        // Reset UI states
-        setSelectedVariant("");
+        if (variantOptions.length > 0)
+          setSelectedVariant("");
         setItemQuantity(0);
       } else {
         toast.error(
@@ -162,9 +178,8 @@ const ProductDescription = () => {
       }
       setItemQuantity(0);
     } finally {
-      if (addingToastId) {
+      if (addingToastId)
         toast.dismiss(addingToastId);
-      }
       setIsAddingToCart(false);
     }
   };
@@ -235,31 +250,33 @@ const ProductDescription = () => {
               {selectedProduct.description}
             </p>
 
-            {/* Size/Volume Selection */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-white/90">{variantLabel}</h3>
-              <div className="flex flex-wrap gap-3">
-                {variantOptions.map((variant) => (
-                  <button
-                    key={variant}
-                    onClick={() => variantSelect(variant)}
-                    className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-300 cursor-pointer
-                      ${
-                        selectedVariant === variant
-                          ? "bg-yellow-500 text-black"
-                          : stockStatus[variant]?.stockAvailable > 0
-                            ? "bg-white/10 text-white/70 hover:bg-white/20"
-                            : "bg-red-500/20 text-red-500/70 cursor-not-allowed"
-                      }`}
-                    disabled={stockStatus[variant]?.stockAvailable === 0}
-                  >
-                    {variant}
-                    {stockStatus[variant]?.stockAvailable === 0 &&
-                      " (Out of Stock)"}
-                  </button>
-                ))}
+            {/* Size/Volume Selection - only rendered if product has variants */}
+            {variantOptions.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="font-medium text-white/90">{variantLabel}</h3>
+                <div className="flex flex-wrap gap-3">
+                  {variantOptions.map((variant) => (
+                    <button
+                      key={variant}
+                      onClick={() => variantSelect(variant)}
+                      className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-300 cursor-pointer
+                        ${
+                          selectedVariant === variant
+                            ? "bg-yellow-500 text-black"
+                            : stockStatus[variant]?.stockAvailable > 0
+                              ? "bg-white/10 text-white/70 hover:bg-white/20"
+                              : "bg-red-500/20 text-red-500/70 cursor-not-allowed"
+                        }`}
+                      disabled={stockStatus[variant]?.stockAvailable === 0}
+                    >
+                      {variant}
+                      {stockStatus[variant]?.stockAvailable === 0 &&
+                        " (Out of Stock)"}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Quantity and Price Row */}
             <div className="space-y-4">

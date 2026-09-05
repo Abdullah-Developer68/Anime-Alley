@@ -182,12 +182,14 @@ const Cart = () => {
 
   // Helper function to render variant badge
   const renderVariantBadge = (item) => {
-    if (!item.selectedVariant) return null;
+    if (!item.selectedVariant || item.selectedVariant === "Default") return null;
 
     const variantText =
       item.category === "clothes" || item.category === "shoes"
         ? `Size: ${item.selectedVariant}`
-        : `Volume: ${item.selectedVariant}`;
+        : item.category === "comics"
+          ? `Volume: ${item.selectedVariant}`
+          : `Variant: ${item.selectedVariant}`;
 
     return (
       <span className="inline-flex items-center px-3 py-1 mx-auto mb-2 text-sm font-medium text-pink-400 border rounded-full bg-pink-500/15 border-pink-500/30 w-fit sm:mx-0">

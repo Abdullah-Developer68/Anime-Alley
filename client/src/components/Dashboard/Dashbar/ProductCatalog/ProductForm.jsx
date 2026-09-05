@@ -76,7 +76,28 @@ const ProductForm = () => {
       if (editProduct.merchType) {
         setValue("merchandiseType", editProduct.merchType);
       }
-      if (editProduct.stock) {
+      // Populate variants and stock
+      if (Array.isArray(editProduct.variants) && editProduct.variants.length > 0) {
+        if (editProduct.category === "comics") {
+          const vols = editProduct.variants.map((v) => v.label);
+          setValue("volumes", vols.join(", "));
+          editProduct.variants.forEach((v) => {
+            setValue(`stock_${v.label}`, v.stock);
+          });
+        } else if (
+          editProduct.category === "clothes" ||
+          editProduct.category === "shoes"
+        ) {
+          const sizes = editProduct.variants.map((v) => v.label);
+          setValue("availableSizes", sizes);
+          editProduct.variants.forEach((v) => {
+            setValue(`stock_${v.label}`, v.stock);
+          });
+        } else if (editProduct.category === "toys") {
+          const defVariant = editProduct.variants.find((v) => v.label === "Default") || editProduct.variants[0];
+          setValue("stock", defVariant ? defVariant.stock : 0);
+        }
+      } else if (editProduct.stock) {
         if (editProduct.category === "comics") {
           if (typeof editProduct.stock === "object") {
             Object.keys(editProduct.stock).forEach((volume) => {
@@ -244,11 +265,17 @@ const ProductForm = () => {
           .map((v) => v.trim())
           .filter((v) => v);
 
+        const variantsList = volumes.map((volume) => ({
+          label: volume,
+          stock: Number(data[`stock_${volume}`]) || 0,
+        }));
+
         const stockData = {};
-        volumes.forEach((volume) => {
-          stockData[volume] = Number(data[`stock_${volume}`]) || 0;
+        variantsList.forEach((v) => {
+          stockData[v.label] = v.stock;
         });
 
+        formData.append("variants", JSON.stringify(variantsList));
         formData.append("stock", JSON.stringify(stockData));
         formData.append("volumes", JSON.stringify(volumes));
         formData.append(
@@ -261,16 +288,26 @@ const ProductForm = () => {
           ),
         );
       } else if (data.category === "clothes" || data.category === "shoes") {
+        const variantsList = data.availableSizes.map((size) => ({
+          label: size,
+          stock: Number(data[`stock_${size}`]) || 0,
+        }));
+
         const stockData = {};
-        data.availableSizes.forEach((size) => {
-          stockData[size] = Number(data[`stock_${size}`]) || 0;
+        variantsList.forEach((v) => {
+          stockData[v.label] = v.stock;
         });
 
+        formData.append("variants", JSON.stringify(variantsList));
         formData.append("stock", JSON.stringify(stockData));
         formData.append("sizes", JSON.stringify(data.availableSizes));
         formData.append("merchType", data.merchandiseType);
       } else if (data.category === "toys") {
-        formData.append("stock", Number(data.stock) || 0);
+        const toyStock = Number(data.stock) || 0;
+        const variantsList = [{ label: "Default", stock: toyStock }];
+
+        formData.append("variants", JSON.stringify(variantsList));
+        formData.append("stock", toyStock);
         formData.append("toyType", data.toyType.trim());
       }
 

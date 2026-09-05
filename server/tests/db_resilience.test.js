@@ -1191,6 +1191,65 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     assert.ok(resNoSizesStr._json.message.includes("Stock value missing or invalid for size L"));
   });
 
+  await t.test("createProduct and updateProduct validate unified variants array", async () => {
+    // Missing label or non-string label
+    const reqNoLabel = {
+      body: {
+        name: "Test Comic",
+        price: 25,
+        category: "comics",
+        variants: [{ stock: 10 }],
+      },
+    };
+    const resNoLabel = createMockRes();
+    await productController.createProduct(reqNoLabel, resNoLabel);
+    assert.strictEqual(resNoLabel.statusCode, 400);
+    assert.strictEqual(resNoLabel._json.message, "Each variant must have a non-empty label");
+
+    // Negative stock in variant
+    const reqNegStock = {
+      body: {
+        _id: "507f1f77bcf86cd799439011",
+        name: "Test Shirt",
+        price: 30,
+        category: "clothes",
+        variants: [{ label: "M", stock: -1 }],
+      },
+    };
+    const resNegStock = createMockRes();
+    await productController.updateProduct(reqNegStock, resNegStock);
+    assert.strictEqual(resNegStock.statusCode, 400);
+    assert.ok(resNegStock._json.message.includes("must have a non-negative integer stock"));
+
+    // String stock in variant
+    const reqStrStock = {
+      body: {
+        name: "Test Toy",
+        price: 40,
+        category: "toys",
+        variants: [{ label: "Default", stock: "15" }],
+      },
+    };
+    const resStrStock = createMockRes();
+    await productController.createProduct(reqStrStock, resStrStock);
+    assert.strictEqual(resStrStock.statusCode, 400);
+    assert.ok(resStrStock._json.message.includes("must have a non-negative integer stock"));
+
+    // Empty variants array
+    const reqEmptyVariants = {
+      body: {
+        name: "Test Shoes",
+        price: 80,
+        category: "shoes",
+        variants: [],
+      },
+    };
+    const resEmptyVariants = createMockRes();
+    await productController.createProduct(reqEmptyVariants, resEmptyVariants);
+    assert.strictEqual(resEmptyVariants.statusCode, 400);
+    assert.strictEqual(resEmptyVariants._json.message, "Variants must be a non-empty array");
+  });
+
   await t.test("updateCartItem returns 400 without dbConnect or session on missing productId or invalid quantity", async () => {
     activeSessions.length = 0;
     const req1 = { user: { id: "u1" }, body: { newQuantity: 2 } };
