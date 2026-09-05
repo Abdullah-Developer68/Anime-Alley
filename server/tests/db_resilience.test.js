@@ -949,11 +949,18 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     await productController.createProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
 
-    const req2 = { body: { name: "Comic A", price: 20, variants: "invalid-json", category: "comics" } };
+    const req2 = { headers: { "content-type": "multipart/form-data" }, body: { name: "Comic A", price: 20, variants: "invalid-json", category: "comics" } };
     const res2 = createMockRes();
     await productController.createProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
     assert.strictEqual(res2._json.message, "Invalid variants format: must be valid JSON");
+
+    // Direct JSON payload sending string for variants is rejected as non-array
+    const reqDirectStrVariants = { body: { name: "Comic A", price: 20, variants: '[{"label":"Vol 1","stock":5}]', category: "comics" } };
+    const resDirectStrVariants = createMockRes();
+    await productController.createProduct(reqDirectStrVariants, resDirectStrVariants);
+    assert.strictEqual(resDirectStrVariants.statusCode, 400);
+    assert.strictEqual(resDirectStrVariants._json.message, "Variants must be a non-empty array");
 
     // Negative price
     const req3 = { body: { name: "Toy A", price: -5, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
@@ -1033,11 +1040,18 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     await productController.updateProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
 
-    const req2 = { body: { _id: "prod123", name: "Product", price: 20, variants: "invalid-json", category: "comics" } };
+    const req2 = { headers: { "content-type": "multipart/form-data" }, body: { _id: "prod123", name: "Product", price: 20, variants: "invalid-json", category: "comics" } };
     const res2 = createMockRes();
     await productController.updateProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
     assert.strictEqual(res2._json.message, "Invalid variants format: must be valid JSON");
+
+    // Direct JSON payload sending string for variants is rejected as non-array
+    const reqDirectStrVariants = { body: { _id: "prod123", name: "Product", price: 20, variants: '[{"label":"V1","stock":5}]', category: "comics" } };
+    const resDirectStrVariants = createMockRes();
+    await productController.updateProduct(reqDirectStrVariants, resDirectStrVariants);
+    assert.strictEqual(resDirectStrVariants.statusCode, 400);
+    assert.strictEqual(resDirectStrVariants._json.message, "Variants must be a non-empty array");
 
     // Negative price
     const req3 = { body: { _id: "prod123", name: "Toy A", price: -10, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
@@ -1119,6 +1133,7 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
 
   await t.test("createProduct returns 400 without dbConnect on invalid comic variant stock or label", async () => {
     const req1 = {
+      headers: { "content-type": "multipart/form-data" },
       body: {
         name: "One Piece",
         price: 10,
@@ -1132,6 +1147,7 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     assert.strictEqual(res1._json.message, "Each variant must have a non-empty label");
 
     const req2 = {
+      headers: { "content-type": "multipart/form-data" },
       body: {
         name: "One Piece",
         price: 10,
@@ -1147,6 +1163,7 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
 
   await t.test("updateProduct returns 400 without dbConnect on invalid size variant stock", async () => {
     const req1 = {
+      headers: { "content-type": "multipart/form-data" },
       body: {
         _id: "507f1f77bcf86cd799439011",
         name: "Anime Hoodie",
