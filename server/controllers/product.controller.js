@@ -4,7 +4,7 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { validateProductData } = require("../utils/product.utils.js");
+const { validateProductData } = require("../utils/validation.utils.js");
 
 // Generate unique product ID based on category
 // category: Product category (comics, toys, clothes, shoes)
@@ -197,8 +197,15 @@ const getProducts = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
+    const isMultipart = Boolean(
+      req?.is?.("multipart/form-data") ||
+      req?.file ||
+      (typeof req?.headers?.["content-type"] === "string" &&
+        req.headers["content-type"].includes("multipart/form-data")),
+    );
+
     // Validate and parse incoming product fields in memory before connecting to database
-    const validation = validateProductData(req.body);
+    const validation = validateProductData(req.body, { isMultipart });
     if (!validation.valid)
       return res.status(validation.status).json({
         success: false,
@@ -238,7 +245,6 @@ const createProduct = async (req, res) => {
     if (
       error.name === "ValidationError" ||
       error.name === "CastError" ||
-      error.message?.startsWith("Stock value missing or invalid") ||
       error.message?.startsWith("Invalid category")
     )
       return res.status(400).json({
@@ -266,8 +272,15 @@ const updateProduct = async (req, res) => {
         message: "Product id is required",
       });
 
+    const isMultipart = Boolean(
+      req?.is?.("multipart/form-data") ||
+      req?.file ||
+      (typeof req?.headers?.["content-type"] === "string" &&
+        req.headers["content-type"].includes("multipart/form-data")),
+    );
+
     // Validate and parse incoming product fields in memory before connecting to database
-    const validation = validateProductData(req.body);
+    const validation = validateProductData(req.body, { isMultipart });
     if (!validation.valid)
       return res.status(validation.status).json({
         success: false,
@@ -331,7 +344,6 @@ const updateProduct = async (req, res) => {
     if (
       error.name === "ValidationError" ||
       error.name === "CastError" ||
-      error.message?.startsWith("Stock value missing or invalid") ||
       error.message?.startsWith("Invalid category")
     )
       return res.status(400).json({

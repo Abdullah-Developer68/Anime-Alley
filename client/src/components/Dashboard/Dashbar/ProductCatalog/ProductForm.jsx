@@ -62,40 +62,32 @@ const ProductForm = () => {
       if (editProduct.genres) {
         setValue("genres", editProduct.genres.join(", "));
       }
-      if (editProduct.volumes) {
-        setValue("volumes", editProduct.volumes.join(", "));
-      }
       if (editProduct.toyType) {
         setValue("toyType", editProduct.toyType);
-      }
-      if (Array.isArray(editProduct.availableSizes)) {
-        setValue("availableSizes", editProduct.availableSizes);
-      } else if (editProduct.sizes) {
-        setValue("availableSizes", editProduct.sizes);
       }
       if (editProduct.merchType) {
         setValue("merchandiseType", editProduct.merchType);
       }
-      if (editProduct.stock) {
+      // Populate variants and stock
+      if (Array.isArray(editProduct.variants) && editProduct.variants.length > 0) {
         if (editProduct.category === "comics") {
-          if (typeof editProduct.stock === "object") {
-            Object.keys(editProduct.stock).forEach((volume) => {
-              setValue(`stock_${volume}`, editProduct.stock[volume]);
-            });
-          }
+          const vols = editProduct.variants.map((v) => v.label);
+          setValue("volumes", vols.join(", "));
+          editProduct.variants.forEach((v) => {
+            setValue(`stock_${v.label}`, v.stock);
+          });
         } else if (
           editProduct.category === "clothes" ||
           editProduct.category === "shoes"
         ) {
-          if (typeof editProduct.stock === "object") {
-            Object.keys(editProduct.stock).forEach((size) => {
-              setValue(`stock_${size}`, editProduct.stock[size]);
-            });
-          }
+          const sizes = editProduct.variants.map((v) => v.label);
+          setValue("availableSizes", sizes);
+          editProduct.variants.forEach((v) => {
+            setValue(`stock_${v.label}`, v.stock);
+          });
         } else if (editProduct.category === "toys") {
-          if (typeof editProduct.stock === "number") {
-            setValue("stock", editProduct.stock);
-          }
+          const defVariant = editProduct.variants.find((v) => v.label === "Default") || editProduct.variants[0];
+          setValue("stock", defVariant ? defVariant.stock : 0);
         }
       }
       // Always set preview to product image in edit mode
@@ -244,13 +236,12 @@ const ProductForm = () => {
           .map((v) => v.trim())
           .filter((v) => v);
 
-        const stockData = {};
-        volumes.forEach((volume) => {
-          stockData[volume] = Number(data[`stock_${volume}`]) || 0;
-        });
+        const variantsList = volumes.map((volume) => ({
+          label: volume,
+          stock: Number(data[`stock_${volume}`]) || 0,
+        }));
 
-        formData.append("stock", JSON.stringify(stockData));
-        formData.append("volumes", JSON.stringify(volumes));
+        formData.append("variants", JSON.stringify(variantsList));
         formData.append(
           "genres",
           JSON.stringify(
@@ -261,16 +252,18 @@ const ProductForm = () => {
           ),
         );
       } else if (data.category === "clothes" || data.category === "shoes") {
-        const stockData = {};
-        data.availableSizes.forEach((size) => {
-          stockData[size] = Number(data[`stock_${size}`]) || 0;
-        });
+        const variantsList = data.availableSizes.map((size) => ({
+          label: size,
+          stock: Number(data[`stock_${size}`]) || 0,
+        }));
 
-        formData.append("stock", JSON.stringify(stockData));
-        formData.append("sizes", JSON.stringify(data.availableSizes));
+        formData.append("variants", JSON.stringify(variantsList));
         formData.append("merchType", data.merchandiseType);
       } else if (data.category === "toys") {
-        formData.append("stock", Number(data.stock) || 0);
+        const toyStock = Number(data.stock) || 0;
+        const variantsList = [{ label: "Default", stock: toyStock }];
+
+        formData.append("variants", JSON.stringify(variantsList));
         formData.append("toyType", data.toyType.trim());
       }
 

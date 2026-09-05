@@ -455,34 +455,34 @@ const ProductCatalog = () => {
 
                     <td className="px-6 py-4">
                       <div className="max-h-[56px] overflow-y-auto flex flex-col gap-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {product.category === "toys" ? (
+                        {Array.isArray(product.variants) &&
+                        product.variants.length === 1 &&
+                        product.variants[0].label === "Default" ? (
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium inline-flex items-center ${
-                              product.stock > 0
+                              product.variants[0].stock > 0
                                 ? "bg-green-500/20 text-green-500"
                                 : "bg-red-500/20 text-red-500"
                             }`}
                           >
-                            {product.stock > 0
-                              ? `${product.stock} available`
+                            {product.variants[0].stock > 0
+                              ? `${product.variants[0].stock} available`
                               : "Out of Stock"}
                           </span>
                         ) : (
-                          Object.entries(product.stock || {}).map(
-                            ([key, quantity]) => (
-                              <span
-                                key={key}
-                                className={`px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap ${
-                                  quantity > 0
-                                    ? "bg-green-500/20 text-green-500"
-                                    : "bg-red-500/20 text-red-500"
-                                }`}
-                              >
-                                {product.category === "comics" ? "Vol." : ""}
-                                {key}: {quantity > 0 ? quantity : "Out"}
-                              </span>
-                            ),
-                          )
+                          (product.variants || []).map((v) => (
+                            <span
+                              key={v.label}
+                              className={`px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap ${
+                                v.stock > 0
+                                  ? "bg-green-500/20 text-green-500"
+                                  : "bg-red-500/20 text-red-500"
+                              }`}
+                            >
+                              {product.category === "comics" ? "Vol. " : ""}
+                              {v.label}: {v.stock > 0 ? v.stock : "Out"}
+                            </span>
+                          ))
                         )}
                       </div>
                     </td>

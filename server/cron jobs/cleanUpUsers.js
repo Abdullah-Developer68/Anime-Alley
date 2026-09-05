@@ -57,8 +57,8 @@ async function cleanupUnverifiedUsers() {
         for (const product of products)
           productMap.set(String(product?._id), product);
 
-        // Aggregate stock increments in memory per product
-        const stockUpdates = new Map();
+        // Aggregate variant stock increments in memory per product and variant
+        const variantStockUpdates = new Map();
 
         for (const reservation of reservations) {
           const productsList = reservation?.products || [];
@@ -72,40 +72,35 @@ async function cleanupUnverifiedUsers() {
             if (!product)
               continue;
 
-            const category = product?.category?.toLowerCase();
-            let updateField = null;
+            const variants = Array.isArray(product.variants) ? product.variants : [];
+            const isSingleDefault = variants.length === 1 && variants[0]?.label === "Default";
+            const targetVariant = variant || (isSingleDefault ? "Default" : null);
+            if (!targetVariant)
+              continue;
 
-            if (["comics", "clothes", "shoes"].includes(category) && variant)
-              updateField = `stock.${variant}`;
-            else if (category === "toys")
-              updateField = "stock";
+            const variantDoc = variants.find((v) => v.label === targetVariant);
+            if (!variantDoc)
+              continue;
 
-            if (updateField) {
-              const prodIdStr = String(product._id);
-              if (!stockUpdates.has(prodIdStr))
-                stockUpdates.set(prodIdStr, { id: product._id, inc: {} });
-
-              const target = stockUpdates.get(prodIdStr);
-              target.inc[updateField] = (target.inc[updateField] || 0) + quantity;
-            }
+            const key = `${product._id}::${targetVariant}`;
+            variantStockUpdates.set(key, (variantStockUpdates.get(key) || 0) + quantity);
           }
         }
 
         // Apply batched increments using bulkWrite
-        if (stockUpdates.size > 0) {
-          const bulkOps = [];
-          for (const { id, inc } of stockUpdates.values()) {
-            bulkOps.push({
-              updateOne: {
-                filter: { _id: id },
-                update: { $inc: inc },
-              },
-            });
-          }
-
-          if (bulkOps.length > 0)
-            await productModel.bulkWrite(bulkOps, { session: mongoSession });
+        const bulkOps = [];
+        for (const [key, qty] of variantStockUpdates.entries()) {
+          const [prodId, targetVariant] = key.split("::");
+          bulkOps.push({
+            updateOne: {
+              filter: { _id: prodId, "variants.label": targetVariant },
+              update: { $inc: { "variants.$.stock": qty } },
+            },
+          });
         }
+
+        if (bulkOps.length > 0)
+          await productModel.bulkWrite(bulkOps, { session: mongoSession });
       }
 
       await reservationModel.deleteMany(

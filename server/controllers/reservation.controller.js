@@ -49,90 +49,48 @@ const reserveStock = async (req, res) => {
     let actualQuantity = requestedQuantity;
     const MAX_RETRIES = 3; // used to restart verification of stock if it was changed in the middle of a transaction
 
-    if (
-      product.category === "comics" ||
-      product.category === "clothes" ||
-      product.category === "shoes"
-    ) {
-      if (!variant) {
-        await mongoSession.abortTransaction();
-        return res
-          .status(400)
-          .json({ success: false, message: "Variant required" });
-      }
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const isSingleDefault = variants.length === 1 && variants[0].label === "Default";
+    const requiresVariant = !isSingleDefault;
 
-      stockAvailable = product.stock[variant] || 0;
+    if (requiresVariant && !variant) {
+      await mongoSession.abortTransaction();
+      return res
+        .status(400)
+        .json({ success: false, message: "Variant required" });
+    }
 
-      if (stockAvailable === 0) {
-        await mongoSession.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          stock: 0,
-          message: "Stock not available",
-        });
-      }
+    const targetVariant = variant || variants[0]?.label || "Default";
 
-      if (stockAvailable < requestedQuantity)
-        actualQuantity = stockAvailable; // Give the max available stock to the user
+    // Stock lookup strictly using unified variants array
+    const variantDoc = variants.find((v) => v.label === targetVariant);
+    stockAvailable = variantDoc ? variantDoc.stock : 0;
 
-      // Retry logic for stock update
-      let updated = null;
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        // Re-check stock before each attempt
-        const freshProduct = await productModel
-          .findById(productId)
-          .session(mongoSession);
-        const currentStock = freshProduct.stock[variant] || 0;
+    if (stockAvailable === 0) {
+      await mongoSession.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        stock: 0,
+        message: "Stock not available",
+      });
+    }
 
-        if (currentStock === 0) {
-          await mongoSession.abortTransaction();
-          return res.status(400).json({
-            success: false,
-            stock: 0,
-            message: "Stock not available",
-          });
-        }
+    if (stockAvailable < requestedQuantity)
+      actualQuantity = stockAvailable; // Give the max available stock to the user
 
-        // Adjust quantity if needed
-        const availableQuantity = Math.min(actualQuantity, currentStock);
+    // Retry logic for stock update
+    let updated = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      // Re-check stock before each attempt
+      const freshProduct = await productModel
+        .findById(productId)
+        .session(mongoSession);
 
-        const update = {};
-        update[`stock.${variant}`] = -availableQuantity;
+      const freshVariants = Array.isArray(freshProduct?.variants) ? freshProduct.variants : [];
+      const currentVariantDoc = freshVariants.find((v) => v.label === targetVariant);
+      const currentStock = currentVariantDoc ? currentVariantDoc.stock : 0;
 
-        // If someone else has changed the stock since we checked, this will fail
-        updated = await productModel.updateOne(
-          { _id: productId, [`stock.${variant}`]: { $gte: availableQuantity } },
-          { $inc: update },
-          { session: mongoSession } // attach the session to the operation
-        );
-
-        // If 0 documents were modified, it means stock was changed by an other user during a transaction
-        if (updated.modifiedCount > 0) {
-          actualQuantity = availableQuantity;
-          stockAvailable = currentStock;
-          break; // Success! Exit retry loop
-        }
-
-        // If this was the last attempt, give up
-        if (attempt === MAX_RETRIES) {
-          await mongoSession.abortTransaction();
-          return res.status(409).json({
-            success: false,
-            stock: -1, // Special indicator for concurrent modification
-            message:
-              "Stock is being modified frequently. Please try again later.",
-            retryAfter: 2000, // Suggest client retry after 2 seconds
-          });
-        }
-
-        // Wait a bit before retrying (exponential backoff)
-        await new Promise((resolve) => setTimeout(resolve, attempt * 100));
-      }
-    } else {
-      // For toys Stock is a single number
-      stockAvailable = product.stock;
-
-      if (stockAvailable === 0) {
+      if (currentStock === 0) {
         await mongoSession.abortTransaction();
         return res.status(400).json({
           success: false,
@@ -141,58 +99,37 @@ const reserveStock = async (req, res) => {
         });
       }
 
-      if (stockAvailable < requestedQuantity)
-        actualQuantity = stockAvailable; // Give the max available stock to the user
+      // Adjust quantity if needed
+      const availableQuantity = Math.min(actualQuantity, currentStock);
 
-      // Retry logic for toys
-      let updated = null;
-      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        // Re-check stock before each attempt
-        const freshProduct = await productModel
-          .findById(productId)
-          .session(mongoSession);
-        const currentStock = freshProduct.stock;
+      // Perform atomic decrement on variant stock
+      updated = await productModel.updateOne(
+        { _id: productId, "variants.label": targetVariant, "variants.stock": { $gte: availableQuantity } },
+        { $inc: { "variants.$.stock": -availableQuantity } },
+        { session: mongoSession },
+      );
 
-        if (currentStock === 0) {
-          await mongoSession.abortTransaction();
-          return res.status(400).json({
-            success: false,
-            stock: 0,
-            message: "Stock not available",
-          });
-        }
-
-        // Adjust quantity if needed
-        const availableQuantity = Math.min(actualQuantity, currentStock);
-
-        // If someone else has changed the stock since we checked, this will fail
-        updated = await productModel.updateOne(
-          { _id: productId, stock: { $gte: availableQuantity } },
-          { $inc: { stock: -availableQuantity } },
-          { session: mongoSession } // attach the session to the operation
-        );
-        // If 0 documents were modified, it means stock was changed by an other user during a transaction
-        if (updated.modifiedCount > 0) {
-          actualQuantity = availableQuantity;
-          stockAvailable = currentStock;
-          break; // Success! Exit retry loop
-        }
-
-        // If this was the last attempt, give up
-        if (attempt === MAX_RETRIES) {
-          await mongoSession.abortTransaction();
-          return res.status(409).json({
-            success: false,
-            stock: -1, // Special indicator for concurrent modification
-            message:
-              "Stock is being modified frequently. Please try again later.",
-            retryAfter: 2000, // Suggest client retry after 2 seconds
-          });
-        }
-
-        // Wait a bit before retrying (exponential backoff)
-        await new Promise((resolve) => setTimeout(resolve, attempt * 100));
+      // If 0 documents were modified, it means stock was changed by another user during a transaction
+      if (updated.modifiedCount > 0) {
+        actualQuantity = availableQuantity;
+        stockAvailable = currentStock;
+        break; // Success! Exit retry loop
       }
+
+      // If this was the last attempt, give up
+      if (attempt === MAX_RETRIES) {
+        await mongoSession.abortTransaction();
+        return res.status(409).json({
+          success: false,
+          stock: -1, // Special indicator for concurrent modification
+          message:
+            "Stock is being modified frequently. Please try again later.",
+          retryAfter: 2000, // Suggest client retry after 2 seconds
+        });
+      }
+
+      // Wait a bit before retrying (exponential backoff)
+      await new Promise((resolve) => setTimeout(resolve, attempt * 100));
     }
 
     // Upsert reservation - authenticated users only
@@ -316,7 +253,7 @@ const getCart = async (req, res) => {
         category: product.category,
         selectedVariant: item.variant,
         itemQuantity: item.quantity,
-        stock: product.stock,
+        variants: product.variants,
       };
     });
 
@@ -392,45 +329,43 @@ const updateCartItem = async (req, res) => {
     if (quantityDiff !== 0) {
       const product = await productModel.findById(productId).session(session);
 
-      if (quantityDiff > 0) {
-        // Increasing quantity - reserve more stock
-        const availableStock =
-          product.category === "toys"
-            ? product.stock
-            : product.stock[variant] || 0;
+      const productVariants = Array.isArray(product?.variants) ? product.variants : [];
+      const isSingleDefault = productVariants.length === 1 && productVariants[0]?.label === "Default";
+      const targetVariant = variant || (isSingleDefault ? "Default" : null);
 
-        if (availableStock < quantityDiff) {
-          await session.abortTransaction();
-          return res.status(400).json({
-            success: false,
-            message: "Insufficient stock available",
-          });
-        }
-
-        // Decrease product stock
-        const stockUpdate =
-          product.category === "toys"
-            ? { stock: -quantityDiff }
-            : { [`stock.${variant}`]: -quantityDiff };
-
-        await productModel.updateOne(
-          { _id: productId },
-          { $inc: stockUpdate },
-          { session }
-        );
-      } else {
-        // Decreasing quantity - release stock
-        const stockUpdate =
-          product.category === "toys"
-            ? { stock: -quantityDiff }
-            : { [`stock.${variant}`]: -quantityDiff };
-
-        await productModel.updateOne(
-          { _id: productId },
-          { $inc: stockUpdate },
-          { session }
-        );
+      if (!targetVariant) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: "Variant required",
+        });
       }
+
+      const variantDoc = productVariants.find((v) => v.label === targetVariant);
+      if (!variantDoc) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: "Variant not found",
+        });
+      }
+
+      const availableStock = variantDoc.stock || 0;
+
+      if (quantityDiff > 0 && availableStock < quantityDiff) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: "Insufficient stock available",
+        });
+      }
+
+      // Update product stock atomically on variant
+      await productModel.updateOne(
+        { _id: productId, "variants.label": targetVariant },
+        { $inc: { "variants.$.stock": -quantityDiff } },
+        { session },
+      );
     }
 
     // Update reservation
@@ -516,15 +451,23 @@ const clearCart = async (req, res) => {
       const product = await productModel
         .findById(item.productId)
         .session(session);
-      const stockUpdate =
-        product.category === "toys"
-          ? { stock: item.quantity }
-          : { [`stock.${item.variant}`]: item.quantity };
+      if (!product)
+        continue;
+
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const isSingleDefault = variants.length === 1 && variants[0]?.label === "Default";
+      const targetVariant = item.variant || (isSingleDefault ? "Default" : null);
+      if (!targetVariant)
+        continue;
+
+      const variantDoc = variants.find((v) => v.label === targetVariant);
+      if (!variantDoc)
+        continue;
 
       await productModel.updateOne(
-        { _id: item.productId },
-        { $inc: stockUpdate },
-        { session }
+        { _id: item.productId, "variants.label": targetVariant },
+        { $inc: { "variants.$.stock": item.quantity } },
+        { session },
       );
     }
 

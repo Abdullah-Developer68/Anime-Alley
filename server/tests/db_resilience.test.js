@@ -362,7 +362,7 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
 
   await t.test("createProduct returns 500 when dbConnect fails", async () => {
     dbConnectShouldFail = true;
-    const req = { body: { name: "Product A", price: 20, stock: 10, category: "toys" } };
+    const req = { body: { name: "Product A", price: 20, variants: [{ label: "Default", stock: 10 }], category: "toys" } };
     const res = createMockRes();
     await productController.createProduct(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -372,7 +372,7 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
 
   await t.test("updateProduct returns 500 when dbConnect fails", async () => {
     dbConnectShouldFail = true;
-    const req = { body: { _id: "prod123", name: "Product A", price: 20, stock: 10, category: "toys" } };
+    const req = { body: { _id: "prod123", name: "Product A", price: 20, variants: [{ label: "Default", stock: 10 }], category: "toys" } };
     const res = createMockRes();
     await productController.updateProduct(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -436,7 +436,7 @@ test("3. Reservation Controller: Database Resilience & Cart Safety", async (t) =
               price: 30,
               image: "img.jpg",
               category: "toys",
-              stock: 10,
+              variants: [{ label: "Default", stock: 10 }],
             },
             quantity: 1,
             variant: "default",
@@ -943,79 +943,87 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     assert.strictEqual(res2.statusCode, 400);
   });
 
-  await t.test("createProduct returns 400 without dbConnect on invalid category or stock JSON", async () => {
-    const req1 = { body: { name: "Product", price: 20, stock: 10, category: "invalid_cat" } };
+  await t.test("createProduct returns 400 without dbConnect on invalid category or variants JSON", async () => {
+    const req1 = { body: { name: "Product", price: 20, variants: [{ label: "Default", stock: 10 }], category: "invalid_cat" } };
     const res1 = createMockRes();
     await productController.createProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
 
-    const req2 = { body: { name: "Comic A", price: 20, stock: "invalid-json", category: "comics" } };
+    const req2 = { headers: { "content-type": "multipart/form-data" }, body: { name: "Comic A", price: 20, variants: "invalid-json", category: "comics" } };
     const res2 = createMockRes();
     await productController.createProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
+    assert.strictEqual(res2._json.message, "Invalid variants format: must be valid JSON");
+
+    // Direct JSON payload sending string for variants is rejected as non-array
+    const reqDirectStrVariants = { body: { name: "Comic A", price: 20, variants: '[{"label":"Vol 1","stock":5}]', category: "comics" } };
+    const resDirectStrVariants = createMockRes();
+    await productController.createProduct(reqDirectStrVariants, resDirectStrVariants);
+    assert.strictEqual(resDirectStrVariants.statusCode, 400);
+    assert.strictEqual(resDirectStrVariants._json.message, "Variants must be a non-empty array");
 
     // Negative price
-    const req3 = { body: { name: "Toy A", price: -5, stock: 0, category: "toys" } };
+    const req3 = { body: { name: "Toy A", price: -5, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const res3 = createMockRes();
     await productController.createProduct(req3, res3);
     assert.strictEqual(res3.statusCode, 400);
     assert.strictEqual(res3._json.message, "Price must be a valid non-negative number");
 
     // String price rejection
-    const reqStrPrice = { body: { name: "Toy A", price: "20", stock: 0, category: "toys" } };
+    const reqStrPrice = { body: { name: "Toy A", price: "20", variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const resStrPrice = createMockRes();
     await productController.createProduct(reqStrPrice, resStrPrice);
     assert.strictEqual(resStrPrice.statusCode, 400);
     assert.strictEqual(resStrPrice._json.message, "Price must be a valid non-negative number");
 
-    // String stock rejection for toy
-    const reqStrStock = { body: { name: "Toy A", price: 20, stock: "10", category: "toys" } };
+    // String stock rejection for variant
+    const reqStrStock = { body: { name: "Toy A", price: 20, variants: [{ label: "Default", stock: "10" }], category: "toys" } };
     const resStrStock = createMockRes();
     await productController.createProduct(reqStrStock, resStrStock);
     assert.strictEqual(resStrStock.statusCode, 400);
-    assert.strictEqual(resStrStock._json.message, "Invalid stock value for toy");
+    assert.strictEqual(resStrStock._json.message, "Variant Default must have a non-negative integer stock");
 
-    // Negative stock for toy
-    const req4 = { body: { name: "Toy A", price: 0, stock: -1, category: "toys" } };
+    // Negative stock for variant
+    const req4 = { body: { name: "Toy A", price: 0, variants: [{ label: "Default", stock: -1 }], category: "toys" } };
     const res4 = createMockRes();
     await productController.createProduct(req4, res4);
     assert.strictEqual(res4.statusCode, 400);
-    assert.strictEqual(res4._json.message, "Invalid stock value for toy");
+    assert.strictEqual(res4._json.message, "Variant Default must have a non-negative integer stock");
 
     // Partially numeric price
-    const reqPartNumeric = { body: { name: "Toy A", price: "20abc", stock: 0, category: "toys" } };
+    const reqPartNumeric = { body: { name: "Toy A", price: "20abc", variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const resPartNumeric = createMockRes();
     await productController.createProduct(reqPartNumeric, resPartNumeric);
     assert.strictEqual(resPartNumeric.statusCode, 400);
     assert.strictEqual(resPartNumeric._json.message, "Price must be a valid non-negative number");
 
-    // Float stock for toy
-    const reqFloatStock = { body: { name: "Toy A", price: 10, stock: 2.5, category: "toys" } };
+    // Float stock for variant
+    const reqFloatStock = { body: { name: "Toy A", price: 10, variants: [{ label: "Default", stock: 2.5 }], category: "toys" } };
     const resFloatStock = createMockRes();
     await productController.createProduct(reqFloatStock, resFloatStock);
     assert.strictEqual(resFloatStock.statusCode, 400);
-    assert.strictEqual(resFloatStock._json.message, "Invalid stock value for toy");
+    assert.strictEqual(resFloatStock._json.message, "Variant Default must have a non-negative integer stock");
 
-    // Number stock for comic
-    const reqComicNumStock = { body: { name: "Comic A", price: 10, stock: 10, category: "comics" } };
-    const resComicNumStock = createMockRes();
-    await productController.createProduct(reqComicNumStock, resComicNumStock);
-    assert.strictEqual(resComicNumStock.statusCode, 400);
-    assert.strictEqual(resComicNumStock._json.message, "Stock must be an object for comics");
+    // Empty variants array
+    const reqEmptyVariants = { body: { name: "Comic A", price: 10, variants: [], category: "comics" } };
+    const resEmptyVariants = createMockRes();
+    await productController.createProduct(reqEmptyVariants, resEmptyVariants);
+    assert.strictEqual(resEmptyVariants.statusCode, 400);
+    assert.strictEqual(resEmptyVariants._json.message, "Variants must be a non-empty array");
 
     // Whitespace price
-    const reqSpacePrice = { body: { name: "Toy A", price: "   ", stock: 10, category: "toys" } };
+    const reqSpacePrice = { body: { name: "Toy A", price: "   ", variants: [{ label: "Default", stock: 10 }], category: "toys" } };
     const resSpacePrice = createMockRes();
     await productController.createProduct(reqSpacePrice, resSpacePrice);
     assert.strictEqual(resSpacePrice.statusCode, 400);
     assert.strictEqual(resSpacePrice._json.message, "fields in data from client are missing");
 
-    // Whitespace stock
-    const reqSpaceStock = { body: { name: "Toy A", price: 10, stock: "   ", category: "toys" } };
-    const resSpaceStock = createMockRes();
-    await productController.createProduct(reqSpaceStock, resSpaceStock);
-    assert.strictEqual(resSpaceStock.statusCode, 400);
-    assert.strictEqual(resSpaceStock._json.message, "fields in data from client are missing");
+    // Whitespace variants
+    const reqSpaceVariants = { body: { name: "Toy A", price: 10, variants: "   ", category: "toys" } };
+    const resSpaceVariants = createMockRes();
+    await productController.createProduct(reqSpaceVariants, resSpaceVariants);
+    assert.strictEqual(resSpaceVariants.statusCode, 400);
+    assert.strictEqual(resSpaceVariants._json.message, "fields in data from client are missing");
   });
 
   await t.test("deleteProduct returns 400 on whitespace productID", async () => {
@@ -1026,169 +1034,236 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     assert.strictEqual(res._json.message, "The productID is required!");
   });
 
-  await t.test("updateProduct returns 400 without dbConnect on missing fields or invalid stock", async () => {
+  await t.test("updateProduct returns 400 without dbConnect on missing fields or invalid variants", async () => {
     const req1 = { body: { _id: "prod123" } };
     const res1 = createMockRes();
     await productController.updateProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
 
-    const req2 = { body: { _id: "prod123", name: "Product", price: 20, stock: "invalid-json", category: "comics" } };
+    const req2 = { headers: { "content-type": "multipart/form-data" }, body: { _id: "prod123", name: "Product", price: 20, variants: "invalid-json", category: "comics" } };
     const res2 = createMockRes();
     await productController.updateProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
+    assert.strictEqual(res2._json.message, "Invalid variants format: must be valid JSON");
+
+    // Direct JSON payload sending string for variants is rejected as non-array
+    const reqDirectStrVariants = { body: { _id: "prod123", name: "Product", price: 20, variants: '[{"label":"V1","stock":5}]', category: "comics" } };
+    const resDirectStrVariants = createMockRes();
+    await productController.updateProduct(reqDirectStrVariants, resDirectStrVariants);
+    assert.strictEqual(resDirectStrVariants.statusCode, 400);
+    assert.strictEqual(resDirectStrVariants._json.message, "Variants must be a non-empty array");
 
     // Negative price
-    const req3 = { body: { _id: "prod123", name: "Toy A", price: -10, stock: 0, category: "toys" } };
+    const req3 = { body: { _id: "prod123", name: "Toy A", price: -10, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const res3 = createMockRes();
     await productController.updateProduct(req3, res3);
     assert.strictEqual(res3.statusCode, 400);
     assert.strictEqual(res3._json.message, "Price must be a valid non-negative number");
 
     // String price rejection in updateProduct
-    const reqUpdateStrPrice = { body: { _id: "prod123", name: "Toy A", price: "20", stock: 0, category: "toys" } };
+    const reqUpdateStrPrice = { body: { _id: "prod123", name: "Toy A", price: "20", variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const resUpdateStrPrice = createMockRes();
     await productController.updateProduct(reqUpdateStrPrice, resUpdateStrPrice);
     assert.strictEqual(resUpdateStrPrice.statusCode, 400);
     assert.strictEqual(resUpdateStrPrice._json.message, "Price must be a valid non-negative number");
 
-    // String stock rejection for toy in updateProduct
-    const reqUpdateStrStock = { body: { _id: "prod123", name: "Toy A", price: 20, stock: "10", category: "toys" } };
+    // String stock rejection for variant in updateProduct
+    const reqUpdateStrStock = { body: { _id: "prod123", name: "Toy A", price: 20, variants: [{ label: "Default", stock: "10" }], category: "toys" } };
     const resUpdateStrStock = createMockRes();
     await productController.updateProduct(reqUpdateStrStock, resUpdateStrStock);
     assert.strictEqual(resUpdateStrStock.statusCode, 400);
-    assert.strictEqual(resUpdateStrStock._json.message, "Invalid stock value for toy");
+    assert.strictEqual(resUpdateStrStock._json.message, "Variant Default must have a non-negative integer stock");
 
     // Partially numeric price
-    const reqUpdatePartNumeric = { body: { _id: "prod123", name: "Toy A", price: "10abc", stock: 0, category: "toys" } };
+    const reqUpdatePartNumeric = { body: { _id: "prod123", name: "Toy A", price: "10abc", variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const resUpdatePartNumeric = createMockRes();
     await productController.updateProduct(reqUpdatePartNumeric, resUpdatePartNumeric);
     assert.strictEqual(resUpdatePartNumeric.statusCode, 400);
     assert.strictEqual(resUpdatePartNumeric._json.message, "Price must be a valid non-negative number");
 
-    // Negative stock for toy
-    const req4 = { body: { _id: "prod123", name: "Toy A", price: 0, stock: -2, category: "toys" } };
+    // Negative stock for variant
+    const req4 = { body: { _id: "prod123", name: "Toy A", price: 0, variants: [{ label: "Default", stock: -2 }], category: "toys" } };
     const res4 = createMockRes();
     await productController.updateProduct(req4, res4);
     assert.strictEqual(res4.statusCode, 400);
-    assert.strictEqual(res4._json.message, "Invalid stock value for toy");
+    assert.strictEqual(res4._json.message, "Variant Default must have a non-negative integer stock");
 
-    // Float stock for toy
-    const reqUpdateFloatStock = { body: { _id: "prod123", name: "Toy A", price: 0, stock: 1.5, category: "toys" } };
+    // Float stock for variant
+    const reqUpdateFloatStock = { body: { _id: "prod123", name: "Toy A", price: 0, variants: [{ label: "Default", stock: 1.5 }], category: "toys" } };
     const resUpdateFloatStock = createMockRes();
     await productController.updateProduct(reqUpdateFloatStock, resUpdateFloatStock);
     assert.strictEqual(resUpdateFloatStock.statusCode, 400);
-    assert.strictEqual(resUpdateFloatStock._json.message, "Invalid stock value for toy");
+    assert.strictEqual(resUpdateFloatStock._json.message, "Variant Default must have a non-negative integer stock");
 
-    // Number stock for comic in update
-    const reqUpdateComicNumStock = { body: { _id: "prod123", name: "Comic A", price: 10, stock: 10, category: "comics" } };
-    const resUpdateComicNumStock = createMockRes();
-    await productController.updateProduct(reqUpdateComicNumStock, resUpdateComicNumStock);
-    assert.strictEqual(resUpdateComicNumStock.statusCode, 400);
-    assert.strictEqual(resUpdateComicNumStock._json.message, "Stock must be an object for comics");
+    // Empty variants in update
+    const reqUpdateEmptyVariants = { body: { _id: "prod123", name: "Comic A", price: 10, variants: [], category: "comics" } };
+    const resUpdateEmptyVariants = createMockRes();
+    await productController.updateProduct(reqUpdateEmptyVariants, resUpdateEmptyVariants);
+    assert.strictEqual(resUpdateEmptyVariants.statusCode, 400);
+    assert.strictEqual(resUpdateEmptyVariants._json.message, "Variants must be a non-empty array");
 
     // Whitespace price
-    const reqUpdateSpacePrice = { body: { _id: "prod123", name: "Toy A", price: "   ", stock: 10, category: "toys" } };
+    const reqUpdateSpacePrice = { body: { _id: "prod123", name: "Toy A", price: "   ", variants: [{ label: "Default", stock: 10 }], category: "toys" } };
     const resUpdateSpacePrice = createMockRes();
     await productController.updateProduct(reqUpdateSpacePrice, resUpdateSpacePrice);
     assert.strictEqual(resUpdateSpacePrice.statusCode, 400);
     assert.strictEqual(resUpdateSpacePrice._json.message, "fields in data from client are missing");
 
-    // Whitespace stock
-    const reqUpdateSpaceStock = { body: { _id: "prod123", name: "Toy A", price: 10, stock: "   ", category: "toys" } };
-    const resUpdateSpaceStock = createMockRes();
-    await productController.updateProduct(reqUpdateSpaceStock, resUpdateSpaceStock);
-    assert.strictEqual(resUpdateSpaceStock.statusCode, 400);
-    assert.strictEqual(resUpdateSpaceStock._json.message, "fields in data from client are missing");
+    // Whitespace variants
+    const reqUpdateSpaceVariants = { body: { _id: "prod123", name: "Toy A", price: 10, variants: "   ", category: "toys" } };
+    const resUpdateSpaceVariants = createMockRes();
+    await productController.updateProduct(reqUpdateSpaceVariants, resUpdateSpaceVariants);
+    assert.strictEqual(resUpdateSpaceVariants.statusCode, 400);
+    assert.strictEqual(resUpdateSpaceVariants._json.message, "fields in data from client are missing");
   });
 
   await t.test("createProduct and updateProduct allow price = 0 and stock = 0 without returning 400 missing fields", async () => {
     dbConnectShouldFail = true;
-    const reqCreate = { body: { name: "Free Toy", price: 0, stock: 0, category: "toys" } };
+    const reqCreate = { body: { name: "Free Toy", price: 0, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const resCreate = createMockRes();
     await productController.createProduct(reqCreate, resCreate);
     assert.strictEqual(resCreate.statusCode, 500);
 
-    const reqUpdate = { body: { _id: "prod123", name: "Out of Stock Toy", price: 0, stock: 0, category: "toys" } };
+    const reqUpdate = { body: { _id: "prod123", name: "Out of Stock Toy", price: 0, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
     const resUpdate = createMockRes();
     await productController.updateProduct(reqUpdate, resUpdate);
     assert.strictEqual(resUpdate.statusCode, 500);
     dbConnectShouldFail = false;
   });
 
-  await t.test("createProduct returns 400 without dbConnect on missing or invalid comic volume stock", async () => {
+  await t.test("createProduct returns 400 without dbConnect on invalid comic variant stock or label", async () => {
     const req1 = {
+      headers: { "content-type": "multipart/form-data" },
       body: {
         name: "One Piece",
         price: 10,
         category: "comics",
-        stock: JSON.stringify({ "Vol 1": 5 }),
-        volumes: JSON.stringify(["Vol 1", "Vol 2"]),
+        variants: JSON.stringify([{ label: "Vol 1", stock: 5 }, { label: "", stock: 2 }]),
       },
     };
     const res1 = createMockRes();
     await productController.createProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
-    assert.ok(res1._json.message.includes("Stock value missing or invalid for volume Vol 2"));
+    assert.strictEqual(res1._json.message, "Each variant must have a non-empty label");
 
     const req2 = {
+      headers: { "content-type": "multipart/form-data" },
       body: {
         name: "One Piece",
         price: 10,
         category: "comics",
-        stock: JSON.stringify({ "Vol 1": -5 }),
-        volumes: JSON.stringify(["Vol 1"]),
+        variants: JSON.stringify([{ label: "Vol 1", stock: -5 }]),
       },
     };
     const res2 = createMockRes();
     await productController.createProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
-    assert.ok(res2._json.message.includes("Stock value missing or invalid for volume Vol 1"));
+    assert.ok(res2._json.message.includes("must have a non-negative integer stock"));
   });
 
-  await t.test("updateProduct returns 400 without dbConnect on missing or invalid size stock", async () => {
+  await t.test("updateProduct returns 400 without dbConnect on invalid size variant stock", async () => {
     const req1 = {
+      headers: { "content-type": "multipart/form-data" },
       body: {
         _id: "507f1f77bcf86cd799439011",
         name: "Anime Hoodie",
         price: 45,
         category: "clothes",
-        stock: JSON.stringify({ S: 10, M: "invalid_number" }),
-        sizes: JSON.stringify(["S", "M"]),
+        variants: JSON.stringify([{ label: "S", stock: 10 }, { label: "M", stock: "invalid_number" }]),
       },
     };
     const res1 = createMockRes();
     await productController.updateProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
-    assert.ok(res1._json.message.includes("Stock value missing or invalid for size M"));
+    assert.ok(res1._json.message.includes("must have a non-negative integer stock"));
 
-    // Reject string stock in createProduct without volumes array
-    const reqNoVolStr = {
+    // Reject non-array variants in createProduct
+    const reqNonArr = {
       body: {
         name: "Comic No Volumes",
         price: 20,
         category: "comics",
-        stock: { "Vol 1": "5" },
+        variants: { "Vol 1": 5 },
       },
     };
-    const resNoVolStr = createMockRes();
-    await productController.createProduct(reqNoVolStr, resNoVolStr);
-    assert.strictEqual(resNoVolStr.statusCode, 400);
-    assert.ok(resNoVolStr._json.message.includes("Stock value missing or invalid for volume Vol 1"));
+    const resNonArr = createMockRes();
+    await productController.createProduct(reqNonArr, resNonArr);
+    assert.strictEqual(resNonArr.statusCode, 400);
+    assert.strictEqual(resNonArr._json.message, "Variants must be a non-empty array");
 
-    // Reject string stock in updateProduct without sizes array
-    const reqNoSizesStr = {
+    // Reject float stock in variant in updateProduct
+    const reqFloatVariant = {
       body: {
         _id: "507f1f77bcf86cd799439011",
         name: "Shirt No Sizes",
         price: 25,
         category: "clothes",
-        stock: { L: "15" },
+        variants: [{ label: "L", stock: 15.5 }],
       },
     };
-    const resNoSizesStr = createMockRes();
-    await productController.updateProduct(reqNoSizesStr, resNoSizesStr);
-    assert.strictEqual(resNoSizesStr.statusCode, 400);
-    assert.ok(resNoSizesStr._json.message.includes("Stock value missing or invalid for size L"));
+    const resFloatVariant = createMockRes();
+    await productController.updateProduct(reqFloatVariant, resFloatVariant);
+    assert.strictEqual(resFloatVariant.statusCode, 400);
+    assert.ok(resFloatVariant._json.message.includes("must have a non-negative integer stock"));
+  });
+
+  await t.test("createProduct and updateProduct validate unified variants array", async () => {
+    // Missing label or non-string label
+    const reqNoLabel = {
+      body: {
+        name: "Test Comic",
+        price: 25,
+        category: "comics",
+        variants: [{ stock: 10 }],
+      },
+    };
+    const resNoLabel = createMockRes();
+    await productController.createProduct(reqNoLabel, resNoLabel);
+    assert.strictEqual(resNoLabel.statusCode, 400);
+    assert.strictEqual(resNoLabel._json.message, "Each variant must have a non-empty label");
+
+    // Negative stock in variant
+    const reqNegStock = {
+      body: {
+        _id: "507f1f77bcf86cd799439011",
+        name: "Test Shirt",
+        price: 30,
+        category: "clothes",
+        variants: [{ label: "M", stock: -1 }],
+      },
+    };
+    const resNegStock = createMockRes();
+    await productController.updateProduct(reqNegStock, resNegStock);
+    assert.strictEqual(resNegStock.statusCode, 400);
+    assert.ok(resNegStock._json.message.includes("must have a non-negative integer stock"));
+
+    // String stock in variant
+    const reqStrStock = {
+      body: {
+        name: "Test Toy",
+        price: 40,
+        category: "toys",
+        variants: [{ label: "Default", stock: "15" }],
+      },
+    };
+    const resStrStock = createMockRes();
+    await productController.createProduct(reqStrStock, resStrStock);
+    assert.strictEqual(resStrStock.statusCode, 400);
+    assert.ok(resStrStock._json.message.includes("must have a non-negative integer stock"));
+
+    // Empty variants array
+    const reqEmptyVariants = {
+      body: {
+        name: "Test Shoes",
+        price: 80,
+        category: "shoes",
+        variants: [],
+      },
+    };
+    const resEmptyVariants = createMockRes();
+    await productController.createProduct(reqEmptyVariants, resEmptyVariants);
+    assert.strictEqual(resEmptyVariants.statusCode, 400);
+    assert.strictEqual(resEmptyVariants._json.message, "Variants must be a non-empty array");
   });
 
   await t.test("updateCartItem returns 400 without dbConnect or session on missing productId or invalid quantity", async () => {
@@ -1298,8 +1373,8 @@ test("10. Cleanup Routes & Vercel Cron GET Support", async (t) => {
       queriedProductIds = filter._id.$in;
       return {
         session: () => [
-          { _id: "prod_dup_1", category: "clothes", stock: { S: 10, M: 10 } },
-          { _id: "prod_dup_2", category: "toys", stock: 5 },
+          { _id: "prod_dup_1", category: "clothes", variants: [{ label: "S", stock: 10 }, { label: "M", stock: 10 }] },
+          { _id: "prod_dup_2", category: "toys", variants: [{ label: "Default", stock: 5 }] },
         ],
       };
     };
