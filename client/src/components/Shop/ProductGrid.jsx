@@ -41,7 +41,7 @@ const ProductGrid = () => {
         const apiPayload = {
           category: currCategory.toLowerCase(),
           productTypes: productTypes || ["all"],
-          price: price || 0,
+          price: typeof price === "number" ? price : (Number(price) || 0),
           sortBy: sortBy || "popular",
           page: currPage,
           searchQuery: searchQuery || "",

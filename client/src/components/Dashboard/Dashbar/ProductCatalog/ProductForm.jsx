@@ -228,7 +228,7 @@ const ProductForm = () => {
 
       formData.append("name", data.productName);
       formData.append("description", data.description);
-      formData.append("price", data.price);
+      formData.append("price", Number(data.price));
       formData.append("category", data.category);
 
       // Handle image - only append if new file selected, otherwise keep existing
@@ -246,7 +246,7 @@ const ProductForm = () => {
 
         const stockData = {};
         volumes.forEach((volume) => {
-          stockData[volume] = parseInt(data[`stock_${volume}`]) || 0;
+          stockData[volume] = Number(data[`stock_${volume}`]) || 0;
         });
 
         formData.append("stock", JSON.stringify(stockData));
@@ -263,14 +263,14 @@ const ProductForm = () => {
       } else if (data.category === "clothes" || data.category === "shoes") {
         const stockData = {};
         data.availableSizes.forEach((size) => {
-          stockData[size] = parseInt(data[`stock_${size}`]) || 0;
+          stockData[size] = Number(data[`stock_${size}`]) || 0;
         });
 
         formData.append("stock", JSON.stringify(stockData));
         formData.append("sizes", JSON.stringify(data.availableSizes));
         formData.append("merchType", data.merchandiseType);
       } else if (data.category === "toys") {
-        formData.append("stock", JSON.stringify(parseInt(data.stock) || 0));
+        formData.append("stock", Number(data.stock) || 0);
         formData.append("toyType", data.toyType.trim());
       }
 
@@ -432,9 +432,16 @@ const ProductForm = () => {
                     </label>
                     <input
                       type="number"
+                      step="any"
+                      min="0"
                       className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                       placeholder="Enter price"
-                      {...register("price", { required: "Price is required!" })}
+                      {...register("price", {
+                        required: "Price is required!",
+                        validate: (value) =>
+                          (!isNaN(Number(value)) && Number(value) >= 0) ||
+                          "Price must be a valid non-negative number",
+                      })}
                     />
                     {errors.price && (
                       <span className="block mt-1 text-xs text-red-500">
@@ -531,7 +538,7 @@ const ProductForm = () => {
                                         message: "Stock cannot be negative",
                                       },
                                       validate: (value) =>
-                                        !isNaN(parseInt(value)) ||
+                                        !isNaN(Number(value)) ||
                                         "Must be a valid number",
                                     })}
                                   />
@@ -572,7 +579,7 @@ const ProductForm = () => {
                                         message: "Stock cannot be negative",
                                       },
                                       validate: (value) =>
-                                        !isNaN(parseInt(value)) ||
+                                        !isNaN(Number(value)) ||
                                         "Must be a valid number",
                                     })}
                                   />
@@ -594,7 +601,7 @@ const ProductForm = () => {
                             message: "Stock cannot be negative",
                           },
                           validate: (value) =>
-                            !isNaN(parseInt(value)) || "Must be a valid number",
+                            !isNaN(Number(value)) || "Must be a valid number",
                         })}
                       />
                     ) : null}

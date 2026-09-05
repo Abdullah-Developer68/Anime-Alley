@@ -37,6 +37,10 @@ Follow this strict two-part convention across all controllers, services, and mid
    const userEmail = req.user?.email;
    ```
 
+### Strict Variable Typing Standard
+- **No Stringified Numbers from Frontend**: The frontend must never send a string for a variable that is contractually a number. Numeric fields (such as `price`, `stock`, `quantity`, `page`, etc.) must always be sent as native numbers (e.g., using `Number(...)`, `parseInt(...)`, or numeric input values), never stringified numbers.
+- **Strict Server-Side Type Enforcement**: Backend endpoints and controllers must strictly validate and enforce expected data types. If a variable is required to be numeric (such as `price` or numeric `stock`), any payload where `typeof value === "string"` or non-numeric must be rejected immediately (e.g., returning 400 Bad Request). The backend must never implicitly coerce strings into numbers for fields contractually defined as numeric.
+
 ### If / Else Formatting Standard
 - **Single-statement blocks**: If an `if` or `else` block contains only 1 statement, do **not** use curly braces (`{ }`). Place on the same line or indented on the next line:
   ```javascript

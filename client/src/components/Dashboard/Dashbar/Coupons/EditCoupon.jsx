@@ -40,8 +40,11 @@ const EditCoupon = () => {
     setIsSaving(true);
     setError("");
     try {
-      // This API endpoint will need to be created
-      const res = await api.updateCoupon(selectedCoupon._id, formData);
+      const payload = {
+        discountPercentage: Number(formData.discountPercentage),
+        expiryDate: formData.expiryDate,
+      };
+      const res = await api.updateCoupon(selectedCoupon._id, payload);
       if (res.data.success) {
         toast.success("Coupon updated successfully!");
         dispatch(setReloadData("coupons"));

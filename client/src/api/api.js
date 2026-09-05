@@ -213,7 +213,11 @@ api.exportData = (dataType, format) => {
 
 // --- API'S FOR STOCK MANAGEMENT
 api.reserveStock = (productId, variant, quantity) => {
-  return api.post("/reserveStock", { productId, variant, quantity });
+  return api.post("/reserveStock", {
+    productId,
+    variant,
+    quantity: typeof quantity === "number" ? quantity : Number(quantity),
+  });
 };
 
 // --- CART API'S ---
@@ -222,7 +226,11 @@ api.getCart = () => {
 };
 
 api.updateCartItem = (productId, variant, newQuantity) => {
-  return api.put("/cart/update", { productId, variant, newQuantity });
+  return api.put("/cart/update", {
+    productId,
+    variant,
+    newQuantity: typeof newQuantity === "number" ? newQuantity : Number(newQuantity),
+  });
 };
 
 api.clearCart = () => {

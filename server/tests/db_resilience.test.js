@@ -362,7 +362,7 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
 
   await t.test("createProduct returns 500 when dbConnect fails", async () => {
     dbConnectShouldFail = true;
-    const req = { body: { name: "Product A", price: "20", stock: "10", category: "toys" } };
+    const req = { body: { name: "Product A", price: 20, stock: 10, category: "toys" } };
     const res = createMockRes();
     await productController.createProduct(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -372,7 +372,7 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
 
   await t.test("updateProduct returns 500 when dbConnect fails", async () => {
     dbConnectShouldFail = true;
-    const req = { body: { _id: "prod123", name: "Product A", price: "20", stock: "10", category: "toys" } };
+    const req = { body: { _id: "prod123", name: "Product A", price: 20, stock: 10, category: "toys" } };
     const res = createMockRes();
     await productController.updateProduct(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -944,12 +944,12 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
   });
 
   await t.test("createProduct returns 400 without dbConnect on invalid category or stock JSON", async () => {
-    const req1 = { body: { name: "Product", price: "20", stock: "10", category: "invalid_cat" } };
+    const req1 = { body: { name: "Product", price: 20, stock: 10, category: "invalid_cat" } };
     const res1 = createMockRes();
     await productController.createProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
 
-    const req2 = { body: { name: "Comic A", price: "20", stock: "invalid-json", category: "comics" } };
+    const req2 = { body: { name: "Comic A", price: 20, stock: "invalid-json", category: "comics" } };
     const res2 = createMockRes();
     await productController.createProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
@@ -960,6 +960,20 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     await productController.createProduct(req3, res3);
     assert.strictEqual(res3.statusCode, 400);
     assert.strictEqual(res3._json.message, "Price must be a valid non-negative number");
+
+    // String price rejection
+    const reqStrPrice = { body: { name: "Toy A", price: "20", stock: 0, category: "toys" } };
+    const resStrPrice = createMockRes();
+    await productController.createProduct(reqStrPrice, resStrPrice);
+    assert.strictEqual(resStrPrice.statusCode, 400);
+    assert.strictEqual(resStrPrice._json.message, "Price must be a valid non-negative number");
+
+    // String stock rejection for toy
+    const reqStrStock = { body: { name: "Toy A", price: 20, stock: "10", category: "toys" } };
+    const resStrStock = createMockRes();
+    await productController.createProduct(reqStrStock, resStrStock);
+    assert.strictEqual(resStrStock.statusCode, 400);
+    assert.strictEqual(resStrStock._json.message, "Invalid stock value for toy");
 
     // Negative stock for toy
     const req4 = { body: { name: "Toy A", price: 0, stock: -1, category: "toys" } };
@@ -1018,7 +1032,7 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     await productController.updateProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
 
-    const req2 = { body: { _id: "prod123", name: "Product", price: "20", stock: "invalid-json", category: "comics" } };
+    const req2 = { body: { _id: "prod123", name: "Product", price: 20, stock: "invalid-json", category: "comics" } };
     const res2 = createMockRes();
     await productController.updateProduct(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
@@ -1029,6 +1043,20 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     await productController.updateProduct(req3, res3);
     assert.strictEqual(res3.statusCode, 400);
     assert.strictEqual(res3._json.message, "Price must be a valid non-negative number");
+
+    // String price rejection in updateProduct
+    const reqUpdateStrPrice = { body: { _id: "prod123", name: "Toy A", price: "20", stock: 0, category: "toys" } };
+    const resUpdateStrPrice = createMockRes();
+    await productController.updateProduct(reqUpdateStrPrice, resUpdateStrPrice);
+    assert.strictEqual(resUpdateStrPrice.statusCode, 400);
+    assert.strictEqual(resUpdateStrPrice._json.message, "Price must be a valid non-negative number");
+
+    // String stock rejection for toy in updateProduct
+    const reqUpdateStrStock = { body: { _id: "prod123", name: "Toy A", price: 20, stock: "10", category: "toys" } };
+    const resUpdateStrStock = createMockRes();
+    await productController.updateProduct(reqUpdateStrStock, resUpdateStrStock);
+    assert.strictEqual(resUpdateStrStock.statusCode, 400);
+    assert.strictEqual(resUpdateStrStock._json.message, "Invalid stock value for toy");
 
     // Partially numeric price
     const reqUpdatePartNumeric = { body: { _id: "prod123", name: "Toy A", price: "10abc", stock: 0, category: "toys" } };
@@ -1132,6 +1160,35 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     await productController.updateProduct(req1, res1);
     assert.strictEqual(res1.statusCode, 400);
     assert.ok(res1._json.message.includes("Stock value missing or invalid for size M"));
+
+    // Reject string stock in createProduct without volumes array
+    const reqNoVolStr = {
+      body: {
+        name: "Comic No Volumes",
+        price: 20,
+        category: "comics",
+        stock: { "Vol 1": "5" },
+      },
+    };
+    const resNoVolStr = createMockRes();
+    await productController.createProduct(reqNoVolStr, resNoVolStr);
+    assert.strictEqual(resNoVolStr.statusCode, 400);
+    assert.ok(resNoVolStr._json.message.includes("Stock value missing or invalid for volume Vol 1"));
+
+    // Reject string stock in updateProduct without sizes array
+    const reqNoSizesStr = {
+      body: {
+        _id: "507f1f77bcf86cd799439011",
+        name: "Shirt No Sizes",
+        price: 25,
+        category: "clothes",
+        stock: { L: "15" },
+      },
+    };
+    const resNoSizesStr = createMockRes();
+    await productController.updateProduct(reqNoSizesStr, resNoSizesStr);
+    assert.strictEqual(resNoSizesStr.statusCode, 400);
+    assert.ok(resNoSizesStr._json.message.includes("Stock value missing or invalid for size L"));
   });
 
   await t.test("updateCartItem returns 400 without dbConnect or session on missing productId or invalid quantity", async () => {
@@ -1147,6 +1204,20 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     await reservationController.updateCartItem(req2, res2);
     assert.strictEqual(res2.statusCode, 400);
     assert.strictEqual(activeSessions.length, 0);
+  });
+
+  await t.test("getProducts returns 400 without dbConnect on string or negative price", async () => {
+    const req1 = { query: { productConstraints: JSON.stringify({ category: "comics", page: 1, price: "50" }) } };
+    const res1 = createMockRes();
+    await productController.getProducts(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+    assert.strictEqual(res1._json.message, "Price must be a valid non-negative number");
+
+    const req2 = { query: { productConstraints: JSON.stringify({ category: "comics", page: 1, price: -10 }) } };
+    const res2 = createMockRes();
+    await productController.getProducts(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+    assert.strictEqual(res2._json.message, "Price must be a valid non-negative number");
   });
 
   dbConnectShouldFail = false;

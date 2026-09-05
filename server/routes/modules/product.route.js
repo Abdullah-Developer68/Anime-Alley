@@ -8,6 +8,7 @@ const {
   productSearchLimiter,
 } = require("../../middlewares/custom/rateLimiters.middleware.js");
 const upload = require("../../middlewares/modules/multerConfig.js");
+const parseMultipartProductData = require("../../middlewares/custom/parseMultipartProductData.middleware.js");
 const {
   getProducts,
   createProduct,
@@ -24,6 +25,7 @@ router.post(
   verifyTokenMiddleware,
   requireAdmin,
   upload.single("image"),
+  parseMultipartProductData,
   createProduct,
 );
 router.post(
@@ -37,6 +39,7 @@ router.put(
   verifyTokenMiddleware,
   requireAdmin,
   upload.single("image"),
+  parseMultipartProductData,
   updateProduct,
 );
 

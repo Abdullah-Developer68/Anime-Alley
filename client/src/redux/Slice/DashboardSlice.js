@@ -178,20 +178,6 @@ const dashboardSlice = createSlice({
   },
 });
 
-// Persist modal state to localStorage on every state change
-const persistKeys = [
-  "productDeleteModalState",
-  "userDeleteModalState",
-  "orderDeleteModalState",
-  "couponDeleteModalState",
-  "productFormState",
-  "userEditFormState",
-  "orderEditFormState",
-  "couponEditFormState",
-  "couponCreateModalState",
-  "exportModalState",
-];
-
 export const {
   setReloadData,
   setUpdatedProfilePic,

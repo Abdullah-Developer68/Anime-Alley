@@ -27,7 +27,7 @@ const CreateCoupon = () => {
     try {
       const payload = {
         couponCode: form.couponCode,
-        discountPercentage: form.discountPercentage,
+        discountPercentage: Number(form.discountPercentage),
         expiryDate: form.expiryDate,
       };
       const res = await api.createCoupon(payload);

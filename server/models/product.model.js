@@ -58,26 +58,27 @@ const productSchema = new mongoose.Schema({
         const volumes = getContextValue(this, "volumes") || [];
         const sizes = getContextValue(this, "sizes") || [];
 
-        if (category === "comics") {
-          const isObject =
-            value && typeof value === "object" && !Array.isArray(value);
-          const hasValidVolumes =
-            isObject &&
-            Object.keys(value).every(
-              (key) => volumes.includes(key) && Number.isInteger(value[key]),
+        // Plain object helper for variant-based stock
+        const isPlainObject = value && typeof value === "object" && !Array.isArray(value);
+
+        switch (category) {
+          case "comics":
+            if (!isPlainObject) return false;
+            return Object.keys(value).every(
+              (key) => volumes.includes(key) && Number.isInteger(value[key]) && value[key] >= 0,
             );
-          return isObject && hasValidVolumes;
-        } else if (category === "clothes" || category === "shoes") {
-          const isObject =
-            value && typeof value === "object" && !Array.isArray(value);
-          const isValidSizes =
-            isObject &&
-            Object.keys(value).every(
-              (key) => sizes.includes(key) && Number.isInteger(value[key]),
+
+          case "clothes":
+          case "shoes":
+            if (!isPlainObject) return false;
+            return Object.keys(value).every(
+              (key) => sizes.includes(key) && Number.isInteger(value[key]) && value[key] >= 0,
             );
-          return isObject && isValidSizes;
-        } else
-          return typeof value === "number" && Number.isInteger(value);
+
+          case "toys":
+          default:
+            return typeof value === "number" && Number.isInteger(value) && value >= 0;
+        }
       },
       message: "Invalid stock format for this category",
     },

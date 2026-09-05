@@ -111,7 +111,7 @@ const FilterBar = () => {
           filter.toLowerCase(),
         ) || ["all"],
         sortBy: data.sortBy?.toLowerCase() || "popular",
-        price: data.price || 0,
+        price: Number(data.price) || 0,
         searchQuery: data.searchQuery?.trim() || "",
       };
 
@@ -238,7 +238,7 @@ const FilterBar = () => {
               type="range"
               min="0"
               max="100"
-              {...register("price")}
+              {...register("price", { valueAsNumber: true })}
               onChange={(e) => setValue("price", Number(e.target.value))}
               style={getBackgroundStyle(formFields.price)}
               className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
