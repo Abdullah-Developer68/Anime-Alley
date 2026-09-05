@@ -11,15 +11,6 @@ const parseMultipartProductData = (req, res, next) => {
         // Leave as string so controller strictly rejects invalid type
       }
     }
-    if (typeof req.body.stock === "string" && req.body.stock.trim() !== "") {
-      try {
-        const parsedStock = JSON.parse(req.body.stock);
-        if (typeof parsedStock === "number" || (typeof parsedStock === "object" && parsedStock !== null))
-          req.body.stock = parsedStock;
-      } catch {
-        // Leave as string so controller strictly rejects invalid type
-      }
-    }
     if (typeof req.body.variants === "string" && req.body.variants.trim() !== "") {
       try {
         const parsedVariants = JSON.parse(req.body.variants);

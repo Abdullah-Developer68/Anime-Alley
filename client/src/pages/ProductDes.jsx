@@ -55,9 +55,7 @@ const ProductDescription = () => {
       setVariantOptions([]);
       setVariantLabel("");
       setSelectedVariant("Default");
-      const defStock =
-        variants[0]?.stock ??
-        (typeof selectedProduct.stock === "number" ? selectedProduct.stock : 0);
+      const defStock = variants[0]?.stock ?? 0;
       setStockStatus({
         Default: {
           stockAvailable: defStock,

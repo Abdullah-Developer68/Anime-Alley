@@ -38,8 +38,7 @@ async function cleanupExpiredReservations() {
         for (const product of products)
           productMap.set(String(product?._id), product);
 
-        // Aggregate stock increments in memory per product
-        const legacyStockUpdates = new Map();
+        // Aggregate variant stock increments in memory per product and variant
         const variantStockUpdates = new Map();
 
         for (const reservation of expiredReservations) {
@@ -54,41 +53,18 @@ async function cleanupExpiredReservations() {
             if (!product)
               continue;
 
-            if (Array.isArray(product.variants) && product.variants.length > 0) {
-              const targetVariant = variant || (product.variants.length === 1 && product.variants[0].label === "Default" ? "Default" : product.variants[0]?.label || "Default");
-              const key = `${product._id}::${targetVariant}`;
-              variantStockUpdates.set(key, (variantStockUpdates.get(key) || 0) + quantity);
-            } else {
-              const category = product?.category?.toLowerCase();
-              let updateField = null;
-
-              if (["comics", "clothes", "shoes"].includes(category) && variant)
-                updateField = `stock.${variant}`;
-              else if (category === "toys")
-                updateField = "stock";
-
-              if (updateField) {
-                const prodIdStr = String(product._id);
-                if (!legacyStockUpdates.has(prodIdStr))
-                  legacyStockUpdates.set(prodIdStr, { id: product._id, inc: {} });
-
-                const target = legacyStockUpdates.get(prodIdStr);
-                target.inc[updateField] = (target.inc[updateField] || 0) + quantity;
-              }
-            }
+            const targetVariant =
+              variant ||
+              (Array.isArray(product.variants) && product.variants.length === 1 && product.variants[0].label === "Default"
+                ? "Default"
+                : product.variants?.[0]?.label || "Default");
+            const key = `${product._id}::${targetVariant}`;
+            variantStockUpdates.set(key, (variantStockUpdates.get(key) || 0) + quantity);
           }
         }
 
         // Apply batched increments using bulkWrite
         const bulkOps = [];
-        for (const { id, inc } of legacyStockUpdates.values()) {
-          bulkOps.push({
-            updateOne: {
-              filter: { _id: id },
-              update: { $inc: inc },
-            },
-          });
-        }
         for (const [key, qty] of variantStockUpdates.entries()) {
           const [prodId, targetVariant] = key.split("::");
           bulkOps.push({

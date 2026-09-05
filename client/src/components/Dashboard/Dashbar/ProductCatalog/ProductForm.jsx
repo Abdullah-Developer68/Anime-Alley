@@ -62,16 +62,8 @@ const ProductForm = () => {
       if (editProduct.genres) {
         setValue("genres", editProduct.genres.join(", "));
       }
-      if (editProduct.volumes) {
-        setValue("volumes", editProduct.volumes.join(", "));
-      }
       if (editProduct.toyType) {
         setValue("toyType", editProduct.toyType);
-      }
-      if (Array.isArray(editProduct.availableSizes)) {
-        setValue("availableSizes", editProduct.availableSizes);
-      } else if (editProduct.sizes) {
-        setValue("availableSizes", editProduct.sizes);
       }
       if (editProduct.merchType) {
         setValue("merchandiseType", editProduct.merchType);
@@ -96,27 +88,6 @@ const ProductForm = () => {
         } else if (editProduct.category === "toys") {
           const defVariant = editProduct.variants.find((v) => v.label === "Default") || editProduct.variants[0];
           setValue("stock", defVariant ? defVariant.stock : 0);
-        }
-      } else if (editProduct.stock) {
-        if (editProduct.category === "comics") {
-          if (typeof editProduct.stock === "object") {
-            Object.keys(editProduct.stock).forEach((volume) => {
-              setValue(`stock_${volume}`, editProduct.stock[volume]);
-            });
-          }
-        } else if (
-          editProduct.category === "clothes" ||
-          editProduct.category === "shoes"
-        ) {
-          if (typeof editProduct.stock === "object") {
-            Object.keys(editProduct.stock).forEach((size) => {
-              setValue(`stock_${size}`, editProduct.stock[size]);
-            });
-          }
-        } else if (editProduct.category === "toys") {
-          if (typeof editProduct.stock === "number") {
-            setValue("stock", editProduct.stock);
-          }
         }
       }
       // Always set preview to product image in edit mode
@@ -270,14 +241,7 @@ const ProductForm = () => {
           stock: Number(data[`stock_${volume}`]) || 0,
         }));
 
-        const stockData = {};
-        variantsList.forEach((v) => {
-          stockData[v.label] = v.stock;
-        });
-
         formData.append("variants", JSON.stringify(variantsList));
-        formData.append("stock", JSON.stringify(stockData));
-        formData.append("volumes", JSON.stringify(volumes));
         formData.append(
           "genres",
           JSON.stringify(
@@ -293,21 +257,13 @@ const ProductForm = () => {
           stock: Number(data[`stock_${size}`]) || 0,
         }));
 
-        const stockData = {};
-        variantsList.forEach((v) => {
-          stockData[v.label] = v.stock;
-        });
-
         formData.append("variants", JSON.stringify(variantsList));
-        formData.append("stock", JSON.stringify(stockData));
-        formData.append("sizes", JSON.stringify(data.availableSizes));
         formData.append("merchType", data.merchandiseType);
       } else if (data.category === "toys") {
         const toyStock = Number(data.stock) || 0;
         const variantsList = [{ label: "Default", stock: toyStock }];
 
         formData.append("variants", JSON.stringify(variantsList));
-        formData.append("stock", toyStock);
         formData.append("toyType", data.toyType.trim());
       }
 

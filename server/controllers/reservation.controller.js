@@ -49,9 +49,9 @@ const reserveStock = async (req, res) => {
     let actualQuantity = requestedQuantity;
     const MAX_RETRIES = 3; // used to restart verification of stock if it was changed in the middle of a transaction
 
-    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-    const isSingleDefault = hasVariants && product.variants.length === 1 && product.variants[0].label === "Default";
-    const requiresVariant = hasVariants ? !isSingleDefault : product.category !== "toys";
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const isSingleDefault = variants.length === 1 && variants[0].label === "Default";
+    const requiresVariant = !isSingleDefault;
 
     if (requiresVariant && !variant) {
       await mongoSession.abortTransaction();
@@ -60,16 +60,11 @@ const reserveStock = async (req, res) => {
         .json({ success: false, message: "Variant required" });
     }
 
-    const targetVariant = variant || (hasVariants ? product.variants[0]?.label || "Default" : "Default");
+    const targetVariant = variant || variants[0]?.label || "Default";
 
-    // Stock lookup supporting both unified variants array and legacy stock
-    if (hasVariants) {
-      const variantDoc = product.variants.find((v) => v.label === targetVariant);
-      stockAvailable = variantDoc ? variantDoc.stock : 0;
-    } else if (product.category === "toys")
-      stockAvailable = typeof product.stock === "number" ? product.stock : 0;
-    else
-      stockAvailable = product.stock ? (product.stock[targetVariant] || 0) : 0;
+    // Stock lookup strictly using unified variants array
+    const variantDoc = variants.find((v) => v.label === targetVariant);
+    stockAvailable = variantDoc ? variantDoc.stock : 0;
 
     if (stockAvailable === 0) {
       await mongoSession.abortTransaction();
@@ -91,14 +86,9 @@ const reserveStock = async (req, res) => {
         .findById(productId)
         .session(mongoSession);
 
-      let currentStock = 0;
-      if (Array.isArray(freshProduct?.variants) && freshProduct.variants.length > 0) {
-        const currentVariantDoc = freshProduct.variants.find((v) => v.label === targetVariant);
-        currentStock = currentVariantDoc ? currentVariantDoc.stock : 0;
-      } else if (freshProduct?.category === "toys")
-        currentStock = typeof freshProduct.stock === "number" ? freshProduct.stock : 0;
-      else
-        currentStock = freshProduct?.stock ? (freshProduct.stock[targetVariant] || 0) : 0;
+      const freshVariants = Array.isArray(freshProduct?.variants) ? freshProduct.variants : [];
+      const currentVariantDoc = freshVariants.find((v) => v.label === targetVariant);
+      const currentStock = currentVariantDoc ? currentVariantDoc.stock : 0;
 
       if (currentStock === 0) {
         await mongoSession.abortTransaction();
@@ -112,26 +102,12 @@ const reserveStock = async (req, res) => {
       // Adjust quantity if needed
       const availableQuantity = Math.min(actualQuantity, currentStock);
 
-      // Perform atomic decrement
-      if (Array.isArray(freshProduct?.variants) && freshProduct.variants.length > 0) {
-        updated = await productModel.updateOne(
-          { _id: productId, "variants.label": targetVariant, "variants.stock": { $gte: availableQuantity } },
-          { $inc: { "variants.$.stock": -availableQuantity } },
-          { session: mongoSession },
-        );
-      } else if (freshProduct?.category === "toys") {
-        updated = await productModel.updateOne(
-          { _id: productId, stock: { $gte: availableQuantity } },
-          { $inc: { stock: -availableQuantity } },
-          { session: mongoSession },
-        );
-      } else {
-        updated = await productModel.updateOne(
-          { _id: productId, [`stock.${targetVariant}`]: { $gte: availableQuantity } },
-          { $inc: { [`stock.${targetVariant}`]: -availableQuantity } },
-          { session: mongoSession },
-        );
-      }
+      // Perform atomic decrement on variant stock
+      updated = await productModel.updateOne(
+        { _id: productId, "variants.label": targetVariant, "variants.stock": { $gte: availableQuantity } },
+        { $inc: { "variants.$.stock": -availableQuantity } },
+        { session: mongoSession },
+      );
 
       // If 0 documents were modified, it means stock was changed by another user during a transaction
       if (updated.modifiedCount > 0) {
@@ -278,7 +254,6 @@ const getCart = async (req, res) => {
         selectedVariant: item.variant,
         itemQuantity: item.quantity,
         variants: product.variants,
-        stock: product.stock !== undefined ? product.stock : product.variants,
       };
     });
 
@@ -354,17 +329,10 @@ const updateCartItem = async (req, res) => {
     if (quantityDiff !== 0) {
       const product = await productModel.findById(productId).session(session);
 
-      const hasVariants = Array.isArray(product?.variants) && product.variants.length > 0;
-      const targetVariant = variant || (hasVariants ? product.variants[0]?.label || "Default" : "Default");
-
-      let availableStock = 0;
-      if (hasVariants) {
-        const variantDoc = product.variants.find((v) => v.label === targetVariant);
-        availableStock = variantDoc ? variantDoc.stock : 0;
-      } else if (product?.category === "toys")
-        availableStock = typeof product.stock === "number" ? product.stock : 0;
-      else
-        availableStock = product?.stock ? (product.stock[targetVariant] || 0) : 0;
+      const productVariants = Array.isArray(product?.variants) ? product.variants : [];
+      const targetVariant = variant || productVariants[0]?.label || "Default";
+      const variantDoc = productVariants.find((v) => v.label === targetVariant);
+      const availableStock = variantDoc ? variantDoc.stock : 0;
 
       if (quantityDiff > 0 && availableStock < quantityDiff) {
         await session.abortTransaction();
@@ -374,25 +342,12 @@ const updateCartItem = async (req, res) => {
         });
       }
 
-      // Update product stock atomically
-      if (hasVariants)
-        await productModel.updateOne(
-          { _id: productId, "variants.label": targetVariant },
-          { $inc: { "variants.$.stock": -quantityDiff } },
-          { session },
-        );
-      else if (product?.category === "toys")
-        await productModel.updateOne(
-          { _id: productId },
-          { $inc: { stock: -quantityDiff } },
-          { session },
-        );
-      else
-        await productModel.updateOne(
-          { _id: productId },
-          { $inc: { [`stock.${targetVariant}`]: -quantityDiff } },
-          { session },
-        );
+      // Update product stock atomically on variant
+      await productModel.updateOne(
+        { _id: productId, "variants.label": targetVariant },
+        { $inc: { "variants.$.stock": -quantityDiff } },
+        { session },
+      );
     }
 
     // Update reservation
@@ -481,27 +436,13 @@ const clearCart = async (req, res) => {
       if (!product)
         continue;
 
-      const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-      const targetVariant = item.variant || (hasVariants ? product.variants[0]?.label || "Default" : "Default");
+      const targetVariant = item.variant || product.variants?.[0]?.label || "Default";
 
-      if (hasVariants)
-        await productModel.updateOne(
-          { _id: item.productId, "variants.label": targetVariant },
-          { $inc: { "variants.$.stock": item.quantity } },
-          { session },
-        );
-      else if (product.category === "toys")
-        await productModel.updateOne(
-          { _id: item.productId },
-          { $inc: { stock: item.quantity } },
-          { session },
-        );
-      else
-        await productModel.updateOne(
-          { _id: item.productId },
-          { $inc: { [`stock.${targetVariant}`]: item.quantity } },
-          { session },
-        );
+      await productModel.updateOne(
+        { _id: item.productId, "variants.label": targetVariant },
+        { $inc: { "variants.$.stock": item.quantity } },
+        { session },
+      );
     }
 
     // Delete reservation
