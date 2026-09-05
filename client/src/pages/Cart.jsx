@@ -289,7 +289,7 @@ const Cart = () => {
                 Items: {cartItems.length}
               </span>
               <Link to="/shop">
-                <span className="text-pink-500 transition-colors hover:text-pink-400 font-medium">
+                <span className="font-medium text-pink-500 transition-colors hover:text-pink-400">
                   Continue Shopping
                 </span>
               </Link>
@@ -299,7 +299,7 @@ const Cart = () => {
             <div className="flex-1 pr-1 sm:pr-2 overflow-y-auto max-h-[65vh] space-y-4 pb-2">
               {cartItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <p className="text-lg text-white/60 mb-4">Your cart is empty</p>
+                  <p className="mb-4 text-lg text-white/60">Your cart is empty</p>
                   <Link
                     to="/shop"
                     className="px-6 py-2.5 text-sm font-semibold text-black transition-all bg-pink-500 rounded-lg hover:bg-pink-400"
@@ -412,16 +412,16 @@ const Cart = () => {
               </h2>
 
               <div className="mb-6 space-y-3 sm:space-y-4">
-                <div className="flex justify-between text-white/70 text-sm sm:text-base">
+                <div className="flex justify-between text-sm text-white/70 sm:text-base">
                   <span>Items ({cartItems.length})</span>
                   <span>{subtotal} $</span>
                 </div>
-                <div className="flex justify-between text-white/70 text-sm sm:text-base">
+                <div className="flex justify-between text-sm text-white/70 sm:text-base">
                   <span>Shipping</span>
                   <span>{shippingCost} $</span>
                 </div>
                 <div className="pt-4 border-t border-white/10">
-                  <div className="flex justify-between w-full font-bold text-yellow-500 text-base sm:text-lg">
+                  <div className="flex justify-between w-full text-base font-bold text-yellow-500 sm:text-lg">
                     <span>Total</span>
                     <span>{subtotal + shippingCost} $</span>
                   </div>
@@ -430,7 +430,7 @@ const Cart = () => {
             </div>
 
             {/* Checkout Section */}
-            <div className="pt-6 border-t border-white/10 space-y-4">
+            <div className="pt-6 space-y-4 border-t border-white/10">
               {/* Delivery Address Section */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-white/70">
