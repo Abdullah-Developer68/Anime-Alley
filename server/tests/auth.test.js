@@ -211,7 +211,12 @@ const mockProductModel = {
     );
     if (product && update?.$inc) {
       for (const [key, incVal] of Object.entries(update.$inc)) {
-        if (key.startsWith("stock.")) {
+        if (key === "variants.$.stock") {
+          const targetVariant = filter?.["variants.label"];
+          const v = product.variants?.find((item) => item.label === targetVariant);
+          if (v)
+            v.stock = (v.stock || 0) + incVal;
+        } else if (key.startsWith("stock.")) {
           const variant = key.split(".")[1];
           product.stock = product.stock || {};
           product.stock[variant] = (product.stock[variant] || 0) + incVal;
@@ -236,6 +241,7 @@ const mockProductModel = {
   create: async (data) => {
     const doc = {
       _id: "prod_id_" + Math.random().toString(36).substring(2, 9),
+      variants: data?.variants ? JSON.parse(JSON.stringify(data.variants)) : [],
       stock: data?.stock,
       ...data,
     };
@@ -990,22 +996,31 @@ test("cleanupUnverifiedUsers properly restores stock for demo users and unverifi
   const comicProduct = await mockProductModel.create({
     name: "One Piece Vol 1",
     category: "comics",
-    stock: { vol1: 10, vol2: 5 },
+    variants: [
+      { label: "vol1", stock: 10 },
+      { label: "vol2", stock: 5 },
+    ],
   });
   const clothesProduct = await mockProductModel.create({
     name: "Anime Hoodie",
     category: "clothes",
-    stock: { M: 4, L: 8 },
+    variants: [
+      { label: "M", stock: 4 },
+      { label: "L", stock: 8 },
+    ],
   });
   const shoesProduct = await mockProductModel.create({
     name: "Anime Sneakers",
     category: "shoes",
-    stock: { "42": 3, "43": 6 },
+    variants: [
+      { label: "42", stock: 3 },
+      { label: "43", stock: 6 },
+    ],
   });
   const toyProduct = await mockProductModel.create({
     name: "Luffy Figurine",
     category: "toys",
-    stock: 15,
+    variants: [{ label: "Default", stock: 15 }],
   });
 
   // Setup users in usersDB
@@ -1089,12 +1104,12 @@ test("cleanupUnverifiedUsers properly restores stock for demo users and unverifi
   assert.strictEqual(cleanupResult.restoredReservationsCount, 2);
 
   // Verify stock restoration
-  assert.strictEqual(comicProduct.stock.vol1, 12, "Comic vol1 stock restored (+2)");
-  assert.strictEqual(comicProduct.stock.vol2, 6, "Comic vol2 stock restored (+1)");
-  assert.strictEqual(clothesProduct.stock.M, 7, "Clothes M stock restored (+3)");
-  assert.strictEqual(clothesProduct.stock.L, 8, "Clothes L stock unaffected");
-  assert.strictEqual(shoesProduct.stock["42"], 4, "Shoes 42 stock restored (+1)");
-  assert.strictEqual(toyProduct.stock, 21, "Toys stock restored (+4 + 2)");
+  assert.strictEqual(comicProduct.variants.find((v) => v.label === "vol1").stock, 12, "Comic vol1 stock restored (+2)");
+  assert.strictEqual(comicProduct.variants.find((v) => v.label === "vol2").stock, 6, "Comic vol2 stock restored (+1)");
+  assert.strictEqual(clothesProduct.variants.find((v) => v.label === "M").stock, 7, "Clothes M stock restored (+3)");
+  assert.strictEqual(clothesProduct.variants.find((v) => v.label === "L").stock, 8, "Clothes L stock unaffected");
+  assert.strictEqual(shoesProduct.variants.find((v) => v.label === "42").stock, 4, "Shoes 42 stock restored (+1)");
+  assert.strictEqual(toyProduct.variants.find((v) => v.label === "Default").stock, 21, "Toys stock restored (+4 + 2)");
 
   // Verify user deletion
   assert.strictEqual(usersDB.length, 2);
@@ -1179,14 +1194,14 @@ test("cleanupUnverifiedUsers handles edge cases: deleted products, missing varia
   const mixedCaseProduct = await mockProductModel.create({
     name: "Naruto Manga",
     category: "Comics",
-    stock: { ch1: 5 },
+    variants: [{ label: "ch1", stock: 5 }],
   });
 
   // 2. Toy product with uppercase category
   const upperToyProduct = await mockProductModel.create({
     name: "Zoro Figure",
     category: "TOYS",
-    stock: 10,
+    variants: [{ label: "Default", stock: 10 }],
   });
 
   // 3. Expired demo user with reservation
@@ -1237,9 +1252,8 @@ test("cleanupUnverifiedUsers handles edge cases: deleted products, missing varia
   assert.strictEqual(reservationsDB.length, 0);
 
   // Stock verified
-  assert.strictEqual(mixedCaseProduct.stock.ch1, 8, "Mixed case category comic stock incremented by valid quantity (+3)");
-  assert.strictEqual(upperToyProduct.stock, 14, "Upper case category toy stock incremented (+4)");
-  assert.strictEqual(mixedCaseProduct.stock.undefined, undefined, "Undefined variant must not corrupt stock object");
+  assert.strictEqual(mixedCaseProduct.variants.find((v) => v.label === "ch1").stock, 8, "Mixed case category comic stock incremented by valid quantity (+3)");
+  assert.strictEqual(upperToyProduct.variants.find((v) => v.label === "Default").stock, 14, "Upper case category toy stock incremented (+4)");
 });
 
 test("cleanupUnverifiedUsersController supports GET and POST invocations returning success and counts", async (t) => {
@@ -1254,7 +1268,7 @@ test("cleanupUnverifiedUsersController supports GET and POST invocations returni
   const toy = await mockProductModel.create({
     name: "Goku Figure",
     category: "toys",
-    stock: 20,
+    variants: [{ label: "Default", stock: 20 }],
   });
 
   const demoUser = await mockUserModel.create({
@@ -1280,7 +1294,7 @@ test("cleanupUnverifiedUsersController supports GET and POST invocations returni
   assert.strictEqual(getRes.jsonData.success, true);
   assert.strictEqual(getRes.jsonData.deletedCount, 1);
   assert.strictEqual(getRes.jsonData.restoredReservationsCount, 1);
-  assert.strictEqual(toy.stock, 25, "Toy stock restored from 20 to 25");
+  assert.strictEqual(toy.variants[0].stock, 25, "Toy stock restored from 20 to 25");
 
   // Setup another expired user for POST request
   const demoUserPost = await mockUserModel.create({
@@ -1306,7 +1320,7 @@ test("cleanupUnverifiedUsersController supports GET and POST invocations returni
   assert.strictEqual(postRes.jsonData.success, true);
   assert.strictEqual(postRes.jsonData.deletedCount, 1);
   assert.strictEqual(postRes.jsonData.restoredReservationsCount, 1);
-  assert.strictEqual(toy.stock, 28, "Toy stock restored from 25 to 28");
+  assert.strictEqual(toy.variants[0].stock, 28, "Toy stock restored from 25 to 28");
 });
 
 test("cleanupUnverifiedUsers batches stock restoration across multiple reservations for same product and variant using bulkWrite", async (t) => {
@@ -1321,17 +1335,23 @@ test("cleanupUnverifiedUsers batches stock restoration across multiple reservati
   const comic = await mockProductModel.create({
     name: "Bleach",
     category: "comics",
-    stock: { vol1: 10, vol2: 5 },
+    variants: [
+      { label: "vol1", stock: 10 },
+      { label: "vol2", stock: 5 },
+    ],
   });
   const clothes = await mockProductModel.create({
     name: "Anime Hoodie",
     category: "clothes",
-    stock: { S: 2, M: 4 },
+    variants: [
+      { label: "S", stock: 2 },
+      { label: "M", stock: 4 },
+    ],
   });
   const toy = await mockProductModel.create({
     name: "Ichigo Figure",
     category: "toys",
-    stock: 10,
+    variants: [{ label: "Default", stock: 10 }],
   });
 
   // Setup 3 expired demo users
@@ -1410,29 +1430,95 @@ test("cleanupUnverifiedUsers batches stock restoration across multiple reservati
 
     // Verify bulkWrite was called exactly ONCE (batched, eliminating N+1)
     assert.strictEqual(bulkWriteCalls, 1, "bulkWrite must be called exactly once");
-    assert.strictEqual(capturedOps.length, 3, "bulkOps must contain 1 operation per unique product");
+    assert.strictEqual(capturedOps.length, 5, "bulkOps must contain 1 operation per unique product variant");
 
-    // Verify aggregated increments per product
-    const comicOp = capturedOps.find((op) => String(op.updateOne.filter._id) === String(comic._id));
-    assert.ok(comicOp, "Comic update op must exist");
-    assert.strictEqual(comicOp.updateOne.update.$inc["stock.vol1"], 10, "vol1 aggregated increment (3 + 5 + 2 = 10)");
-    assert.strictEqual(comicOp.updateOne.update.$inc["stock.vol2"], 2, "vol2 aggregated increment (2)");
+    // Verify aggregated increments per product variant
+    const comicVol1Op = capturedOps.find(
+      (op) =>
+        String(op.updateOne.filter._id) === String(comic._id) &&
+        op.updateOne.filter["variants.label"] === "vol1",
+    );
+    assert.ok(comicVol1Op, "Comic vol1 update op must exist");
+    assert.strictEqual(
+      comicVol1Op.updateOne.update.$inc["variants.$.stock"],
+      10,
+      "vol1 aggregated increment (3 + 5 + 2 = 10)",
+    );
 
-    const clothesOp = capturedOps.find((op) => String(op.updateOne.filter._id) === String(clothes._id));
-    assert.ok(clothesOp, "Clothes update op must exist");
-    assert.strictEqual(clothesOp.updateOne.update.$inc["stock.M"], 6, "Clothes M aggregated increment (2 + 3 + 1 = 6)");
-    assert.strictEqual(clothesOp.updateOne.update.$inc["stock.S"], 1, "Clothes S aggregated increment (1)");
+    const comicVol2Op = capturedOps.find(
+      (op) =>
+        String(op.updateOne.filter._id) === String(comic._id) &&
+        op.updateOne.filter["variants.label"] === "vol2",
+    );
+    assert.ok(comicVol2Op, "Comic vol2 update op must exist");
+    assert.strictEqual(
+      comicVol2Op.updateOne.update.$inc["variants.$.stock"],
+      2,
+      "vol2 aggregated increment (2)",
+    );
 
-    const toyOp = capturedOps.find((op) => String(op.updateOne.filter._id) === String(toy._id));
-    assert.ok(toyOp, "Toy update op must exist");
-    assert.strictEqual(toyOp.updateOne.update.$inc["stock"], 10, "Toy aggregated increment (4 + 6 = 10)");
+    const clothesMOp = capturedOps.find(
+      (op) =>
+        String(op.updateOne.filter._id) === String(clothes._id) &&
+        op.updateOne.filter["variants.label"] === "M",
+    );
+    assert.ok(clothesMOp, "Clothes M update op must exist");
+    assert.strictEqual(
+      clothesMOp.updateOne.update.$inc["variants.$.stock"],
+      6,
+      "Clothes M aggregated increment (2 + 3 + 1 = 6)",
+    );
+
+    const clothesSOp = capturedOps.find(
+      (op) =>
+        String(op.updateOne.filter._id) === String(clothes._id) &&
+        op.updateOne.filter["variants.label"] === "S",
+    );
+    assert.ok(clothesSOp, "Clothes S update op must exist");
+    assert.strictEqual(
+      clothesSOp.updateOne.update.$inc["variants.$.stock"],
+      1,
+      "Clothes S aggregated increment (1)",
+    );
+
+    const toyOp = capturedOps.find(
+      (op) =>
+        String(op.updateOne.filter._id) === String(toy._id) &&
+        op.updateOne.filter["variants.label"] === "Default",
+    );
+    assert.ok(toyOp, "Toy Default update op must exist");
+    assert.strictEqual(
+      toyOp.updateOne.update.$inc["variants.$.stock"],
+      10,
+      "Toy aggregated increment (4 + 6 = 10)",
+    );
 
     // Verify final stock values in memory
-    assert.strictEqual(comic.stock.vol1, 20, "Comic vol1 stock restored (10 + 10 = 20)");
-    assert.strictEqual(comic.stock.vol2, 7, "Comic vol2 stock restored (5 + 2 = 7)");
-    assert.strictEqual(clothes.stock.S, 3, "Clothes S stock restored (2 + 1 = 3)");
-    assert.strictEqual(clothes.stock.M, 10, "Clothes M stock restored (4 + 6 = 10)");
-    assert.strictEqual(toy.stock, 20, "Toy stock restored (10 + 10 = 20)");
+    assert.strictEqual(
+      comic.variants.find((v) => v.label === "vol1").stock,
+      20,
+      "Comic vol1 stock restored (10 + 10 = 20)",
+    );
+    assert.strictEqual(
+      comic.variants.find((v) => v.label === "vol2").stock,
+      7,
+      "Comic vol2 stock restored (5 + 2 = 7)",
+    );
+    assert.strictEqual(
+      clothes.variants.find((v) => v.label === "S").stock,
+      3,
+      "Clothes S stock restored (2 + 1 = 3)",
+    );
+    assert.strictEqual(
+      clothes.variants.find((v) => v.label === "M").stock,
+      10,
+      "Clothes M stock restored (4 + 6 = 10)",
+    );
+    assert.strictEqual(
+      toy.variants.find((v) => v.label === "Default").stock,
+      20,
+      "Toy stock restored (10 + 10 = 20)",
+    );
 
     // Verify DB states
     assert.strictEqual(usersDB.length, 0);

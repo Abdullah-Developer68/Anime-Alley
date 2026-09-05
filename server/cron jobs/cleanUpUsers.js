@@ -72,11 +72,16 @@ async function cleanupUnverifiedUsers() {
             if (!product)
               continue;
 
-            const targetVariant =
-              variant ||
-              (Array.isArray(product.variants) && product.variants.length === 1 && product.variants[0].label === "Default"
-                ? "Default"
-                : product.variants?.[0]?.label || "Default");
+            const variants = Array.isArray(product.variants) ? product.variants : [];
+            const isSingleDefault = variants.length === 1 && variants[0]?.label === "Default";
+            const targetVariant = variant || (isSingleDefault ? "Default" : null);
+            if (!targetVariant)
+              continue;
+
+            const variantDoc = variants.find((v) => v.label === targetVariant);
+            if (!variantDoc)
+              continue;
+
             const key = `${product._id}::${targetVariant}`;
             variantStockUpdates.set(key, (variantStockUpdates.get(key) || 0) + quantity);
           }

@@ -330,9 +330,27 @@ const updateCartItem = async (req, res) => {
       const product = await productModel.findById(productId).session(session);
 
       const productVariants = Array.isArray(product?.variants) ? product.variants : [];
-      const targetVariant = variant || productVariants[0]?.label || "Default";
+      const isSingleDefault = productVariants.length === 1 && productVariants[0]?.label === "Default";
+      const targetVariant = variant || (isSingleDefault ? "Default" : null);
+
+      if (!targetVariant) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: "Variant required",
+        });
+      }
+
       const variantDoc = productVariants.find((v) => v.label === targetVariant);
-      const availableStock = variantDoc ? variantDoc.stock : 0;
+      if (!variantDoc) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          success: false,
+          message: "Variant not found",
+        });
+      }
+
+      const availableStock = variantDoc.stock || 0;
 
       if (quantityDiff > 0 && availableStock < quantityDiff) {
         await session.abortTransaction();
@@ -436,7 +454,15 @@ const clearCart = async (req, res) => {
       if (!product)
         continue;
 
-      const targetVariant = item.variant || product.variants?.[0]?.label || "Default";
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const isSingleDefault = variants.length === 1 && variants[0]?.label === "Default";
+      const targetVariant = item.variant || (isSingleDefault ? "Default" : null);
+      if (!targetVariant)
+        continue;
+
+      const variantDoc = variants.find((v) => v.label === targetVariant);
+      if (!variantDoc)
+        continue;
 
       await productModel.updateOne(
         { _id: item.productId, "variants.label": targetVariant },

@@ -238,7 +238,6 @@ const createProduct = async (req, res) => {
     if (
       error.name === "ValidationError" ||
       error.name === "CastError" ||
-      error.message?.startsWith("Stock value missing or invalid") ||
       error.message?.startsWith("Invalid category")
     )
       return res.status(400).json({
@@ -331,7 +330,6 @@ const updateProduct = async (req, res) => {
     if (
       error.name === "ValidationError" ||
       error.name === "CastError" ||
-      error.message?.startsWith("Stock value missing or invalid") ||
       error.message?.startsWith("Invalid category")
     )
       return res.status(400).json({
