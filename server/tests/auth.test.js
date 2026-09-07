@@ -241,9 +241,8 @@ const mockProductModel = {
   create: async (data) => {
     const doc = {
       _id: "prod_id_" + Math.random().toString(36).substring(2, 9),
-      variants: data?.variants ? JSON.parse(JSON.stringify(data.variants)) : [],
-      stock: data?.stock,
       ...data,
+      variants: data?.variants ? JSON.parse(JSON.stringify(data.variants)) : [],
     };
     productsDB.push(doc);
     return doc;
