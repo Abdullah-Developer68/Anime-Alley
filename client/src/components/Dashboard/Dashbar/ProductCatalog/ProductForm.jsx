@@ -29,6 +29,7 @@ const ProductForm = () => {
     handleSubmit,
     formState: { errors },
     setValue,
+    clearErrors,
     watch,
   } = useForm({
     defaultValues: {
@@ -133,6 +134,19 @@ const ProductForm = () => {
   const availableSizes = watch("availableSizes") || [];
   const volumes = watch("volumes") || "";
 
+  // Register availableSizes with category-specific validation requiring at least one size
+  useEffect(() => {
+    register("availableSizes", {
+      validate: (value) => {
+        if (!["clothes", "shoes"].includes(selectedCategory)) return true;
+        return (
+          (Array.isArray(value) && value.length > 0) ||
+          "At least one size is required!"
+        );
+      },
+    });
+  }, [register, selectedCategory]);
+
   // Capitalize Volumes input as user types and validate format
   const handleVolumesChange = (e) => {
     let value = e.target.value;
@@ -176,6 +190,7 @@ const ProductForm = () => {
 
       // Clear clothes/shoes fields
       setValue("availableSizes", []);
+      clearErrors("availableSizes");
       setValue("merchandiseType", "");
 
       // Clear toys fields
@@ -199,7 +214,7 @@ const ProductForm = () => {
     } else if (selectedCategory && selectedCategory !== initialCategory) {
       setInitialCategory(selectedCategory);
     }
-  }, [selectedCategory, initialCategory, watch, setValue]);
+  }, [selectedCategory, initialCategory, watch, setValue, clearErrors]);
 
   /**
    * Handles form submission
@@ -514,27 +529,35 @@ const ProductForm = () => {
                               .map((volume) => (
                                 <div
                                   key={volume}
-                                  className="flex items-center gap-2"
+                                  className="flex flex-col"
                                 >
-                                  <span className="text-white/70 text-xs min-w-[60px]">
-                                    Vol {volume}:
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-                                    placeholder={`Stock`}
-                                    {...register(`stock_${volume}`, {
-                                      required: `Stock for Volume ${volume} is required!`,
-                                      min: {
-                                        value: 0,
-                                        message: "Stock cannot be negative",
-                                      },
-                                      validate: (value) =>
-                                        !isNaN(Number(value)) ||
-                                        "Must be a valid number",
-                                    })}
-                                  />
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white/70 text-xs min-w-[60px]">
+                                      Vol {volume}:
+                                    </span>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="0"
+                                      className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
+                                      placeholder={`Stock`}
+                                      {...register(`stock_${volume}`, {
+                                        required: `Stock for Volume ${volume} is required!`,
+                                        min: {
+                                          value: 0,
+                                          message: "Stock cannot be negative",
+                                        },
+                                        validate: (value) =>
+                                          Number.isInteger(Number(value)) ||
+                                          "Must be a valid integer",
+                                      })}
+                                    />
+                                  </div>
+                                  {errors[`stock_${volume}`] && (
+                                    <span className="block mt-1 text-xs text-red-500">
+                                      {errors[`stock_${volume}`].message}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                           </div>
@@ -555,27 +578,35 @@ const ProductForm = () => {
                               .map((size) => (
                                 <div
                                   key={size}
-                                  className="flex items-center gap-2"
+                                  className="flex flex-col"
                                 >
-                                  <span className="text-white hover:text-black hover:bg-white text-xs min-w-[50px]">
-                                    {size}:
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-                                    placeholder={`Stock`}
-                                    {...register(`stock_${size}`, {
-                                      required: `Stock for Size ${size} is required!`,
-                                      min: {
-                                        value: 0,
-                                        message: "Stock cannot be negative",
-                                      },
-                                      validate: (value) =>
-                                        !isNaN(Number(value)) ||
-                                        "Must be a valid number",
-                                    })}
-                                  />
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white hover:text-black hover:bg-white text-xs min-w-[50px]">
+                                      {size}:
+                                    </span>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="0"
+                                      className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
+                                      placeholder={`Stock`}
+                                      {...register(`stock_${size}`, {
+                                        required: `Stock for Size ${size} is required!`,
+                                        min: {
+                                          value: 0,
+                                          message: "Stock cannot be negative",
+                                        },
+                                        validate: (value) =>
+                                          Number.isInteger(Number(value)) ||
+                                          "Must be a valid integer",
+                                      })}
+                                    />
+                                  </div>
+                                  {errors[`stock_${size}`] && (
+                                    <span className="block mt-1 text-xs text-red-500">
+                                      {errors[`stock_${size}`].message}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                           </div>
@@ -584,6 +615,7 @@ const ProductForm = () => {
                     ) : selectedCategory !== "" ? (
                       <input
                         type="number"
+                        step="1"
                         min="0"
                         className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                         placeholder="Enter stock"
@@ -594,7 +626,8 @@ const ProductForm = () => {
                             message: "Stock cannot be negative",
                           },
                           validate: (value) =>
-                            !isNaN(Number(value)) || "Must be a valid number",
+                            Number.isInteger(Number(value)) ||
+                            "Must be a valid integer",
                         })}
                       />
                     ) : null}

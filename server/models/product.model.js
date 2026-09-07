@@ -50,6 +50,10 @@ const productSchema = new mongoose.Schema({
   variants: {
     type: [variantSchema],
     required: true,
+    validate: {
+      validator: (v) => Array.isArray(v) && v.length > 0,
+      message: "At least one variant is required",
+    },
   },
   genres: {
     type: [String],

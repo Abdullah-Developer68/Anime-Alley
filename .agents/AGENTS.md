@@ -80,3 +80,11 @@ Follow this strict two-part convention across all controllers, services, and mid
    - Wrap all `await dbConnect()` and database operations inside `try / catch` blocks to prevent unhandled promise rejections and server crashes during database latency or outages.
 3. **Transactional Integrity & Stock Restoration**:
    - Multi-step inventory operations (such as order checkout, reservation releases, and user cleanups) must use MongoDB sessions and transactions where applicable, guaranteeing atomic inventory rollbacks on failures.
+
+---
+
+## 3. Git & Workflow Guidelines
+
+### Explicit Push Approval Policy
+- **Never Push Without Explicit Permission**: AI agents and developers must NEVER run `git push` or push commits to any branch (including remote PR branches) without explicit, affirmative permission from the user.
+- Always commit changes locally first, summarize the work completed, and wait for the user's explicit confirmation before executing any push commands.
