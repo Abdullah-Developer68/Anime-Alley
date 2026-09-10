@@ -72,13 +72,6 @@ const ProductForm = () => {
         setValue("clothesType", editProduct.clothesType.toLowerCase());
       if (editProduct.shoeType)
         setValue("shoeType", editProduct.shoeType.toLowerCase());
-      // Fallback for un-migrated products with merchType
-      if (editProduct.merchType) {
-        if (editProduct.category === "clothes")
-          setValue("clothesType", editProduct.merchType.toLowerCase());
-        else if (editProduct.category === "shoes")
-          setValue("shoeType", editProduct.merchType.toLowerCase());
-      }
       // Populate variants and stock
       if (Array.isArray(editProduct.variants) && editProduct.variants.length > 0) {
         if (editProduct.category === "comics") {

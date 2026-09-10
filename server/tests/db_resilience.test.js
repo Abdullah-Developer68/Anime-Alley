@@ -399,6 +399,123 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
     await productController.deleteProduct(req, res);
     assert.strictEqual(res.statusCode, 400);
   });
+
+  await t.test("getProducts builds direct clothesType query without $or", async () => {
+    const originalFind = productModel.find;
+    const originalCount = productModel.countDocuments;
+    let capturedFindQuery = null;
+
+    productModel.countDocuments = async () => 1;
+    productModel.find = (q) => {
+      capturedFindQuery = q;
+      return {
+        sort: () => ({
+          skip: () => ({
+            limit: async () => [{ productID: "c1", category: "clothes", clothesType: "t-shirt" }],
+          }),
+        }),
+      };
+    };
+
+    try {
+      const req = {
+        query: {
+          productConstraints: JSON.stringify({
+            category: "clothes",
+            productTypes: ["t-shirt"],
+            page: 1,
+          }),
+        },
+      };
+      const res = createMockRes();
+      await productController.getProducts(req, res);
+
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(capturedFindQuery.$or, undefined);
+      assert.ok(capturedFindQuery.clothesType);
+      assert.ok(capturedFindQuery.clothesType.$in[0].test("t-shirt"));
+    } finally {
+      productModel.find = originalFind;
+      productModel.countDocuments = originalCount;
+    }
+  });
+
+  await t.test("getProducts builds direct shoeType query without $or", async () => {
+    const originalFind = productModel.find;
+    const originalCount = productModel.countDocuments;
+    let capturedFindQuery = null;
+
+    productModel.countDocuments = async () => 1;
+    productModel.find = (q) => {
+      capturedFindQuery = q;
+      return {
+        sort: () => ({
+          skip: () => ({
+            limit: async () => [{ productID: "s1", category: "shoes", shoeType: "sneakers" }],
+          }),
+        }),
+      };
+    };
+
+    try {
+      const req = {
+        query: {
+          productConstraints: JSON.stringify({
+            category: "shoes",
+            productTypes: ["sneakers"],
+            page: 1,
+          }),
+        },
+      };
+      const res = createMockRes();
+      await productController.getProducts(req, res);
+
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(capturedFindQuery.$or, undefined);
+      assert.ok(capturedFindQuery.shoeType);
+      assert.ok(capturedFindQuery.shoeType.$in[0].test("sneakers"));
+    } finally {
+      productModel.find = originalFind;
+      productModel.countDocuments = originalCount;
+    }
+  });
+
+  await t.test("updateProduct does not unset merchType", async () => {
+    const originalFindById = productModel.findById;
+    const originalFindByIdAndUpdate = productModel.findByIdAndUpdate;
+    let capturedUpdateDoc = null;
+
+    productModel.findById = async () => ({
+      _id: "507f1f77bcf86cd799439011",
+      image: "https://res.cloudinary.com/test/image.jpg",
+      imagePublicId: "test_image",
+    });
+    productModel.findByIdAndUpdate = async (_id, updateDoc) => {
+      capturedUpdateDoc = updateDoc;
+      return { _id, ...updateDoc.$set };
+    };
+
+    try {
+      const req = {
+        body: {
+          _id: "507f1f77bcf86cd799439011",
+          name: "Action Figure",
+          price: 25,
+          variants: [{ label: "Default", stock: 10 }],
+          category: "toys",
+          toyType: "action-figure",
+        },
+      };
+      const res = createMockRes();
+      await productController.updateProduct(req, res);
+
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(capturedUpdateDoc.$unset?.merchType, undefined);
+    } finally {
+      productModel.findById = originalFindById;
+      productModel.findByIdAndUpdate = originalFindByIdAndUpdate;
+    }
+  });
 });
 
 // ==========================================

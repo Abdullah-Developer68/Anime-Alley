@@ -37,10 +37,6 @@ const productSchema = new mongoose.Schema({
   },
   variants: variantsField,
   ...attributesField,
-  // Deprecated legacy field retained for backward compatibility with unmigrated records
-  merchType: {
-    type: String,
-  },
 });
 
 // Search Index

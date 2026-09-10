@@ -143,23 +143,17 @@ const getProducts = async (req, res) => {
         );
         query.genres = { $in: genreRegexArray };
       } else if (catLower === "clothes") {
-        // Use case-insensitive regex matching for clothesType with backward compatibility for merchType
+        // Use case-insensitive regex matching for clothesType
         const clothesTypeRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
-        query.$or = [
-          { clothesType: { $in: clothesTypeRegexArray } },
-          { merchType: { $in: clothesTypeRegexArray } },
-        ];
+        query.clothesType = { $in: clothesTypeRegexArray };
       } else if (catLower === "shoes") {
-        // Use case-insensitive regex matching for shoeType with backward compatibility for merchType
+        // Use case-insensitive regex matching for shoeType
         const shoeTypeRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
-        query.$or = [
-          { shoeType: { $in: shoeTypeRegexArray } },
-          { merchType: { $in: shoeTypeRegexArray } },
-        ];
+        query.shoeType = { $in: shoeTypeRegexArray };
       } else if (catLower === "toys") {
         // Use case-insensitive regex matching for toyType
         const toyTypeRegexArray = normalizedProductTypes.map(
@@ -342,8 +336,6 @@ const updateProduct = async (req, res) => {
     if (validation.data.category !== "clothes") unsetFields.clothesType = 1;
     if (validation.data.category !== "shoes") unsetFields.shoeType = 1;
     if (validation.data.category !== "toys") unsetFields.toyType = 1;
-    if (validation.data.category !== "clothes" && validation.data.category !== "shoes")
-      unsetFields.merchType = 1;
 
     const updateDoc = { $set: productData };
     if (Object.keys(unsetFields).length > 0)

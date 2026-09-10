@@ -38,7 +38,7 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     assert.strictEqual(resInvalid.status, 400);
   });
 
-  await t.test("validates clothes requires valid clothesType with fallback to merchType", () => {
+  await t.test("validates clothes requires valid clothesType", () => {
     const validClothes = {
       name: "Anime Shirt",
       price: 25,
@@ -50,17 +50,28 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     assert.strictEqual(resValid.valid, true);
     assert.strictEqual(resValid.data.clothesType, "t-shirt");
 
-    // Backward compatibility fallback
-    const fallbackClothes = {
+    // Missing clothesType returns 400 Bad Request
+    const omittedClothes = {
+      name: "Anime Jacket",
+      price: 60,
+      category: "clothes",
+      variants: [{ label: "L", stock: 5 }],
+    };
+    const resOmitted = validateProductData(omittedClothes);
+    assert.strictEqual(resOmitted.valid, false);
+    assert.strictEqual(resOmitted.status, 400);
+
+    // Legacy merchType is ignored and returns 400 Bad Request
+    const legacyMerchClothes = {
       name: "Anime Jacket",
       price: 60,
       category: "clothes",
       variants: [{ label: "L", stock: 5 }],
       merchType: "jacket",
     };
-    const resFallback = validateProductData(fallbackClothes);
-    assert.strictEqual(resFallback.valid, true);
-    assert.strictEqual(resFallback.data.clothesType, "jacket");
+    const resLegacy = validateProductData(legacyMerchClothes);
+    assert.strictEqual(resLegacy.valid, false);
+    assert.strictEqual(resLegacy.status, 400);
 
     const invalidClothes = {
       name: "Anime Hat",
@@ -74,7 +85,7 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     assert.strictEqual(resInvalid.status, 400);
   });
 
-  await t.test("validates shoes requires valid shoeType with fallback to merchType", () => {
+  await t.test("validates shoes requires valid shoeType", () => {
     const validShoes = {
       name: "Ninja Kicks",
       price: 80,
@@ -86,17 +97,28 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     assert.strictEqual(resValid.valid, true);
     assert.strictEqual(resValid.data.shoeType, "sneakers");
 
-    // Backward compatibility fallback
-    const fallbackShoes = {
+    // Missing shoeType returns 400 Bad Request
+    const omittedShoes = {
+      name: "Combat Boots",
+      price: 90,
+      category: "shoes",
+      variants: [{ label: "10", stock: 3 }],
+    };
+    const resOmittedShoes = validateProductData(omittedShoes);
+    assert.strictEqual(resOmittedShoes.valid, false);
+    assert.strictEqual(resOmittedShoes.status, 400);
+
+    // Legacy merchType is ignored and returns 400 Bad Request
+    const legacyMerchShoes = {
       name: "Combat Boots",
       price: 90,
       category: "shoes",
       variants: [{ label: "10", stock: 3 }],
       merchType: "boots",
     };
-    const resFallback = validateProductData(fallbackShoes);
-    assert.strictEqual(resFallback.valid, true);
-    assert.strictEqual(resFallback.data.shoeType, "boots");
+    const resLegacyShoes = validateProductData(legacyMerchShoes);
+    assert.strictEqual(resLegacyShoes.valid, false);
+    assert.strictEqual(resLegacyShoes.status, 400);
 
     const invalidShoes = {
       name: "Sandals",

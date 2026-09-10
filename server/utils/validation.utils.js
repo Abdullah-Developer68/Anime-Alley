@@ -17,7 +17,6 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
     description,
     clothesType,
     shoeType,
-    merchType,
     toyType,
     genres,
   } = body || {};
@@ -164,10 +163,7 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
 
     productData.genres = genres.map((g) => g.trim());
   } else if (catLower === "clothes") {
-    const effectiveClothes =
-      (typeof clothesType === "string" && clothesType.trim()) ||
-      (typeof merchType === "string" && merchType.trim()) ||
-      "";
+    const effectiveClothes = typeof clothesType === "string" ? clothesType.trim() : "";
 
     if (!effectiveClothes)
       return {
@@ -184,12 +180,8 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
       };
 
     productData.clothesType = effectiveClothes.toLowerCase();
-    productData.merchType = effectiveClothes.toLowerCase();
   } else if (catLower === "shoes") {
-    const effectiveShoe =
-      (typeof shoeType === "string" && shoeType.trim()) ||
-      (typeof merchType === "string" && merchType.trim()) ||
-      "";
+    const effectiveShoe = typeof shoeType === "string" ? shoeType.trim() : "";
 
     if (!effectiveShoe)
       return {
@@ -206,7 +198,6 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
       };
 
     productData.shoeType = effectiveShoe.toLowerCase();
-    productData.merchType = effectiveShoe.toLowerCase();
   } else if (catLower === "toys") {
     const effectiveToy = typeof toyType === "string" ? toyType.trim() : "";
 

@@ -348,67 +348,9 @@ test("Phase 2 Assembly: product.model.js integration & validation tests", async 
     const errFloat = floatStock.validateSync();
     assert.ok(errFloat?.errors?.["variants.0.stock"], "Float stock must fail integer validation");
   });
-});
 
-test("Phase 4: migrate_merch_type migration script unit tests", async (t) => {
-  await t.test("migrateMerchType executes updateMany with correct filter and aggregation pipeline", async () => {
-    const migrateMerchType = require("../db/migrations/migrate_merch_type.js");
-    const originalConn = global.mongoose?.conn;
-    if (!global.mongoose)
-      global.mongoose = { conn: null, promise: null };
-    global.mongoose.conn = { readyState: 1 };
-
-    const originalUpdateMany = productModel.updateMany;
-    const calls = [];
-    productModel.updateMany = async (filter, pipeline) => {
-      calls.push({ filter, pipeline });
-      return { matchedCount: 5, modifiedCount: 5 };
-    };
-
-    try {
-      const res = await migrateMerchType();
-      assert.strictEqual(calls.length, 2);
-      // Verify clothes query
-      assert.deepStrictEqual(calls[0].filter.category, /^clothes$/i);
-      assert.deepStrictEqual(calls[0].filter.merchType, { $type: "string" });
-      assert.deepStrictEqual(calls[0].pipeline, [
-        { $set: { clothesType: { $toLower: { $trim: { input: "$merchType" } } } } },
-      ]);
-      // Verify shoes query
-      assert.deepStrictEqual(calls[1].filter.category, /^shoes$/i);
-      assert.deepStrictEqual(calls[1].filter.merchType, { $type: "string" });
-      assert.deepStrictEqual(calls[1].pipeline, [
-        { $set: { shoeType: { $toLower: { $trim: { input: "$merchType" } } } } },
-      ]);
-      assert.strictEqual(res.clothes.modifiedCount, 5);
-      assert.strictEqual(res.shoes.modifiedCount, 5);
-    } finally {
-      productModel.updateMany = originalUpdateMany;
-      global.mongoose.conn = originalConn;
-    }
-  });
-
-  await t.test("migrateMerchType rethrows error if updateMany fails", async () => {
-    const migrateMerchType = require("../db/migrations/migrate_merch_type.js");
-    const originalConn = global.mongoose?.conn;
-    if (!global.mongoose)
-      global.mongoose = { conn: null, promise: null };
-    global.mongoose.conn = { readyState: 1 };
-
-    const originalUpdateMany = productModel.updateMany;
-    productModel.updateMany = async () => {
-      throw new Error("Simulated database migration failure");
-    };
-
-    try {
-      await assert.rejects(
-        async () => migrateMerchType(),
-        /Simulated database migration failure/,
-      );
-    } finally {
-      productModel.updateMany = originalUpdateMany;
-      global.mongoose.conn = originalConn;
-    }
+  await t.test("ensures merchType is completely removed from productSchema", () => {
+    assert.strictEqual(productModel.schema.paths.merchType, undefined);
   });
 });
 

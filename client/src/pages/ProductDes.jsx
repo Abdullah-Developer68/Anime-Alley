@@ -226,9 +226,9 @@ const ProductDescription = () => {
                     {selectedProduct.category?.toLowerCase() === "comics"
                       ? "Comic"
                       : selectedProduct.category?.toLowerCase() === "clothes"
-                        ? selectedProduct.clothesType || selectedProduct.merchType || "Clothing"
+                        ? selectedProduct.clothesType || "Clothing"
                         : selectedProduct.category?.toLowerCase() === "shoes"
-                          ? selectedProduct.shoeType || selectedProduct.merchType || "Shoes"
+                          ? selectedProduct.shoeType || "Shoes"
                           : selectedProduct.category?.toLowerCase() === "toys"
                             ? selectedProduct.toyType || "Toy"
                             : "Item"}
