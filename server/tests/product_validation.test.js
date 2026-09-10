@@ -236,6 +236,20 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     assert.deepStrictEqual(res.data.genres, ["Action", "Adventure"]);
   });
 
+  await t.test("rejects invalid genres JSON string in multipart without comma-split fallback", () => {
+    const invalidGenresMultipart = {
+      name: "Dragon Ball",
+      price: "15.00",
+      category: "comics",
+      variants: JSON.stringify([{ label: "V1", stock: 10 }]),
+      genres: "Action, Adventure",
+    };
+    const res = validateProductData(invalidGenresMultipart, { isMultipart: true });
+    assert.strictEqual(res.valid, false);
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.message, "Invalid genres format: must be valid JSON");
+  });
+
   await t.test("rejects duplicate variant labels in memory", () => {
     const dupLabels = {
       name: "Anime Hoodie",

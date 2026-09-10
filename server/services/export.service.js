@@ -29,13 +29,11 @@ const formatUser = (order) => {
 };
 
 // --- Data Fetching and Configuration ---
-/**
- * Configuration object defining how different data types should be exported
- * Each configuration includes:
- * - model: The database model to query
- * - populate: (optional) Relations to populate from other collections
- * - fields: Array of field definitions for export columns
- */
+// Configuration object defining how different data types should be exported
+// Each configuration includes:
+// - model: The database model to query
+// - populate: (optional) Relations to populate from other collections
+// - fields: Array of field definitions for export columns
 const dataConfigs = {
   // User export configuration
   users: {
@@ -102,11 +100,9 @@ const dataConfigs = {
 };
 
 // --- Generic Excel Generation ---
-/**
- * Generates an Excel file and streams it to the response
- * @param {Object} res - Express response object
- * @param {Object} config - Configuration object containing model and field definitions (dataConfig)
- */
+// Generates an Excel file and streams it to the response
+// @param {Object} res - Express response object
+// @param {Object} config - Configuration object containing model and field definitions (dataConfig)
 const generateExcel = async (res, config) => {
   // Build database query with optional population
   let query = config.model.find(); // ← This becomes userModel/productModel/couponModel/orderModel.find()
@@ -162,11 +158,9 @@ const generateExcel = async (res, config) => {
 };
 
 // --- Generic PDF Generation ---
-/**
- * Generates a PDF file and streams it to the response
- * @param {Object} res - Express response object
- * @param {Object} config - Configuration object containing model and field definitions
- */
+// Generates a PDF file and streams it to the response
+// @param {Object} res - Express response object
+// @param {Object} config - Configuration object containing model and field definitions
 const generatePdf = async (res, config) => {
   // Build database query with population just for referenced fields
   let query = config.model.find();

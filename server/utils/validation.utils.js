@@ -43,7 +43,11 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
       try {
         genres = JSON.parse(genres);
       } catch {
-        genres = genres.split(",").map((g) => g.trim()).filter(Boolean);
+        return {
+          valid: false,
+          status: 400,
+          message: "Invalid genres format: must be valid JSON",
+        };
       }
     }
   }

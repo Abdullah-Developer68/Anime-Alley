@@ -147,7 +147,7 @@ const reserveStock = async (req, res) => {
 
     // Find if product already reserved
     const prodIdx = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant
+      (p) => p.productId.toString() === productId && p.variant === targetVariant
     );
 
     // If index is found, increment quantity, else add new product
@@ -156,7 +156,7 @@ const reserveStock = async (req, res) => {
     else
       reservation.products.push({
         productId,
-        variant,
+        variant: targetVariant,
         quantity: actualQuantity,
       });
 
@@ -311,7 +311,9 @@ const updateCartItem = async (req, res) => {
     }
 
     const productIndex = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === variant
+      (p) =>
+        p.productId.toString() === productId &&
+        (p.variant === variant || (!variant && p.variant === "Default") || (!p.variant && variant === "Default"))
     );
 
     if (productIndex === -1) {

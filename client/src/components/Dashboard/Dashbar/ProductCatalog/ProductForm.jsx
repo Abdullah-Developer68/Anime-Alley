@@ -63,8 +63,6 @@ const ProductForm = () => {
       // Handle array fields - convert arrays to comma-separated strings
       if (Array.isArray(editProduct.genres))
         setValue("genres", editProduct.genres.join(", "));
-      else if (typeof editProduct.genres === "string")
-        setValue("genres", editProduct.genres);
 
       if (editProduct.toyType)
         setValue("toyType", editProduct.toyType.toLowerCase().replace(/\s+/g, "-"));
@@ -95,14 +93,8 @@ const ProductForm = () => {
         }
       }
       // Always set preview to product image in edit mode
-      if (editProduct.image) {
-        // If the image is already a full URL (Cloudinary), use as is
-        if (editProduct.image.startsWith("http")) {
-          setPreviewImage(editProduct.image);
-        } else {
-          setPreviewImage(editProduct.image);
-        }
-      }
+      if (editProduct.image)
+        setPreviewImage(editProduct.image);
       setSelectedFile(null); // clear file selection in edit mode
     }
     // In add mode, do NOT reset previewImage or selectedFile here!
@@ -122,11 +114,10 @@ const ProductForm = () => {
     } else {
       // If no file selected, reset to edit image if in edit mode
       setSelectedFile(null);
-      if (editProduct && editProduct.image) {
+      if (editProduct && editProduct.image)
         setPreviewImage(editProduct.image);
-      } else {
+      else
         setPreviewImage(null);
-      }
     }
   };
 
@@ -161,12 +152,11 @@ const ProductForm = () => {
 
       // Check if it matches the pattern (v or V followed by numbers)
       const match = volume.match(/^[vV](\d+)$/);
-      if (match) {
+      if (match)
         processedVolumes.push(`V${match[1]}`);
-      } else if (volume !== "") {
+      else if (volume !== "")
         // If it doesn't match and isn't empty, keep original to show error
         processedVolumes.push(volume);
-      }
     });
 
     const finalValue = processedVolumes.join(", ");
@@ -742,17 +732,15 @@ const ProductForm = () => {
                             const invalidVolumes = volumes.filter(
                               (v) => !/^V\d+$/.test(v),
                             );
-                            if (invalidVolumes.length > 0) {
+                            if (invalidVolumes.length > 0)
                               return `Invalid format: "${invalidVolumes.join(
                                 ", ",
                               )}". Use format: V1, V2, V10, etc.`;
-                            }
 
                             // Check for duplicates
                             const uniqueVolumes = [...new Set(volumes)];
-                            if (uniqueVolumes.length !== volumes.length) {
+                            if (uniqueVolumes.length !== volumes.length)
                               return "Duplicate volume numbers are not allowed";
-                            }
 
                             return true;
                           },

@@ -51,15 +51,13 @@ const getClearCookieOptions = () => {
   };
 };
 
-/**
- * Step 1: Initial Authentication
- * Initiates the Google OAuth flow by redirecting to the consent screen.
- *
- * When the user clicks "Login with Google":
- * 1. Redirects to Google's authentication page
- * 2. Asks for permission to access profile and email
- * 3. No data verification yet - just requesting access
- */
+// Step 1: Initial Authentication
+// Initiates the Google OAuth flow by redirecting to the consent screen.
+//
+// When the user clicks "Login with Google":
+// 1. Redirects to Google's authentication page
+// 2. Asks for permission to access profile and email
+// 3. No data verification yet - just requesting access
 const initiateGoogleAuth = (req, res, next) => {
   // passport.authenticate() returns a middleware function that needs to be executed
   // We execute it immediately with the current request context (req, res, next) Passport.js handles all the logic required
@@ -69,17 +67,15 @@ const initiateGoogleAuth = (req, res, next) => {
   })(req, res, next);
 };
 
-/**
- * Step 2: Handle OAuth Callback
- * user grants permission and Google redirects back to this endpoint.
- * Processes the response after Google authenticates the user.
- *
- * Flow:
- * 1. Google redirects back with an authorization code
- * 2. Passport exchanges this code for access tokens
- * 3. Creates/updates user session if there is one
- * 4. Establishes authentication state
- */
+// Step 2: Handle OAuth Callback
+// user grants permission and Google redirects back to this endpoint.
+// Processes the response after Google authenticates the user.
+//
+// Flow:
+// 1. Google redirects back with an authorization code
+// 2. Passport exchanges this code for access tokens
+// 3. Creates/updates user session if there is one
+// 4. Establishes authentication state
 const handleGoogleCallback = async (req, res, next) => {
   const clientUrl =
     process.env.NODE_ENV === "production"
@@ -133,16 +129,14 @@ const handleGoogleCallback = async (req, res, next) => {
   })(req, res, next);
 };
 
-/**
- * Logout Function
- * Handles the complete logout process.
- *
- * Steps:
- * 1. Clears the user session
- * 2. Destroys session data
- * 3. Removes session cookie
- * 4. Redirects to home page
- */
+// Logout Function
+// Handles the complete logout process.
+//
+// Steps:
+// 1. Clears the user session
+// 2. Destroys session data
+// 3. Removes session cookie
+// 4. Redirects to home page
 const LogoutFromGoogle = async (req, res) => {
   try {
     // Pure JWT logout - same as main logout function
@@ -159,16 +153,14 @@ const LogoutFromGoogle = async (req, res) => {
   }
 };
 
-/**
- * Send User Data
- * Provides authenticated user information to the client.
- *
- * Process:
- * 1. First checks for session-based authentication (req.isAuthenticated())
- * 2. If no session, checks for JWT token in cookies
- * 3. Sends user profile if authenticated via either method
- * 4. Handles error cases appropriately
- */
+// Send User Data
+// Provides authenticated user information to the client.
+//
+// Process:
+// 1. First checks for session-based authentication (req.isAuthenticated())
+// 2. If no session, checks for JWT token in cookies
+// 3. Sends user profile if authenticated via either method
+// 4. Handles error cases appropriately
 const sendUserData = async (req, res) => {
   try {
     // Use utility function to extract token from Authorization header or cookies
