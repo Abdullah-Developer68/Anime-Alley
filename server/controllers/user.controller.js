@@ -1,7 +1,7 @@
-const userModel = require("../models/user.model.js");
+const userModel = require("../db/models/user.model.js");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
-const dbConnect = require("../config/dbConnect.js");
+const dbConnect = require("../db/dbConnect.js");
 const jwt = require("jsonwebtoken");
 const {
   extractPublicIdFromCloudinaryUrl,

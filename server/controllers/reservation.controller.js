@@ -1,7 +1,7 @@
-const reservationModel = require("../models/reservation.model.js");
-const productModel = require("../models/product.model.js");
+const reservationModel = require("../db/models/reservation.model.js");
+const productModel = require("../db/models/product.model.js");
 const mongoose = require("mongoose");
-const dbConnect = require("../config/dbConnect.js");
+const dbConnect = require("../db/dbConnect.js");
 
 const reserveStock = async (req, res) => {
   let mongoSession = null;

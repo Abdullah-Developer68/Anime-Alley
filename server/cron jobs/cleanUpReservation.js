@@ -1,5 +1,5 @@
-const reservationModel = require("../models/reservation.model.js");
-const productModel = require("../models/product.model.js");
+const reservationModel = require("../db/models/reservation.model.js");
+const productModel = require("../db/models/product.model.js");
 const mongoose = require("mongoose");
 
 async function cleanupExpiredReservations() {

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
-const userModel = require("../models/user.model.js");
-const reservationModel = require("../models/reservation.model.js");
-const productModel = require("../models/product.model.js");
+const userModel = require("../db/models/user.model.js");
+const reservationModel = require("../db/models/reservation.model.js");
+const productModel = require("../db/models/product.model.js");
 
 // Cleanup unverified users & expired demo users
 // Restores inventory stock for active reservations belonging to users before deletion

@@ -1,11 +1,11 @@
 const Stripe = require("stripe");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
-const reservationModel = require("../models/reservation.model.js");
-const orderModel = require("../models/order.model.js");
-const userModel = require("../models/user.model.js");
-const couponModel = require("../models/coupon.model.js");
-const dbConnect = require("../config/dbConnect.js");
+const reservationModel = require("../db/models/reservation.model.js");
+const orderModel = require("../db/models/order.model.js");
+const userModel = require("../db/models/user.model.js");
+const couponModel = require("../db/models/coupon.model.js");
+const dbConnect = require("../db/dbConnect.js");
 dotenv.config();
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);

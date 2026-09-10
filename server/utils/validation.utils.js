@@ -1,5 +1,11 @@
 // Centralized validation and data parsing utilities across controllers
 // All validators take pure data parameters (decoupled from HTTP req objects)
+const {
+  ALLOWED_GENRES,
+  CLOTHES_TYPES,
+  SHOE_TYPES,
+  TOY_TYPES,
+} = require("../db/submodels/product/attributes.schema.js");
 
 // Validate and parse product data for creation and updates
 const validateProductData = (body, { isMultipart = false } = {}) => {
@@ -9,6 +15,8 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
     variants,
     category,
     description,
+    clothesType,
+    shoeType,
     merchType,
     toyType,
     genres,
@@ -36,7 +44,7 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
       try {
         genres = JSON.parse(genres);
       } catch {
-        // Leave as string if not valid JSON
+        genres = genres.split(",").map((g) => g.trim()).filter(Boolean);
       }
     }
   }
@@ -89,6 +97,7 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
     };
 
   const variantsData = [];
+  const seenLabels = new Set();
   for (const v of variants) {
     if (!v || typeof v !== "object" || typeof v.label !== "string" || !v.label.trim())
       return {
@@ -97,6 +106,16 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
         message: "Each variant must have a non-empty label",
       };
 
+    const trimmedLabel = v.label.trim();
+    const lowerLabel = trimmedLabel.toLowerCase();
+    if (seenLabels.has(lowerLabel))
+      return {
+        valid: false,
+        status: 400,
+        message: "Variant labels must be unique within a product",
+      };
+    seenLabels.add(lowerLabel);
+
     if (typeof v.stock !== "number" || !Number.isInteger(v.stock) || v.stock < 0)
       return {
         valid: false,
@@ -104,8 +123,16 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
         message: `Variant ${v.label} must have a non-negative integer stock`,
       };
 
-    variantsData.push({ label: v.label.trim(), stock: v.stock });
+    variantsData.push({ label: trimmedLabel, stock: v.stock });
   }
+
+  // Validate single Default variant rule for toys in memory
+  if (catLower === "toys" && (variantsData.length !== 1 || variantsData[0].label !== "Default"))
+    return {
+      valid: false,
+      status: 400,
+      message: "Toys category must have exactly one variant with label 'Default'",
+    };
 
   // Assemble sanitized product fields
   const productData = {
@@ -116,13 +143,89 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
     variants: variantsData,
   };
 
-  // Attach category-specific metadata fields
-  if (catLower === "comics")
-    productData.genres = genres;
-  else if (catLower === "clothes" || catLower === "shoes")
-    productData.merchType = merchType;
-  else if (catLower === "toys")
-    productData.toyType = toyType;
+  // Attach and validate category-specific metadata fields
+  if (catLower === "comics") {
+    if (!Array.isArray(genres) || genres.length === 0)
+      return {
+        valid: false,
+        status: 400,
+        message: "Genres must be a non-empty array for comics",
+      };
+
+    const invalidGenre = genres.some(
+      (g) => typeof g !== "string" || !g.trim() || !ALLOWED_GENRES.includes(g.trim().toLowerCase()),
+    );
+    if (invalidGenre)
+      return {
+        valid: false,
+        status: 400,
+        message: `Genres must only contain valid options: ${ALLOWED_GENRES.join(", ")}`,
+      };
+
+    productData.genres = genres.map((g) => g.trim());
+  } else if (catLower === "clothes") {
+    const effectiveClothes =
+      (typeof clothesType === "string" && clothesType.trim()) ||
+      (typeof merchType === "string" && merchType.trim()) ||
+      "";
+
+    if (!effectiveClothes)
+      return {
+        valid: false,
+        status: 400,
+        message: "clothesType is required for clothes",
+      };
+
+    if (!CLOTHES_TYPES.includes(effectiveClothes.toLowerCase()))
+      return {
+        valid: false,
+        status: 400,
+        message: `Invalid clothesType. Valid options are: ${CLOTHES_TYPES.join(", ")}`,
+      };
+
+    productData.clothesType = effectiveClothes.toLowerCase();
+    productData.merchType = effectiveClothes.toLowerCase();
+  } else if (catLower === "shoes") {
+    const effectiveShoe =
+      (typeof shoeType === "string" && shoeType.trim()) ||
+      (typeof merchType === "string" && merchType.trim()) ||
+      "";
+
+    if (!effectiveShoe)
+      return {
+        valid: false,
+        status: 400,
+        message: "shoeType is required for shoes",
+      };
+
+    if (!SHOE_TYPES.includes(effectiveShoe.toLowerCase()))
+      return {
+        valid: false,
+        status: 400,
+        message: `Invalid shoeType. Valid options are: ${SHOE_TYPES.join(", ")}`,
+      };
+
+    productData.shoeType = effectiveShoe.toLowerCase();
+    productData.merchType = effectiveShoe.toLowerCase();
+  } else if (catLower === "toys") {
+    const effectiveToy = typeof toyType === "string" ? toyType.trim() : "";
+
+    if (!effectiveToy)
+      return {
+        valid: false,
+        status: 400,
+        message: "toyType is required for toys",
+      };
+
+    if (!TOY_TYPES.includes(effectiveToy.toLowerCase()))
+      return {
+        valid: false,
+        status: 400,
+        message: `Invalid toyType. Valid options are: ${TOY_TYPES.join(", ")}`,
+      };
+
+    productData.toyType = effectiveToy.toLowerCase();
+  }
 
   return {
     valid: true,

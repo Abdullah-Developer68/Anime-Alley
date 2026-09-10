@@ -131,8 +131,11 @@ const originalRequire = Module.prototype.require;
 Module.prototype.require = function (request) {
   if (
     request.endsWith("config/dbConnect.js") ||
+    request.endsWith("db/dbConnect.js") ||
     request === "../config/dbConnect.js" ||
-    request === "../../config/dbConnect.js"
+    request === "../../config/dbConnect.js" ||
+    request === "../db/dbConnect.js" ||
+    request === "../../db/dbConnect.js"
   ) {
     return mockDbConnect;
   }
@@ -151,11 +154,11 @@ const googleAuth = require("../services/googleAuth.js");
 const stripeHook = require("../hooks/stripeWebHook.js");
 const authService = require("../services/auth.js");
 const mongoose = require("mongoose");
-const userModel = require("../models/user.model.js");
-const productModel = require("../models/product.model.js");
-const reservationModel = require("../models/reservation.model.js");
-const orderModel = require("../models/order.model.js");
-const couponModel = require("../models/coupon.model.js");
+const userModel = require("../db/models/user.model.js");
+const productModel = require("../db/models/product.model.js");
+const reservationModel = require("../db/models/reservation.model.js");
+const orderModel = require("../db/models/order.model.js");
+const couponModel = require("../db/models/coupon.model.js");
 
 // Override mongoose.startSession to track session lifecycle
 mongoose.startSession = async () => createMockSession();
@@ -362,7 +365,7 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
 
   await t.test("createProduct returns 500 when dbConnect fails", async () => {
     dbConnectShouldFail = true;
-    const req = { body: { name: "Product A", price: 20, variants: [{ label: "Default", stock: 10 }], category: "toys" } };
+    const req = { body: { name: "Product A", price: 20, variants: [{ label: "Default", stock: 10 }], category: "toys", toyType: "action-figure" } };
     const res = createMockRes();
     await productController.createProduct(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -372,7 +375,7 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
 
   await t.test("updateProduct returns 500 when dbConnect fails", async () => {
     dbConnectShouldFail = true;
-    const req = { body: { _id: "prod123", name: "Product A", price: 20, variants: [{ label: "Default", stock: 10 }], category: "toys" } };
+    const req = { body: { _id: "prod123", name: "Product A", price: 20, variants: [{ label: "Default", stock: 10 }], category: "toys", toyType: "action-figure" } };
     const res = createMockRes();
     await productController.updateProduct(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -1119,12 +1122,12 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
 
   await t.test("createProduct and updateProduct allow price = 0 and stock = 0 without returning 400 missing fields", async () => {
     dbConnectShouldFail = true;
-    const reqCreate = { body: { name: "Free Toy", price: 0, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
+    const reqCreate = { body: { name: "Free Toy", price: 0, variants: [{ label: "Default", stock: 0 }], category: "toys", toyType: "action-figure" } };
     const resCreate = createMockRes();
     await productController.createProduct(reqCreate, resCreate);
     assert.strictEqual(resCreate.statusCode, 500);
 
-    const reqUpdate = { body: { _id: "prod123", name: "Out of Stock Toy", price: 0, variants: [{ label: "Default", stock: 0 }], category: "toys" } };
+    const reqUpdate = { body: { _id: "prod123", name: "Out of Stock Toy", price: 0, variants: [{ label: "Default", stock: 0 }], category: "toys", toyType: "action-figure" } };
     const resUpdate = createMockRes();
     await productController.updateProduct(reqUpdate, resUpdate);
     assert.strictEqual(resUpdate.statusCode, 500);
@@ -1340,8 +1343,8 @@ test("10. Cleanup Routes & Vercel Cron GET Support", async (t) => {
   });
 
   await t.test("cleanUpReservation deduplicates product IDs when querying productModel", async () => {
-    const reservationModel = require("../models/reservation.model.js");
-    const productModel = require("../models/product.model.js");
+    const reservationModel = require("../db/models/reservation.model.js");
+    const productModel = require("../db/models/product.model.js");
     const cleanupExpiredReservations = require("../cron jobs/cleanUpReservation.js");
 
     const originalFindReservation = reservationModel.find;

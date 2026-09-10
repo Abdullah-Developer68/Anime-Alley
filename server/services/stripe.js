@@ -1,8 +1,8 @@
 const Stripe = require("stripe");
 const dotenv = require("dotenv");
-const reservationModel = require("../models/reservation.model.js");
-const dbConnect = require("../config/dbConnect.js");
-const couponModel = require("../models/coupon.model.js");
+const reservationModel = require("../db/models/reservation.model.js");
+const dbConnect = require("../db/dbConnect.js");
+const couponModel = require("../db/models/coupon.model.js");
 dotenv.config();
 
 // Initialized Stripe instance for backends

@@ -43,7 +43,8 @@ const ProductForm = () => {
       genres: "",
       volumes: "",
       availableSizes: [],
-      merchandiseType: "",
+      clothesType: "",
+      shoeType: "",
       toyType: "",
     },
     mode: "onChange",
@@ -60,14 +61,23 @@ const ProductForm = () => {
       setValue("category", editProduct.category || "");
 
       // Handle array fields - convert arrays to comma-separated strings
-      if (editProduct.genres) {
+      if (Array.isArray(editProduct.genres))
         setValue("genres", editProduct.genres.join(", "));
-      }
-      if (editProduct.toyType) {
-        setValue("toyType", editProduct.toyType);
-      }
+      else if (typeof editProduct.genres === "string")
+        setValue("genres", editProduct.genres);
+
+      if (editProduct.toyType)
+        setValue("toyType", editProduct.toyType.toLowerCase().replace(/\s+/g, "-"));
+      if (editProduct.clothesType)
+        setValue("clothesType", editProduct.clothesType.toLowerCase());
+      if (editProduct.shoeType)
+        setValue("shoeType", editProduct.shoeType.toLowerCase());
+      // Fallback for un-migrated products with merchType
       if (editProduct.merchType) {
-        setValue("merchandiseType", editProduct.merchType);
+        if (editProduct.category === "clothes")
+          setValue("clothesType", editProduct.merchType.toLowerCase());
+        else if (editProduct.category === "shoes")
+          setValue("shoeType", editProduct.merchType.toLowerCase());
       }
       // Populate variants and stock
       if (Array.isArray(editProduct.variants) && editProduct.variants.length > 0) {
@@ -191,10 +201,14 @@ const ProductForm = () => {
       // Clear clothes/shoes fields
       setValue("availableSizes", []);
       clearErrors("availableSizes");
-      setValue("merchandiseType", "");
+      setValue("clothesType", "");
+      setValue("shoeType", "");
+      clearErrors("clothesType");
+      clearErrors("shoeType");
 
       // Clear toys fields
       setValue("toyType", "");
+      clearErrors("toyType");
 
       // Clear stock field (single stock for toys)
       setValue("stock", "");
@@ -209,18 +223,14 @@ const ProductForm = () => {
     }
 
     // Update the initial category tracker
-    if (selectedCategory && initialCategory === null) {
+    if (selectedCategory && initialCategory === null)
       setInitialCategory(selectedCategory);
-    } else if (selectedCategory && selectedCategory !== initialCategory) {
+    else if (selectedCategory && selectedCategory !== initialCategory)
       setInitialCategory(selectedCategory);
-    }
   }, [selectedCategory, initialCategory, watch, setValue, clearErrors]);
 
-  /**
-   * Handles form submission
-   * Processes form data based on product category and sends to backend
-   * @param {Object} data - Form data from react-hook-form
-   */
+  // Handles form submission
+  // Processes form data based on product category and sends to backend
   const onSubmit = async (data) => {
     try {
       setError(null);
@@ -229,9 +239,8 @@ const ProductForm = () => {
 
       // Basic fields
       // Product ID is displayed only; updates identify the product by Mongo _id in the request body.
-      if (editProduct) {
+      if (editProduct)
         formData.append("_id", editProduct._id);
-      }
 
       formData.append("name", data.productName);
       formData.append("description", data.description);
@@ -239,11 +248,10 @@ const ProductForm = () => {
       formData.append("category", data.category);
 
       // Handle image - only append if new file selected, otherwise keep existing
-      if (selectedFile) {
+      if (selectedFile)
         formData.append("image", selectedFile);
-      } else if (editProduct && editProduct.image) {
+      else if (editProduct && editProduct.image)
         formData.append("image", editProduct.image);
-      }
 
       if (data.category === "comics") {
         const volumes = data.volumes
@@ -266,14 +274,22 @@ const ProductForm = () => {
               .filter((g) => g),
           ),
         );
-      } else if (data.category === "clothes" || data.category === "shoes") {
+      } else if (data.category === "clothes") {
         const variantsList = data.availableSizes.map((size) => ({
           label: size,
           stock: Number(data[`stock_${size}`]) || 0,
         }));
 
         formData.append("variants", JSON.stringify(variantsList));
-        formData.append("merchType", data.merchandiseType);
+        formData.append("clothesType", data.clothesType);
+      } else if (data.category === "shoes") {
+        const variantsList = data.availableSizes.map((size) => ({
+          label: size,
+          stock: Number(data[`stock_${size}`]) || 0,
+        }));
+
+        formData.append("variants", JSON.stringify(variantsList));
+        formData.append("shoeType", data.shoeType);
       } else if (data.category === "toys") {
         const toyStock = Number(data.stock) || 0;
         const variantsList = [{ label: "Default", stock: toyStock }];
@@ -805,67 +821,86 @@ const ProductForm = () => {
                       </span>
                     )}
                   </div>
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Merchandise Type
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
-                      {...register("merchandiseType", {
-                        validate: (value) =>
-                          !["clothes", "shoes"].includes(selectedCategory) ||
-                          value.trim() !== "" ||
-                          "Merchandise type is required!",
-                      })}
-                    >
-                      <option className="text-white bg-black" value="">
-                        Select Type
-                      </option>
-                      {selectedCategory === "clothes" && (
-                        <>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="t-shirt"
-                          >
-                            T-Shirt
-                          </option>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="jacket"
-                          >
-                            Jacket
-                          </option>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="pants"
-                          >
-                            Pants
-                          </option>
-                        </>
+                  {selectedCategory === "clothes" && (
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
+                        Clothes Type
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
+                        {...register("clothesType", {
+                          validate: (value) =>
+                            selectedCategory !== "clothes" ||
+                            (typeof value === "string" && value.trim() !== "") ||
+                            "Clothes type is required!",
+                        })}
+                      >
+                        <option className="text-white bg-black" value="">
+                          Select Type
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="t-shirt"
+                        >
+                          T-Shirt
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="jacket"
+                        >
+                          Jacket
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="pants"
+                        >
+                          Pants
+                        </option>
+                      </select>
+                      {errors.clothesType && (
+                        <span className="block mt-1 text-xs text-red-500">
+                          {errors.clothesType.message}
+                        </span>
                       )}
-                      {selectedCategory === "shoes" && (
-                        <>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="sneakers"
-                          >
-                            Sneakers
-                          </option>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="boots"
-                          >
-                            Boots
-                          </option>
-                        </>
+                    </div>
+                  )}
+                  {selectedCategory === "shoes" && (
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
+                        Shoe Type
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
+                        {...register("shoeType", {
+                          validate: (value) =>
+                            selectedCategory !== "shoes" ||
+                            (typeof value === "string" && value.trim() !== "") ||
+                            "Shoe type is required!",
+                        })}
+                      >
+                        <option className="text-white bg-black" value="">
+                          Select Type
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="sneakers"
+                        >
+                          Sneakers
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="boots"
+                        >
+                          Boots
+                        </option>
+                      </select>
+                      {errors.shoeType && (
+                        <span className="block mt-1 text-xs text-red-500">
+                          {errors.shoeType.message}
+                        </span>
                       )}
-                    </select>
-                    {errors.merchandiseType && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.merchandiseType.message}
-                      </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Toys Specific */}
@@ -883,7 +918,7 @@ const ProductForm = () => {
                       {...register("toyType", {
                         validate: (value) =>
                           selectedCategory !== "toys" ||
-                          value.trim() !== "" ||
+                          (typeof value === "string" && value.trim() !== "") ||
                           "Toy type is required!",
                       })}
                     >
@@ -896,9 +931,14 @@ const ProductForm = () => {
                       >
                         Action Figure
                       </option>
-
                       <option className="text-gray-300 bg-gray-800" value="car">
                         Car
+                      </option>
+                      <option
+                        className="text-gray-300 bg-gray-800"
+                        value="doll"
+                      >
+                        Doll
                       </option>
                     </select>
                     {errors.toyType && (

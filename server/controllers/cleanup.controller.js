@@ -1,6 +1,6 @@
 const cleanupUnverifiedUsers = require("../cron jobs/cleanUpUsers.js");
 const cleanupExpiredReservations = require("../cron jobs/cleanUpReservation.js");
-const dbConnect = require("../config/dbConnect.js");
+const dbConnect = require("../db/dbConnect.js");
 
 // Cleanup Unverified Users Controller
 // HTTP endpoint wrapper for the cleanup utility function

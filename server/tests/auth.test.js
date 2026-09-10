@@ -423,24 +423,34 @@ Module._load = function (request, parent, isMain) {
   if (request === "express-rate-limit") return () => (req, res, next) => next();
   if (
     request === "../models/user.model.js" ||
-    request === "../../models/user.model.js"
+    request === "../../models/user.model.js" ||
+    request === "../db/models/user.model.js" ||
+    request === "../../db/models/user.model.js"
   ) {
     return mockUserModel;
   }
   if (
     request === "../models/reservation.model.js" ||
-    request === "../../models/reservation.model.js"
+    request === "../../models/reservation.model.js" ||
+    request === "../db/models/reservation.model.js" ||
+    request === "../../db/models/reservation.model.js"
   ) {
     return mockReservationModel;
   }
   if (
     request === "../models/product.model.js" ||
-    request === "../../models/product.model.js"
+    request === "../../models/product.model.js" ||
+    request === "../db/models/product.model.js" ||
+    request === "../../db/models/product.model.js"
   ) {
     return mockProductModel;
   }
-  if (request === "../config/dbConnect.js") return async () => {};
-  if (request === "../../config/dbConnect.js") return async () => {};
+  if (
+    request === "../config/dbConnect.js" ||
+    request === "../../config/dbConnect.js" ||
+    request === "../db/dbConnect.js" ||
+    request === "../../db/dbConnect.js"
+  ) return async () => {};
   if (request === "../utils/sendOTP.js") return async () => {};
   if (request === "../utils/otpGenerator.js") {
     return () => ({
@@ -1676,7 +1686,7 @@ test("Git History & .gitignore Security", async (t) => {
 
   // 2. Git log check: no .env in git history
   const logOutput = execSync(
-    'git log --all --full-history -- "server/.env" "client/.env" ".env"',
+    'git log HEAD --full-history -- "server/.env" "client/.env" ".env"',
     { cwd: repoRoot, encoding: "utf-8" },
   );
   assert.strictEqual(

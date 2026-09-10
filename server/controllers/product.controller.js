@@ -1,5 +1,5 @@
-const productModel = require("../models/product.model.js");
-const dbConnect = require("../config/dbConnect.js");
+const productModel = require("../db/models/product.model.js");
+const dbConnect = require("../db/dbConnect.js");
 const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
@@ -110,8 +110,10 @@ const getProducts = async (req, res) => {
     // Connect to database only after in-memory validations succeed
     await dbConnect();
 
+    const catLower = typeof category === "string" ? category.toLowerCase() : "";
+
     // Build the query object
-    const query = { category: category.toLowerCase() };
+    const query = { category: catLower };
 
     // Add text search if searchQuery exists and is not empty
     if (searchQuery && searchQuery.trim() !== "")
@@ -121,29 +123,46 @@ const getProducts = async (req, res) => {
     if (price > 0)
       query.price = { $lte: price };
 
+    const normalizedProductTypes = Array.isArray(productTypes)
+      ? productTypes
+      : typeof productTypes === "string" && productTypes.trim() && productTypes.trim().toLowerCase() !== "all"
+        ? [productTypes.trim()]
+        : [];
+
     // Add filter to the query of the respective category
     // Note: Using case-insensitive regex matching to handle frontend lowercase conversion
     // Alternative optimization: normalize data storage to lowercase in database
     if (
-      productTypes &&
-      productTypes.length > 0 &&
-      !productTypes.includes("all")
+      normalizedProductTypes.length > 0 &&
+      !normalizedProductTypes.includes("all")
     ) {
-      if (category === "comics") {
+      if (catLower === "comics") {
         // Use case-insensitive regex matching for genres
-        const genreRegexArray = productTypes.map(
+        const genreRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
         query.genres = { $in: genreRegexArray };
-      } else if (category === "clothes" || category === "shoes") {
-        // Use case-insensitive regex matching for merchType
-        const merchTypeRegexArray = productTypes.map(
+      } else if (catLower === "clothes") {
+        // Use case-insensitive regex matching for clothesType with backward compatibility for merchType
+        const clothesTypeRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
-        query.merchType = { $in: merchTypeRegexArray };
-      } else if (category === "toys") {
+        query.$or = [
+          { clothesType: { $in: clothesTypeRegexArray } },
+          { merchType: { $in: clothesTypeRegexArray } },
+        ];
+      } else if (catLower === "shoes") {
+        // Use case-insensitive regex matching for shoeType with backward compatibility for merchType
+        const shoeTypeRegexArray = normalizedProductTypes.map(
+          (type) => new RegExp(`^${type}$`, "i"),
+        );
+        query.$or = [
+          { shoeType: { $in: shoeTypeRegexArray } },
+          { merchType: { $in: shoeTypeRegexArray } },
+        ];
+      } else if (catLower === "toys") {
         // Use case-insensitive regex matching for toyType
-        const toyTypeRegexArray = productTypes.map(
+        const toyTypeRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
         query.toyType = { $in: toyTypeRegexArray };
@@ -317,10 +336,23 @@ const updateProduct = async (req, res) => {
       imagePublicId,
     };
 
+    // Clean up inactive category fields when category attributes are updated
+    const unsetFields = {};
+    if (validation.data.category !== "comics") unsetFields.genres = 1;
+    if (validation.data.category !== "clothes") unsetFields.clothesType = 1;
+    if (validation.data.category !== "shoes") unsetFields.shoeType = 1;
+    if (validation.data.category !== "toys") unsetFields.toyType = 1;
+    if (validation.data.category !== "clothes" && validation.data.category !== "shoes")
+      unsetFields.merchType = 1;
+
+    const updateDoc = { $set: productData };
+    if (Object.keys(unsetFields).length > 0)
+      updateDoc.$unset = unsetFields;
+
     // Update and persist product document in database with validation
     const updatedProduct = await productModel.findByIdAndUpdate(
       _id,
-      productData,
+      updateDoc,
       { new: true, runValidators: true, context: "query" },
     );
 

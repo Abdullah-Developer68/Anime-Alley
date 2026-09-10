@@ -3,10 +3,10 @@ const excel = require("exceljs");
 const PDFDocument = require("pdfkit");
 
 // Import database models for different entities
-const userModel = require("../models/user.model.js");
-const productModel = require("../models/product.model.js");
-const couponModel = require("../models/coupon.model.js");
-const orderModel = require("../models/order.model.js");
+const userModel = require("../db/models/user.model.js");
+const productModel = require("../db/models/product.model.js");
+const couponModel = require("../db/models/coupon.model.js");
+const orderModel = require("../db/models/order.model.js");
 
 // --- Helper function to format stock for display ---
 

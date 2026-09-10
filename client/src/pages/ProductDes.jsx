@@ -31,12 +31,10 @@ const ProductDescription = () => {
 
     if (hasMultipleVariants) {
       setVariantOptions(variants.map((v) => v.label));
-      if (selectedProduct.category === "comics")
+      const catLower = selectedProduct.category?.toLowerCase();
+      if (catLower === "comics")
         setVariantLabel("Select the volume:");
-      else if (
-        selectedProduct.category === "clothes" ||
-        selectedProduct.category === "shoes"
-      )
+      else if (catLower === "clothes" || catLower === "shoes")
         setVariantLabel("Select the size:");
       else
         setVariantLabel("Select the option:");
@@ -225,15 +223,18 @@ const ProductDescription = () => {
               <div className="flex gap-2">
                 <div className="flex items-center gap-3">
                   <span className="px-4 py-1.5 bg-gray-500 text-black text-sm font-medium rounded-md">
-                    {selectedProduct.category === "comics"
+                    {selectedProduct.category?.toLowerCase() === "comics"
                       ? "Comic"
-                      : selectedProduct.category === "clothes" ||
-                          selectedProduct.category === "shoes"
-                        ? selectedProduct.merchType
-                        : "Clothing"}
+                      : selectedProduct.category?.toLowerCase() === "clothes"
+                        ? selectedProduct.clothesType || selectedProduct.merchType || "Clothing"
+                        : selectedProduct.category?.toLowerCase() === "shoes"
+                          ? selectedProduct.shoeType || selectedProduct.merchType || "Shoes"
+                          : selectedProduct.category?.toLowerCase() === "toys"
+                            ? selectedProduct.toyType || "Toy"
+                            : "Item"}
                   </span>
                 </div>
-                {selectedProduct.category === "comics" && (
+                {selectedProduct.category?.toLowerCase() === "comics" && (
                   <span className="px-4 py-1.5 bg-gray-500 text-black text-sm font-medium rounded-md">
                     {Array.isArray(selectedProduct.genres)
                       ? selectedProduct.genres.join(", ")

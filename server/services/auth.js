@@ -1,10 +1,10 @@
-const userModel = require("../models/user.model.js");
+const userModel = require("../db/models/user.model.js");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 const crypto = require("crypto");
 const sendOTP = require("../utils/sendOTP.js");
-const dbConnect = require("../config/dbConnect.js");
+const dbConnect = require("../db/dbConnect.js");
 const otpData = require("../utils/otpGenerator.js");
 const createTemporaryPasswordHash = require("../utils/tempPasswordHash.js");
 

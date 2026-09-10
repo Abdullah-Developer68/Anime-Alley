@@ -77,7 +77,7 @@ const ProductCatalog = () => {
         currProductTypes.push("Sneakers", "Boots");
         break;
       case "toys":
-        currProductTypes.push("Action-Figure", "Car");
+        currProductTypes.push("Action-Figure", "Car", "Doll");
         break;
       default:
         break;
