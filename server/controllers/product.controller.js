@@ -99,13 +99,11 @@ const getProducts = async (req, res) => {
       });
 
     // Validate price if provided: must strictly be a finite non-negative number
-    if (price !== undefined && price !== null) {
-      if (typeof price !== "number" || !Number.isFinite(price) || price < 0)
-        return res.status(400).json({
-          success: false,
-          message: "Price must be a valid non-negative number",
-        });
-    }
+    if (price !== undefined && price !== null && (typeof price !== "number" || !Number.isFinite(price) || price < 0))
+      return res.status(400).json({
+        success: false,
+        message: "Price must be a valid non-negative number",
+      });
 
     // Connect to database only after in-memory validations succeed
     await dbConnect();
@@ -123,19 +121,20 @@ const getProducts = async (req, res) => {
     if (price > 0)
       query.price = { $lte: price };
 
-    const normalizedProductTypes = Array.isArray(productTypes)
+    const rawProductTypes = Array.isArray(productTypes)
       ? productTypes
-      : typeof productTypes === "string" && productTypes.trim() && productTypes.trim().toLowerCase() !== "all"
+      : typeof productTypes === "string" && productTypes.trim()
         ? [productTypes.trim()]
         : [];
+
+    const normalizedProductTypes = rawProductTypes
+      .filter((type) => typeof type === "string" && type.trim() && type.trim().toLowerCase() !== "all")
+      .map((type) => type.trim());
 
     // Add filter to the query of the respective category
     // Note: Using case-insensitive regex matching to handle frontend lowercase conversion
     // Alternative optimization: normalize data storage to lowercase in database
-    if (
-      normalizedProductTypes.length > 0 &&
-      !normalizedProductTypes.includes("all")
-    ) {
+    if (normalizedProductTypes.length > 0) {
       if (catLower === "comics") {
         // Use case-insensitive regex matching for genres
         const genreRegexArray = normalizedProductTypes.map(

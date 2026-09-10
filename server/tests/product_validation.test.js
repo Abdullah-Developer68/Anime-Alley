@@ -49,6 +49,21 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     const resValid = validateProductData(validClothes);
     assert.strictEqual(resValid.valid, true);
     assert.strictEqual(resValid.data.clothesType, "t-shirt");
+    assert.strictEqual(resValid.data.merchType, undefined);
+
+    // Payload with clothesType and legacy merchType does not populate merchType
+    const withBothClothes = {
+      name: "Anime Shirt",
+      price: 25,
+      category: "clothes",
+      variants: [{ label: "M", stock: 10 }],
+      clothesType: "t-shirt",
+      merchType: "jacket",
+    };
+    const resBoth = validateProductData(withBothClothes);
+    assert.strictEqual(resBoth.valid, true);
+    assert.strictEqual(resBoth.data.clothesType, "t-shirt");
+    assert.strictEqual(resBoth.data.merchType, undefined);
 
     // Missing clothesType returns 400 Bad Request
     const omittedClothes = {
@@ -60,6 +75,18 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     const resOmitted = validateProductData(omittedClothes);
     assert.strictEqual(resOmitted.valid, false);
     assert.strictEqual(resOmitted.status, 400);
+
+    // Whitespace-only clothesType returns 400 Bad Request
+    const whitespaceClothes = {
+      name: "Anime Jacket",
+      price: 60,
+      category: "clothes",
+      variants: [{ label: "L", stock: 5 }],
+      clothesType: "   ",
+    };
+    const resWhitespace = validateProductData(whitespaceClothes);
+    assert.strictEqual(resWhitespace.valid, false);
+    assert.strictEqual(resWhitespace.status, 400);
 
     // Legacy merchType is ignored and returns 400 Bad Request
     const legacyMerchClothes = {
@@ -96,6 +123,21 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     const resValid = validateProductData(validShoes);
     assert.strictEqual(resValid.valid, true);
     assert.strictEqual(resValid.data.shoeType, "sneakers");
+    assert.strictEqual(resValid.data.merchType, undefined);
+
+    // Payload with shoeType and legacy merchType does not populate merchType
+    const withBothShoes = {
+      name: "Ninja Kicks",
+      price: 80,
+      category: "shoes",
+      variants: [{ label: "9", stock: 4 }],
+      shoeType: "sneakers",
+      merchType: "boots",
+    };
+    const resBothShoes = validateProductData(withBothShoes);
+    assert.strictEqual(resBothShoes.valid, true);
+    assert.strictEqual(resBothShoes.data.shoeType, "sneakers");
+    assert.strictEqual(resBothShoes.data.merchType, undefined);
 
     // Missing shoeType returns 400 Bad Request
     const omittedShoes = {
@@ -107,6 +149,18 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     const resOmittedShoes = validateProductData(omittedShoes);
     assert.strictEqual(resOmittedShoes.valid, false);
     assert.strictEqual(resOmittedShoes.status, 400);
+
+    // Whitespace-only shoeType returns 400 Bad Request
+    const whitespaceShoes = {
+      name: "Combat Boots",
+      price: 90,
+      category: "shoes",
+      variants: [{ label: "10", stock: 3 }],
+      shoeType: "   ",
+    };
+    const resWhitespaceShoes = validateProductData(whitespaceShoes);
+    assert.strictEqual(resWhitespaceShoes.valid, false);
+    assert.strictEqual(resWhitespaceShoes.status, 400);
 
     // Legacy merchType is ignored and returns 400 Bad Request
     const legacyMerchShoes = {

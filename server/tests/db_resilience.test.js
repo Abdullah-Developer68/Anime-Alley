@@ -480,6 +480,45 @@ test("2. Product Controller: Database Resilience & Input Guard", async (t) => {
     }
   });
 
+  await t.test("getProducts with productTypes 'All' or empty does not filter category subtypes", async () => {
+    const originalFind = productModel.find;
+    const originalCount = productModel.countDocuments;
+    let capturedFindQuery = null;
+
+    productModel.countDocuments = async () => 1;
+    productModel.find = (q) => {
+      capturedFindQuery = q;
+      return {
+        sort: () => ({
+          skip: () => ({
+            limit: async () => [{ productID: "c1", category: "clothes", clothesType: "t-shirt" }],
+          }),
+        }),
+      };
+    };
+
+    try {
+      const req = {
+        query: {
+          productConstraints: JSON.stringify({
+            category: "clothes",
+            productTypes: ["All"],
+            page: 1,
+          }),
+        },
+      };
+      const res = createMockRes();
+      await productController.getProducts(req, res);
+
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(capturedFindQuery.clothesType, undefined);
+      assert.strictEqual(capturedFindQuery.$or, undefined);
+    } finally {
+      productModel.find = originalFind;
+      productModel.countDocuments = originalCount;
+    }
+  });
+
   await t.test("updateProduct does not unset merchType", async () => {
     const originalFindById = productModel.findById;
     const originalFindByIdAndUpdate = productModel.findByIdAndUpdate;

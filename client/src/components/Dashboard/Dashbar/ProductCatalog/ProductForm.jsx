@@ -109,10 +109,8 @@ const ProductForm = () => {
     // Let the user's selection persist.
   }, [editProduct, setValue]);
 
-  /**
-   * Handles image file selection and preview
-   * @param {Event} e - File input change event
-   */
+  // Handles image file selection and preview
+  // @param {Event} e - File input change event
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     console.log("Selected file:", file);
@@ -328,17 +326,13 @@ const ProductForm = () => {
     }
   };
 
-  /**
-   * Closes the modal and resets form state
-   */
+  // Closes the modal and resets form state
   const handleClose = () => {
     dispatch(closeProductForm());
   };
 
-  /**
-   * Handles size selection for clothes/shoes
-   * @param {string} size - Selected size
-   */
+  // Handles size selection for clothes/shoes
+  // @param {string} size - Selected size
   const handleSizeChange = (size) => {
     const newSizes = availableSizes.includes(size)
       ? availableSizes.filter((s) => s !== size)
