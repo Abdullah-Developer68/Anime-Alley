@@ -37,7 +37,7 @@ const ProductForm = () => {
       productName: "",
       description: "",
       price: "",
-      stock: {},
+      stock: "",
       category: "",
       image: "",
       genres: "",
@@ -90,7 +90,7 @@ const ProductForm = () => {
             setValue(`stock_${v.label}`, v.stock);
           });
         } else if (editProduct.category === "toys") {
-          const defVariant = editProduct.variants.find((v) => v.label === "Default") || editProduct.variants[0];
+          const defVariant = editProduct.variants.find((v) => v.label === "Default");
           setValue("stock", defVariant ? defVariant.stock : 0);
         }
       }

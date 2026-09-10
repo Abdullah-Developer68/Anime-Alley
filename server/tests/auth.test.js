@@ -216,12 +216,6 @@ const mockProductModel = {
           const v = product.variants?.find((item) => item.label === targetVariant);
           if (v)
             v.stock = (v.stock || 0) + incVal;
-        } else if (key.startsWith("stock.")) {
-          const variant = key.split(".")[1];
-          product.stock = product.stock || {};
-          product.stock[variant] = (product.stock[variant] || 0) + incVal;
-        } else if (key === "stock") {
-          product.stock = (product.stock || 0) + incVal;
         }
       }
     }

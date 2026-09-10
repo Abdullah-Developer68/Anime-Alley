@@ -60,7 +60,7 @@ const reserveStock = async (req, res) => {
         .json({ success: false, message: "Variant required" });
     }
 
-    const targetVariant = variant || variants[0]?.label || "Default";
+    const targetVariant = variant || (isSingleDefault ? "Default" : null);
 
     // Stock lookup strictly using unified variants array
     const variantDoc = variants.find((v) => v.label === targetVariant);
