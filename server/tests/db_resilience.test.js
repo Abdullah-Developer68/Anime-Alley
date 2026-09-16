@@ -1847,5 +1847,95 @@ test("11. Reverse Proxy & Rate Limiter Header Safety", async (t) => {
       assert.ok(resHeaders["access-control-allow-methods"]?.includes("OPTIONS"), `CORS methods header must include OPTIONS for ${testPath}`);
     }
   });
+
+  await t.test("Express 5 CORS preflight allows strictly scoped Vercel project domains and blocks untrusted ones", () => {
+    const express = require("express");
+    const corsMiddleware = require("../middlewares/modules/cors.middleware.js");
+    const preflightApp = express();
+    preflightApp.use(corsMiddleware);
+    preflightApp.options(/.*/, corsMiddleware);
+
+    // Test legitimate team-scoped preview URL
+    const validPreviewOrigin = "https://anime-alley-client-git-main-developers-projects-86df454e.vercel.app";
+    let previewHeaders = {};
+    const previewReq = {
+      method: "OPTIONS",
+      url: "/api/auth/demo-login",
+      path: "/api/auth/demo-login",
+      headers: {
+        origin: validPreviewOrigin,
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "content-type",
+      },
+    };
+    const previewRes = {
+      setHeader(k, v) { previewHeaders[k.toLowerCase()] = v; },
+      getHeader(k) { return previewHeaders[k.toLowerCase()]; },
+      statusCode: 200,
+      status(code) { this.statusCode = code; return this; },
+      end() {},
+      send() {},
+      sendStatus(code) { this.statusCode = code; },
+    };
+    preflightApp.handle(previewReq, previewRes, () => {});
+    assert.strictEqual(previewHeaders["access-control-allow-origin"], validPreviewOrigin, "CORS origin header must reflect team-scoped Vercel origin");
+    assert.strictEqual(previewHeaders["access-control-allow-credentials"], "true", "CORS credentials header must be true");
+
+    // Test legitimate production alias
+    const validProdOrigin = "https://anime-alley-beige.vercel.app";
+    let prodHeaders = {};
+    const prodReq = {
+      method: "OPTIONS",
+      url: "/api/auth/demo-login",
+      path: "/api/auth/demo-login",
+      headers: {
+        origin: validProdOrigin,
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "content-type",
+      },
+    };
+    const prodRes = {
+      setHeader(k, v) { prodHeaders[k.toLowerCase()] = v; },
+      getHeader(k) { return prodHeaders[k.toLowerCase()]; },
+      statusCode: 200,
+      status(code) { this.statusCode = code; return this; },
+      end() {},
+      send() {},
+      sendStatus(code) { this.statusCode = code; },
+    };
+    preflightApp.handle(prodReq, prodRes, () => {});
+    assert.strictEqual(prodHeaders["access-control-allow-origin"], validProdOrigin, "CORS origin header must reflect production alias");
+
+    // Test untrusted Vercel origin (should NOT receive access-control-allow-origin in production mode)
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const maliciousOrigin = "https://malicious-attacker.vercel.app";
+      let evilHeaders = {};
+      const evilReq = {
+        method: "OPTIONS",
+        url: "/api/auth/demo-login",
+        path: "/api/auth/demo-login",
+        headers: {
+          origin: maliciousOrigin,
+          "access-control-request-method": "POST",
+          "access-control-request-headers": "content-type",
+        },
+      };
+      const evilRes = {
+        setHeader(k, v) { evilHeaders[k.toLowerCase()] = v; },
+        getHeader(k) { return evilHeaders[k.toLowerCase()]; },
+        statusCode: 200,
+        status(code) { this.statusCode = code; return this; },
+        end() {},
+        send() {},
+        sendStatus(code) { this.statusCode = code; },
+      };
+      preflightApp.handle(evilReq, evilRes, () => {});
+      assert.strictEqual(evilHeaders["access-control-allow-origin"], undefined, "Malicious Vercel origin must not receive CORS allow header");
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+    }
+  });
 });
 
