@@ -1,10 +1,8 @@
 const cloudinary = require("../config/cloudinary/cloudinary.config.js");
 
-/**
- * Extract Cloudinary public_id from a Cloudinary image URL.
- * Works for URLs like:
- * https://res.cloudinary.com/<cloud>/image/upload/v1234/anime-alley-products/abc123.jpg
- */
+// Extract Cloudinary public_id from a Cloudinary image URL.
+// Works for URLs like:
+// https://res.cloudinary.com/<cloud>/image/upload/v1234/anime-alley-products/abc123.jpg
 const extractPublicIdFromCloudinaryUrl = (url) => {
   if (!url || typeof url !== "string") return null;
 

@@ -1,10 +1,10 @@
-const productModel = require("../models/product.model.js");
-const dbConnect = require("../config/dbConnect.js");
+const productModel = require("../db/models/product.model.js");
+const dbConnect = require("../db/dbConnect.js");
 const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { validateProductData } = require("../utils/product.utils.js");
+const { validateProductData } = require("../utils/validation.utils.js");
 
 // Generate unique product ID based on category
 // category: Product category (comics, toys, clothes, shoes)
@@ -99,19 +99,19 @@ const getProducts = async (req, res) => {
       });
 
     // Validate price if provided: must strictly be a finite non-negative number
-    if (price !== undefined && price !== null) {
-      if (typeof price !== "number" || !Number.isFinite(price) || price < 0)
-        return res.status(400).json({
-          success: false,
-          message: "Price must be a valid non-negative number",
-        });
-    }
+    if (price !== undefined && price !== null && (typeof price !== "number" || !Number.isFinite(price) || price < 0))
+      return res.status(400).json({
+        success: false,
+        message: "Price must be a valid non-negative number",
+      });
 
     // Connect to database only after in-memory validations succeed
     await dbConnect();
 
+    const catLower = typeof category === "string" ? category.toLowerCase() : "";
+
     // Build the query object
-    const query = { category: category.toLowerCase() };
+    const query = { category: catLower };
 
     // Add text search if searchQuery exists and is not empty
     if (searchQuery && searchQuery.trim() !== "")
@@ -121,29 +121,41 @@ const getProducts = async (req, res) => {
     if (price > 0)
       query.price = { $lte: price };
 
+    const rawProductTypes = Array.isArray(productTypes)
+      ? productTypes
+      : typeof productTypes === "string" && productTypes.trim()
+        ? [productTypes.trim()]
+        : [];
+
+    const normalizedProductTypes = rawProductTypes
+      .filter((type) => typeof type === "string" && type.trim() && type.trim().toLowerCase() !== "all")
+      .map((type) => type.trim());
+
     // Add filter to the query of the respective category
     // Note: Using case-insensitive regex matching to handle frontend lowercase conversion
     // Alternative optimization: normalize data storage to lowercase in database
-    if (
-      productTypes &&
-      productTypes.length > 0 &&
-      !productTypes.includes("all")
-    ) {
-      if (category === "comics") {
+    if (normalizedProductTypes.length > 0) {
+      if (catLower === "comics") {
         // Use case-insensitive regex matching for genres
-        const genreRegexArray = productTypes.map(
+        const genreRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
         query.genres = { $in: genreRegexArray };
-      } else if (category === "clothes" || category === "shoes") {
-        // Use case-insensitive regex matching for merchType
-        const merchTypeRegexArray = productTypes.map(
+      } else if (catLower === "clothes") {
+        // Use case-insensitive regex matching for clothesType
+        const clothesTypeRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
-        query.merchType = { $in: merchTypeRegexArray };
-      } else if (category === "toys") {
+        query.clothesType = { $in: clothesTypeRegexArray };
+      } else if (catLower === "shoes") {
+        // Use case-insensitive regex matching for shoeType
+        const shoeTypeRegexArray = normalizedProductTypes.map(
+          (type) => new RegExp(`^${type}$`, "i"),
+        );
+        query.shoeType = { $in: shoeTypeRegexArray };
+      } else if (catLower === "toys") {
         // Use case-insensitive regex matching for toyType
-        const toyTypeRegexArray = productTypes.map(
+        const toyTypeRegexArray = normalizedProductTypes.map(
           (type) => new RegExp(`^${type}$`, "i"),
         );
         query.toyType = { $in: toyTypeRegexArray };
@@ -197,8 +209,15 @@ const getProducts = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
+    const isMultipart = Boolean(
+      req?.is?.("multipart/form-data") ||
+      req?.file ||
+      (typeof req?.headers?.["content-type"] === "string" &&
+        req.headers["content-type"].includes("multipart/form-data")),
+    );
+
     // Validate and parse incoming product fields in memory before connecting to database
-    const validation = validateProductData(req.body);
+    const validation = validateProductData(req.body, { isMultipart });
     if (!validation.valid)
       return res.status(validation.status).json({
         success: false,
@@ -238,7 +257,6 @@ const createProduct = async (req, res) => {
     if (
       error.name === "ValidationError" ||
       error.name === "CastError" ||
-      error.message?.startsWith("Stock value missing or invalid") ||
       error.message?.startsWith("Invalid category")
     )
       return res.status(400).json({
@@ -266,8 +284,15 @@ const updateProduct = async (req, res) => {
         message: "Product id is required",
       });
 
+    const isMultipart = Boolean(
+      req?.is?.("multipart/form-data") ||
+      req?.file ||
+      (typeof req?.headers?.["content-type"] === "string" &&
+        req.headers["content-type"].includes("multipart/form-data")),
+    );
+
     // Validate and parse incoming product fields in memory before connecting to database
-    const validation = validateProductData(req.body);
+    const validation = validateProductData(req.body, { isMultipart });
     if (!validation.valid)
       return res.status(validation.status).json({
         success: false,
@@ -304,10 +329,21 @@ const updateProduct = async (req, res) => {
       imagePublicId,
     };
 
+    // Clean up inactive category fields when category attributes are updated
+    const unsetFields = {};
+    if (validation.data.category !== "comics") unsetFields.genres = 1;
+    if (validation.data.category !== "clothes") unsetFields.clothesType = 1;
+    if (validation.data.category !== "shoes") unsetFields.shoeType = 1;
+    if (validation.data.category !== "toys") unsetFields.toyType = 1;
+
+    const updateDoc = { $set: productData };
+    if (Object.keys(unsetFields).length > 0)
+      updateDoc.$unset = unsetFields;
+
     // Update and persist product document in database with validation
     const updatedProduct = await productModel.findByIdAndUpdate(
       _id,
-      productData,
+      updateDoc,
       { new: true, runValidators: true, context: "query" },
     );
 
@@ -331,7 +367,6 @@ const updateProduct = async (req, res) => {
     if (
       error.name === "ValidationError" ||
       error.name === "CastError" ||
-      error.message?.startsWith("Stock value missing or invalid") ||
       error.message?.startsWith("Invalid category")
     )
       return res.status(400).json({

@@ -29,6 +29,7 @@ const ProductForm = () => {
     handleSubmit,
     formState: { errors },
     setValue,
+    clearErrors,
     watch,
   } = useForm({
     defaultValues: {
@@ -36,13 +37,14 @@ const ProductForm = () => {
       productName: "",
       description: "",
       price: "",
-      stock: {},
+      stock: "",
       category: "",
       image: "",
       genres: "",
       volumes: "",
       availableSizes: [],
-      merchandiseType: "",
+      clothesType: "",
+      shoeType: "",
       toyType: "",
     },
     mode: "onChange",
@@ -59,64 +61,48 @@ const ProductForm = () => {
       setValue("category", editProduct.category || "");
 
       // Handle array fields - convert arrays to comma-separated strings
-      if (editProduct.genres) {
+      if (Array.isArray(editProduct.genres))
         setValue("genres", editProduct.genres.join(", "));
-      }
-      if (editProduct.volumes) {
-        setValue("volumes", editProduct.volumes.join(", "));
-      }
-      if (editProduct.toyType) {
-        setValue("toyType", editProduct.toyType);
-      }
-      if (Array.isArray(editProduct.availableSizes)) {
-        setValue("availableSizes", editProduct.availableSizes);
-      } else if (editProduct.sizes) {
-        setValue("availableSizes", editProduct.sizes);
-      }
-      if (editProduct.merchType) {
-        setValue("merchandiseType", editProduct.merchType);
-      }
-      if (editProduct.stock) {
+
+      if (editProduct.toyType)
+        setValue("toyType", editProduct.toyType.toLowerCase().replace(/\s+/g, "-"));
+      if (editProduct.clothesType)
+        setValue("clothesType", editProduct.clothesType.toLowerCase());
+      if (editProduct.shoeType)
+        setValue("shoeType", editProduct.shoeType.toLowerCase());
+      // Populate variants and stock
+      if (Array.isArray(editProduct.variants) && editProduct.variants.length > 0) {
         if (editProduct.category === "comics") {
-          if (typeof editProduct.stock === "object") {
-            Object.keys(editProduct.stock).forEach((volume) => {
-              setValue(`stock_${volume}`, editProduct.stock[volume]);
-            });
-          }
+          const vols = editProduct.variants.map((v) => v.label);
+          setValue("volumes", vols.join(", "));
+          editProduct.variants.forEach((v) => {
+            setValue(`stock_${v.label}`, v.stock);
+          });
         } else if (
           editProduct.category === "clothes" ||
           editProduct.category === "shoes"
         ) {
-          if (typeof editProduct.stock === "object") {
-            Object.keys(editProduct.stock).forEach((size) => {
-              setValue(`stock_${size}`, editProduct.stock[size]);
-            });
-          }
+          const sizes = editProduct.variants.map((v) => v.label);
+          setValue("availableSizes", sizes);
+          editProduct.variants.forEach((v) => {
+            setValue(`stock_${v.label}`, v.stock);
+          });
         } else if (editProduct.category === "toys") {
-          if (typeof editProduct.stock === "number") {
-            setValue("stock", editProduct.stock);
-          }
+          const defVariant = editProduct.variants.find((v) => v.label === "Default");
+          setValue("stock", defVariant ? defVariant.stock : 0);
         }
       }
       // Always set preview to product image in edit mode
-      if (editProduct.image) {
-        // If the image is already a full URL (Cloudinary), use as is
-        if (editProduct.image.startsWith("http")) {
-          setPreviewImage(editProduct.image);
-        } else {
-          setPreviewImage(editProduct.image);
-        }
-      }
+      if (editProduct.image)
+        setPreviewImage(editProduct.image);
       setSelectedFile(null); // clear file selection in edit mode
     }
     // In add mode, do NOT reset previewImage or selectedFile here!
     // Let the user's selection persist.
   }, [editProduct, setValue]);
 
-  /**
-   * Handles image file selection and preview
-   * @param {Event} e - File input change event
-   */
+  // Handles image file selection and preview
+  // @param {Event} e - File input change event
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     console.log("Selected file:", file);
@@ -128,11 +114,10 @@ const ProductForm = () => {
     } else {
       // If no file selected, reset to edit image if in edit mode
       setSelectedFile(null);
-      if (editProduct && editProduct.image) {
+      if (editProduct && editProduct.image)
         setPreviewImage(editProduct.image);
-      } else {
+      else
         setPreviewImage(null);
-      }
     }
   };
 
@@ -140,6 +125,19 @@ const ProductForm = () => {
   const selectedCategory = watch("category");
   const availableSizes = watch("availableSizes") || [];
   const volumes = watch("volumes") || "";
+
+  // Register availableSizes with category-specific validation requiring at least one size
+  useEffect(() => {
+    register("availableSizes", {
+      validate: (value) => {
+        if (!["clothes", "shoes"].includes(selectedCategory)) return true;
+        return (
+          (Array.isArray(value) && value.length > 0) ||
+          "At least one size is required!"
+        );
+      },
+    });
+  }, [register, selectedCategory]);
 
   // Capitalize Volumes input as user types and validate format
   const handleVolumesChange = (e) => {
@@ -154,12 +152,11 @@ const ProductForm = () => {
 
       // Check if it matches the pattern (v or V followed by numbers)
       const match = volume.match(/^[vV](\d+)$/);
-      if (match) {
+      if (match)
         processedVolumes.push(`V${match[1]}`);
-      } else if (volume !== "") {
+      else if (volume !== "")
         // If it doesn't match and isn't empty, keep original to show error
         processedVolumes.push(volume);
-      }
     });
 
     const finalValue = processedVolumes.join(", ");
@@ -184,10 +181,15 @@ const ProductForm = () => {
 
       // Clear clothes/shoes fields
       setValue("availableSizes", []);
-      setValue("merchandiseType", "");
+      clearErrors("availableSizes");
+      setValue("clothesType", "");
+      setValue("shoeType", "");
+      clearErrors("clothesType");
+      clearErrors("shoeType");
 
       // Clear toys fields
       setValue("toyType", "");
+      clearErrors("toyType");
 
       // Clear stock field (single stock for toys)
       setValue("stock", "");
@@ -202,18 +204,14 @@ const ProductForm = () => {
     }
 
     // Update the initial category tracker
-    if (selectedCategory && initialCategory === null) {
+    if (selectedCategory && initialCategory === null)
       setInitialCategory(selectedCategory);
-    } else if (selectedCategory && selectedCategory !== initialCategory) {
+    else if (selectedCategory && selectedCategory !== initialCategory)
       setInitialCategory(selectedCategory);
-    }
-  }, [selectedCategory, initialCategory, watch, setValue]);
+  }, [selectedCategory, initialCategory, watch, setValue, clearErrors]);
 
-  /**
-   * Handles form submission
-   * Processes form data based on product category and sends to backend
-   * @param {Object} data - Form data from react-hook-form
-   */
+  // Handles form submission
+  // Processes form data based on product category and sends to backend
   const onSubmit = async (data) => {
     try {
       setError(null);
@@ -222,9 +220,8 @@ const ProductForm = () => {
 
       // Basic fields
       // Product ID is displayed only; updates identify the product by Mongo _id in the request body.
-      if (editProduct) {
+      if (editProduct)
         formData.append("_id", editProduct._id);
-      }
 
       formData.append("name", data.productName);
       formData.append("description", data.description);
@@ -232,11 +229,10 @@ const ProductForm = () => {
       formData.append("category", data.category);
 
       // Handle image - only append if new file selected, otherwise keep existing
-      if (selectedFile) {
+      if (selectedFile)
         formData.append("image", selectedFile);
-      } else if (editProduct && editProduct.image) {
+      else if (editProduct && editProduct.image)
         formData.append("image", editProduct.image);
-      }
 
       if (data.category === "comics") {
         const volumes = data.volumes
@@ -244,13 +240,12 @@ const ProductForm = () => {
           .map((v) => v.trim())
           .filter((v) => v);
 
-        const stockData = {};
-        volumes.forEach((volume) => {
-          stockData[volume] = Number(data[`stock_${volume}`]) || 0;
-        });
+        const variantsList = volumes.map((volume) => ({
+          label: volume,
+          stock: Number(data[`stock_${volume}`]) || 0,
+        }));
 
-        formData.append("stock", JSON.stringify(stockData));
-        formData.append("volumes", JSON.stringify(volumes));
+        formData.append("variants", JSON.stringify(variantsList));
         formData.append(
           "genres",
           JSON.stringify(
@@ -260,17 +255,27 @@ const ProductForm = () => {
               .filter((g) => g),
           ),
         );
-      } else if (data.category === "clothes" || data.category === "shoes") {
-        const stockData = {};
-        data.availableSizes.forEach((size) => {
-          stockData[size] = Number(data[`stock_${size}`]) || 0;
-        });
+      } else if (data.category === "clothes") {
+        const variantsList = data.availableSizes.map((size) => ({
+          label: size,
+          stock: Number(data[`stock_${size}`]) || 0,
+        }));
 
-        formData.append("stock", JSON.stringify(stockData));
-        formData.append("sizes", JSON.stringify(data.availableSizes));
-        formData.append("merchType", data.merchandiseType);
+        formData.append("variants", JSON.stringify(variantsList));
+        formData.append("clothesType", data.clothesType);
+      } else if (data.category === "shoes") {
+        const variantsList = data.availableSizes.map((size) => ({
+          label: size,
+          stock: Number(data[`stock_${size}`]) || 0,
+        }));
+
+        formData.append("variants", JSON.stringify(variantsList));
+        formData.append("shoeType", data.shoeType);
       } else if (data.category === "toys") {
-        formData.append("stock", Number(data.stock) || 0);
+        const toyStock = Number(data.stock) || 0;
+        const variantsList = [{ label: "Default", stock: toyStock }];
+
+        formData.append("variants", JSON.stringify(variantsList));
         formData.append("toyType", data.toyType.trim());
       }
 
@@ -311,17 +316,13 @@ const ProductForm = () => {
     }
   };
 
-  /**
-   * Closes the modal and resets form state
-   */
+  // Closes the modal and resets form state
   const handleClose = () => {
     dispatch(closeProductForm());
   };
 
-  /**
-   * Handles size selection for clothes/shoes
-   * @param {string} size - Selected size
-   */
+  // Handles size selection for clothes/shoes
+  // @param {string} size - Selected size
   const handleSizeChange = (size) => {
     const newSizes = availableSizes.includes(size)
       ? availableSizes.filter((s) => s !== size)
@@ -521,27 +522,35 @@ const ProductForm = () => {
                               .map((volume) => (
                                 <div
                                   key={volume}
-                                  className="flex items-center gap-2"
+                                  className="flex flex-col"
                                 >
-                                  <span className="text-white/70 text-xs min-w-[60px]">
-                                    Vol {volume}:
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-                                    placeholder={`Stock`}
-                                    {...register(`stock_${volume}`, {
-                                      required: `Stock for Volume ${volume} is required!`,
-                                      min: {
-                                        value: 0,
-                                        message: "Stock cannot be negative",
-                                      },
-                                      validate: (value) =>
-                                        !isNaN(Number(value)) ||
-                                        "Must be a valid number",
-                                    })}
-                                  />
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white/70 text-xs min-w-[60px]">
+                                      Vol {volume}:
+                                    </span>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="0"
+                                      className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
+                                      placeholder={`Stock`}
+                                      {...register(`stock_${volume}`, {
+                                        required: `Stock for Volume ${volume} is required!`,
+                                        min: {
+                                          value: 0,
+                                          message: "Stock cannot be negative",
+                                        },
+                                        validate: (value) =>
+                                          Number.isInteger(Number(value)) ||
+                                          "Must be a valid integer",
+                                      })}
+                                    />
+                                  </div>
+                                  {errors[`stock_${volume}`] && (
+                                    <span className="block mt-1 text-xs text-red-500">
+                                      {errors[`stock_${volume}`].message}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                           </div>
@@ -562,27 +571,35 @@ const ProductForm = () => {
                               .map((size) => (
                                 <div
                                   key={size}
-                                  className="flex items-center gap-2"
+                                  className="flex flex-col"
                                 >
-                                  <span className="text-white hover:text-black hover:bg-white text-xs min-w-[50px]">
-                                    {size}:
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-                                    placeholder={`Stock`}
-                                    {...register(`stock_${size}`, {
-                                      required: `Stock for Size ${size} is required!`,
-                                      min: {
-                                        value: 0,
-                                        message: "Stock cannot be negative",
-                                      },
-                                      validate: (value) =>
-                                        !isNaN(Number(value)) ||
-                                        "Must be a valid number",
-                                    })}
-                                  />
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white hover:text-black hover:bg-white text-xs min-w-[50px]">
+                                      {size}:
+                                    </span>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="0"
+                                      className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
+                                      placeholder={`Stock`}
+                                      {...register(`stock_${size}`, {
+                                        required: `Stock for Size ${size} is required!`,
+                                        min: {
+                                          value: 0,
+                                          message: "Stock cannot be negative",
+                                        },
+                                        validate: (value) =>
+                                          Number.isInteger(Number(value)) ||
+                                          "Must be a valid integer",
+                                      })}
+                                    />
+                                  </div>
+                                  {errors[`stock_${size}`] && (
+                                    <span className="block mt-1 text-xs text-red-500">
+                                      {errors[`stock_${size}`].message}
+                                    </span>
+                                  )}
                                 </div>
                               ))}
                           </div>
@@ -591,6 +608,7 @@ const ProductForm = () => {
                     ) : selectedCategory !== "" ? (
                       <input
                         type="number"
+                        step="1"
                         min="0"
                         className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                         placeholder="Enter stock"
@@ -601,7 +619,8 @@ const ProductForm = () => {
                             message: "Stock cannot be negative",
                           },
                           validate: (value) =>
-                            !isNaN(Number(value)) || "Must be a valid number",
+                            Number.isInteger(Number(value)) ||
+                            "Must be a valid integer",
                         })}
                       />
                     ) : null}
@@ -713,17 +732,15 @@ const ProductForm = () => {
                             const invalidVolumes = volumes.filter(
                               (v) => !/^V\d+$/.test(v),
                             );
-                            if (invalidVolumes.length > 0) {
+                            if (invalidVolumes.length > 0)
                               return `Invalid format: "${invalidVolumes.join(
                                 ", ",
                               )}". Use format: V1, V2, V10, etc.`;
-                            }
 
                             // Check for duplicates
                             const uniqueVolumes = [...new Set(volumes)];
-                            if (uniqueVolumes.length !== volumes.length) {
+                            if (uniqueVolumes.length !== volumes.length)
                               return "Duplicate volume numbers are not allowed";
-                            }
 
                             return true;
                           },
@@ -779,67 +796,86 @@ const ProductForm = () => {
                       </span>
                     )}
                   </div>
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Merchandise Type
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
-                      {...register("merchandiseType", {
-                        validate: (value) =>
-                          !["clothes", "shoes"].includes(selectedCategory) ||
-                          value.trim() !== "" ||
-                          "Merchandise type is required!",
-                      })}
-                    >
-                      <option className="text-white bg-black" value="">
-                        Select Type
-                      </option>
-                      {selectedCategory === "clothes" && (
-                        <>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="t-shirt"
-                          >
-                            T-Shirt
-                          </option>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="jacket"
-                          >
-                            Jacket
-                          </option>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="pants"
-                          >
-                            Pants
-                          </option>
-                        </>
+                  {selectedCategory === "clothes" && (
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
+                        Clothes Type
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
+                        {...register("clothesType", {
+                          validate: (value) =>
+                            selectedCategory !== "clothes" ||
+                            (typeof value === "string" && value.trim() !== "") ||
+                            "Clothes type is required!",
+                        })}
+                      >
+                        <option className="text-white bg-black" value="">
+                          Select Type
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="t-shirt"
+                        >
+                          T-Shirt
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="jacket"
+                        >
+                          Jacket
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="pants"
+                        >
+                          Pants
+                        </option>
+                      </select>
+                      {errors.clothesType && (
+                        <span className="block mt-1 text-xs text-red-500">
+                          {errors.clothesType.message}
+                        </span>
                       )}
-                      {selectedCategory === "shoes" && (
-                        <>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="sneakers"
-                          >
-                            Sneakers
-                          </option>
-                          <option
-                            className="text-gray-300 bg-gray-800"
-                            value="boots"
-                          >
-                            Boots
-                          </option>
-                        </>
+                    </div>
+                  )}
+                  {selectedCategory === "shoes" && (
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
+                        Shoe Type
+                      </label>
+                      <select
+                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
+                        {...register("shoeType", {
+                          validate: (value) =>
+                            selectedCategory !== "shoes" ||
+                            (typeof value === "string" && value.trim() !== "") ||
+                            "Shoe type is required!",
+                        })}
+                      >
+                        <option className="text-white bg-black" value="">
+                          Select Type
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="sneakers"
+                        >
+                          Sneakers
+                        </option>
+                        <option
+                          className="text-gray-300 bg-gray-800"
+                          value="boots"
+                        >
+                          Boots
+                        </option>
+                      </select>
+                      {errors.shoeType && (
+                        <span className="block mt-1 text-xs text-red-500">
+                          {errors.shoeType.message}
+                        </span>
                       )}
-                    </select>
-                    {errors.merchandiseType && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.merchandiseType.message}
-                      </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Toys Specific */}
@@ -857,7 +893,7 @@ const ProductForm = () => {
                       {...register("toyType", {
                         validate: (value) =>
                           selectedCategory !== "toys" ||
-                          value.trim() !== "" ||
+                          (typeof value === "string" && value.trim() !== "") ||
                           "Toy type is required!",
                       })}
                     >
@@ -870,9 +906,14 @@ const ProductForm = () => {
                       >
                         Action Figure
                       </option>
-
                       <option className="text-gray-300 bg-gray-800" value="car">
                         Car
+                      </option>
+                      <option
+                        className="text-gray-300 bg-gray-800"
+                        value="doll"
+                      >
+                        Doll
                       </option>
                     </select>
                     {errors.toyType && (

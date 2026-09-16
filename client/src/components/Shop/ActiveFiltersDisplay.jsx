@@ -43,11 +43,16 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
 
   // Get display name for product types
   const getProductTypeDisplayName = (type) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
+    if (!type || typeof type !== "string") return "";
+    return type
+      .split(/[- ]+/)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join("-");
   };
 
   // Get category display name
   const getCategoryDisplayName = (category) => {
+    if (!category || typeof category !== "string") return "";
     return category.charAt(0).toUpperCase() + category.slice(1);
   };
 
@@ -63,9 +68,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
     );
   };
 
-  if (!hasActiveFilters()) {
-    return null;
-  }
+  if (!hasActiveFilters()) return null;
 
   const {
     productTypes = [],

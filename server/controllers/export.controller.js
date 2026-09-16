@@ -1,10 +1,10 @@
-const userModel = require("../models/user.model.js");
+const userModel = require("../db/models/user.model.js");
 const {
   dataConfigs,
   generateExcel,
   generatePdf,
 } = require("../services/export.service.js");
-const dbConnect = require("../config/dbConnect.js");
+const dbConnect = require("../db/dbConnect.js");
 
 const exportData = async (req, res) => {
   const dataType = req.params?.dataType;

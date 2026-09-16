@@ -3,25 +3,20 @@ const excel = require("exceljs");
 const PDFDocument = require("pdfkit");
 
 // Import database models for different entities
-const userModel = require("../models/user.model.js");
-const productModel = require("../models/product.model.js");
-const couponModel = require("../models/coupon.model.js");
-const orderModel = require("../models/order.model.js");
+const userModel = require("../db/models/user.model.js");
+const productModel = require("../db/models/product.model.js");
+const couponModel = require("../db/models/coupon.model.js");
+const orderModel = require("../db/models/order.model.js");
 
 // --- Helper function to format stock for display ---
 
 const formatStock = (product) => {
-  if (product.category === "toys")
-    return product.stock > 0 ? `${product.stock} available` : "Out of Stock";
+  if (Array.isArray(product?.variants) && product.variants.length > 0) {
+    if (product.variants.length === 1 && product.variants[0].label === "Default")
+      return product.variants[0].stock > 0 ? `${product.variants[0].stock} available` : "Out of Stock";
+    return product.variants.map((v) => `${v.label}: ${v.stock}`).join(", ");
+  }
 
-  // For products with object-based stock (e.g., sizes, variants)
-  // Display as key-value pairs (e.g., "S: 10, M: 5, L: 2")
-  if (typeof product.stock === "object" && product.stock !== null)
-    return Object.entries(product.stock)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(", ");
-
-  // Fallback for unknown stock format
   return "N/A";
 };
 
@@ -34,13 +29,11 @@ const formatUser = (order) => {
 };
 
 // --- Data Fetching and Configuration ---
-/**
- * Configuration object defining how different data types should be exported
- * Each configuration includes:
- * - model: The database model to query
- * - populate: (optional) Relations to populate from other collections
- * - fields: Array of field definitions for export columns
- */
+// Configuration object defining how different data types should be exported
+// Each configuration includes:
+// - model: The database model to query
+// - populate: (optional) Relations to populate from other collections
+// - fields: Array of field definitions for export columns
 const dataConfigs = {
   // User export configuration
   users: {
@@ -107,11 +100,9 @@ const dataConfigs = {
 };
 
 // --- Generic Excel Generation ---
-/**
- * Generates an Excel file and streams it to the response
- * @param {Object} res - Express response object
- * @param {Object} config - Configuration object containing model and field definitions (dataConfig)
- */
+// Generates an Excel file and streams it to the response
+// @param {Object} res - Express response object
+// @param {Object} config - Configuration object containing model and field definitions (dataConfig)
 const generateExcel = async (res, config) => {
   // Build database query with optional population
   let query = config.model.find(); // ← This becomes userModel/productModel/couponModel/orderModel.find()
@@ -167,11 +158,9 @@ const generateExcel = async (res, config) => {
 };
 
 // --- Generic PDF Generation ---
-/**
- * Generates a PDF file and streams it to the response
- * @param {Object} res - Express response object
- * @param {Object} config - Configuration object containing model and field definitions
- */
+// Generates a PDF file and streams it to the response
+// @param {Object} res - Express response object
+// @param {Object} config - Configuration object containing model and field definitions
 const generatePdf = async (res, config) => {
   // Build database query with population just for referenced fields
   let query = config.model.find();

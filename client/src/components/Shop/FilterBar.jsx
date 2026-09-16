@@ -53,17 +53,14 @@ const FilterBar = () => {
           "Fantasy",
         );
         break;
-      case "action figures":
-        currProductTypes.push("Action Figure", "Vehicle", "Puzzle");
-        break;
       case "clothes":
-        currProductTypes.push("T-Shirts", "Jackets", "Pants");
+        currProductTypes.push("T-Shirt", "Jacket", "Pants");
         break;
       case "shoes":
         currProductTypes.push("Sneakers", "Boots");
         break;
       case "toys":
-        currProductTypes.push("Action Figures", "Dolls", "Cars");
+        currProductTypes.push("Action-Figure", "Car", "Doll");
         break;
       default:
         break;
@@ -72,36 +69,27 @@ const FilterBar = () => {
     setAvailProductTypes(currProductTypes);
   }, [currCategory]);
 
-  /**
-   * Automatically deselect "All" when other filters are active
-   * to avoid conflicting intent and vice versa
-   */
+  // Automatically deselect "All" when other filters are active
+  // to avoid conflicting intent and vice versa
   useEffect(() => {
     let updatedFilters;
 
-    if (formFields.currProductType === "All") {
-      updatedFilters = formFields.productTypes.filter((filter) => {
-        return filter === "All";
-      });
-    } else {
-      updatedFilters = formFields.productTypes.filter((filter) => {
-        return filter !== "All";
-      });
-    }
+    if (formFields.currProductType === "All")
+      updatedFilters = formFields.productTypes.filter((filter) => filter === "All");
+    else
+      updatedFilters = formFields.productTypes.filter((filter) => filter !== "All");
+
     // Only update if the values are actually different to prevent infinite loops
     const isDifferent =
       JSON.stringify(updatedFilters) !==
       JSON.stringify(formFields.productTypes);
 
-    if (isDifferent) {
+    if (isDifferent)
       setValue("productTypes", updatedFilters);
-    }
   }, [formFields.currProductType, formFields.productTypes, setValue]);
 
-  /**
-   * Form submission handler
-   * Sends the selected filters, price, sort, and query to the store.
-   */
+  // Form submission handler
+  // Sends the selected filters, price, sort, and query to the store.
   const onSubmit = async (data) => {
     try {
       setIsSubmitting(true);
@@ -116,9 +104,8 @@ const FilterBar = () => {
       };
 
       // Reset to page 1 if search was used
-      if (formFields.searchQuery) {
+      if (formFields.searchQuery)
         dispatch(updateCurrPage(1));
-      }
 
       // Only transfer data if filters are actually applied
       if (
@@ -126,9 +113,8 @@ const FilterBar = () => {
         formData.productTypes.length > 0 ||
         formData.searchQuery ||
         formData.sortBy !== "popular"
-      ) {
+      )
         dispatch(transferFilterData(formData));
-      }
 
       // Auto-close the filter bar after applying filters (similar to close button behavior)
       dispatch(openFilterBar(false));
@@ -140,9 +126,7 @@ const FilterBar = () => {
     }
   };
 
-  /**
-   * Custom background styling for range input based on current price
-   */
+  // Custom background styling for range input based on current price
   const getBackgroundStyle = (value) => {
     const percentage = (value / 100) * 100;
     return {

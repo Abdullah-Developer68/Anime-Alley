@@ -1,6 +1,6 @@
-const couponModel = require("../models/coupon.model.js");
-const userModel = require("../models/user.model.js");
-const dbConnect = require("../config/dbConnect.js");
+const couponModel = require("../db/models/coupon.model.js");
+const userModel = require("../db/models/user.model.js");
+const dbConnect = require("../db/dbConnect.js");
 const { validateCouponFields } = require("../utils/coupon.utils.js");
 
 const checkCoupon = async (req, res) => {
