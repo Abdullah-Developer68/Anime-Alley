@@ -936,11 +936,21 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     assert.strictEqual(res.statusCode, 400);
   });
 
-  await t.test("verifyOrder returns 400 without dbConnect on missing stripeSessionID", async () => {
-    const req = { query: {} };
-    const res = createMockRes();
-    await orderController.verifyOrder(req, res);
-    assert.strictEqual(res.statusCode, 400);
+  await t.test("verifyOrder returns 400 without dbConnect on missing, whitespace or non-string stripeSessionID", async () => {
+    const req1 = { query: {} };
+    const res1 = createMockRes();
+    await orderController.verifyOrder(req1, res1);
+    assert.strictEqual(res1.statusCode, 400);
+
+    const req2 = { query: { stripeSessionID: "   " } };
+    const res2 = createMockRes();
+    await orderController.verifyOrder(req2, res2);
+    assert.strictEqual(res2.statusCode, 400);
+
+    const req3 = { query: { stripeSessionID: 12345 } };
+    const res3 = createMockRes();
+    await orderController.verifyOrder(req3, res3);
+    assert.strictEqual(res3.statusCode, 400);
   });
 
   await t.test("createProduct returns 400 without dbConnect on missing fields", async () => {
@@ -1936,6 +1946,59 @@ test("11. Reverse Proxy & Rate Limiter Header Safety", async (t) => {
     } finally {
       process.env.NODE_ENV = prevEnv;
     }
+  });
+});
+
+// ==========================================
+// 12. STRIPE DYNAMIC ORIGIN REDIRECTION & ORDER VERIFICATION SECURITY
+// ==========================================
+test("12. Stripe Dynamic Origin Redirection & Order Verification Security", async (t) => {
+  const { resolveTrustedClientOrigin } = require("../utils/origin.utils.js");
+  const orderRouter = require("../routes/modules/order.route.js");
+
+  await t.test("resolveTrustedClientOrigin returns valid team-scoped Vercel preview origin from req.headers.origin", () => {
+    const previewOrigin = "https://anime-alley-client-git-main-developers-projects-86df454e.vercel.app";
+    const req = { headers: { origin: previewOrigin } };
+    const resolved = resolveTrustedClientOrigin(req);
+    assert.strictEqual(resolved, previewOrigin, "Origin must match verified team-scoped Vercel preview URL");
+  });
+
+  await t.test("resolveTrustedClientOrigin parses origin from referer header with path and query parameters", () => {
+    const previewOrigin = "https://anime-alley-client-git-main-developers-projects-86df454e.vercel.app";
+    const req = { headers: { referer: `${previewOrigin}/cart?ref=promo&step=1` } };
+    const resolved = resolveTrustedClientOrigin(req);
+    assert.strictEqual(resolved, previewOrigin, "Must correctly parse and return origin from referer URL");
+  });
+
+  await t.test("resolveTrustedClientOrigin returns localhost origin for development", () => {
+    const req = { headers: { origin: "http://localhost:5173" } };
+    const resolved = resolveTrustedClientOrigin(req);
+    assert.strictEqual(resolved, "http://localhost:5173", "Must allow localhost origin");
+  });
+
+  await t.test("resolveTrustedClientOrigin rejects untrusted origins and falls back to process.env.CLIENT_URL", () => {
+    const maliciousOrigin = "https://evil-phishing-site.com";
+    const req = { headers: { origin: maliciousOrigin } };
+    const resolved = resolveTrustedClientOrigin(req);
+    assert.strictEqual(resolved, process.env.CLIENT_URL || "http://localhost:5173", "Untrusted origin must fall back to CLIENT_URL");
+  });
+
+  await t.test("resolveTrustedClientOrigin gracefully handles malformed URL or empty headers", () => {
+    const req1 = { headers: { origin: "not-a-valid-url" } };
+    const req2 = {};
+    const req3 = { headers: {} };
+    assert.strictEqual(resolveTrustedClientOrigin(req1), process.env.CLIENT_URL || "http://localhost:5173");
+    assert.strictEqual(resolveTrustedClientOrigin(req2), process.env.CLIENT_URL || "http://localhost:5173");
+    assert.strictEqual(resolveTrustedClientOrigin(req3), process.env.CLIENT_URL || "http://localhost:5173");
+  });
+
+  await t.test("orderRouter mounts verifyOrder before verifyTokenMiddleware", () => {
+    const layers = orderRouter.stack;
+    const verifyOrderIndex = layers.findIndex((layer) => layer.route && layer.route.path === "/verifyOrder");
+    const verifyTokenMiddlewareIndex = layers.findIndex((layer) => !layer.route && typeof layer.handle === "function");
+    assert.ok(verifyOrderIndex !== -1, "verifyOrder route must be mounted in order router");
+    assert.ok(verifyTokenMiddlewareIndex !== -1, "verifyTokenMiddleware must be mounted in order router");
+    assert.ok(verifyOrderIndex < verifyTokenMiddlewareIndex, "verifyOrder must appear before verifyTokenMiddleware");
   });
 });
 

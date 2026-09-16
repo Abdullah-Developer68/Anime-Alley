@@ -3,6 +3,7 @@ const dotenv = require("dotenv");
 const reservationModel = require("../db/models/reservation.model.js");
 const dbConnect = require("../db/dbConnect.js");
 const couponModel = require("../db/models/coupon.model.js");
+const { resolveTrustedClientOrigin } = require("../utils/origin.utils.js");
 dotenv.config();
 
 // Initialized Stripe instance for backends
@@ -94,14 +95,17 @@ const createCheckoutSession = async (req, res) => {
     if (trimmedCouponCode && authenticatedUserEmail)
       appliedCoupon = coupon || (await couponModel.findOne({ couponCode: trimmedCouponCode }));
 
+    // Resolve trusted client base URL to return user to their originating deployment domain
+    const clientBaseUrl = resolveTrustedClientOrigin(req);
+
     // Create checkout session configuration with locked email
     const sessionConfig = {
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
       // The {CHECKOUT_SESSION_ID} is a Stripe placeholder that gets replaced with the actual session ID.
-      success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL}/cart`,
+      success_url: `${clientBaseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${clientBaseUrl}/cart`,
 
       // Lock the customer email to the authenticated user's email
       customer_creation: "always",

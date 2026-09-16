@@ -456,7 +456,7 @@ const verifyOrder = async (req, res) => {
   try {
     const stripeSessionID = req.query?.stripeSessionID;
 
-    if (!stripeSessionID)
+    if (!stripeSessionID || typeof stripeSessionID !== "string" || !stripeSessionID.trim())
       return res.status(400).json({
         success: false,
         message: "Stripe session ID is required.",
@@ -464,7 +464,7 @@ const verifyOrder = async (req, res) => {
 
     await dbConnect();
     // Find if the recent order has been saved to the database
-    const order = await orderModel.findOne({ stripeSessionID });
+    const order = await orderModel.findOne({ stripeSessionID: stripeSessionID.trim() });
 
     if (order)
       return res.json({ success: true });

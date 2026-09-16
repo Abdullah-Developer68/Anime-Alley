@@ -18,7 +18,8 @@ export const clearUserData = () => {
   // Items to preserve during user switch
   const itemsToPreserve = [
     "userInfo", // Keep new user info
-    "token", // Keep authentication token
+    "authToken", // Keep authentication token
+    "token", // Keep fallback token if exists
     "refreshToken", // Keep refresh token if exists
     USER_EMAIL_KEY, // Keep the new email reference
   ];
@@ -28,9 +29,8 @@ export const clearUserData = () => {
 
   // Remove all items except preserved ones
   allKeys.forEach((key) => {
-    if (!itemsToPreserve.includes(key)) {
+    if (!itemsToPreserve.includes(key))
       localStorage.removeItem(key);
-    }
   });
 
   console.log("User data cleared from localStorage due to email change");
@@ -40,9 +40,8 @@ export const clearUserData = () => {
 // Call this function whenever userInfo is updated
 
 export const checkAndHandleUserChange = (newUserInfo) => {
-  if (!newUserInfo || !newUserInfo.email) {
+  if (!newUserInfo || !newUserInfo.email)
     return false; // No valid user info provided
-  }
 
   const currentStoredEmail = getCurrentUserEmail();
   const newEmail = newUserInfo.email;
@@ -66,9 +65,8 @@ export const checkAndHandleUserChange = (newUserInfo) => {
 export const initializeUserSession = () => {
   try {
     const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-    if (userInfo && userInfo.email) {
+    if (userInfo && userInfo.email)
       checkAndHandleUserChange(userInfo);
-    }
   } catch (error) {
     console.error("Error initializing user session:", error);
   }

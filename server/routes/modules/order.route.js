@@ -14,7 +14,10 @@ const {
   verifyOrder
 } = require("../../controllers/order.controller.js");
 
-// All order routes require authentication
+// Verify Stripe order completion (publicly accessible by high-entropy session ID)
+router.get("/verifyOrder", verifyOrder);
+
+// All subsequent order routes require authentication
 router.use(verifyTokenMiddleware);
 
 // POST
@@ -23,7 +26,6 @@ router.post("/placeOrder", placeOrder);
 router.get("/getOrders", getOrderHistory);
 router.get("/allOrdersList", requireAdmin, allOrdersList);
 router.get("/orderStats", requireAdmin, getOrderStats);
-router.get("/verifyOrder", verifyOrder)
 // DELETE
 router.delete("/delete/:orderId", requireAdmin, deleteOrder);
 // UPDATE
