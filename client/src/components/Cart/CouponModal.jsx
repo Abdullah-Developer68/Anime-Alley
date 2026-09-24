@@ -13,6 +13,7 @@ import {
 import api from "../../api/api";
 import { toast } from "react-toastify";
 import assets from "../../assets/asset";
+import { formatPrice } from "../../utils/formatPrice";
 
 const CouponModal = () => {
   const dispatch = useDispatch();
@@ -26,9 +27,11 @@ const CouponModal = () => {
   const finalTotal = useSelector((state) => state.cart.finalTotal);
 
   // Calculate subtotal and shipping from Redux state
-  const subtotal = cartItems.reduce(
-    (total, item) => total + item.price * item.itemQuantity,
-    0,
+  const subtotal = formatPrice(
+    cartItems.reduce(
+      (total, item) => total + (item.price || 0) * item.itemQuantity,
+      0,
+    ),
   );
   const shippingCost = 5; // SHIPPING_COST constant
 
@@ -42,18 +45,18 @@ const CouponModal = () => {
   const calculateCosts = useCallback(() => {
     if (couponApplied && couponDiscount > 0) {
       // discounted Price
-      const newDiscountedPrice = Math.round(
+      const newDiscountedPrice = formatPrice(
         subtotal * (1 - couponDiscount / 100),
       );
       // Final Total
-      const newFinalTotal = Math.round(newDiscountedPrice + shippingCost);
+      const newFinalTotal = formatPrice(newDiscountedPrice + shippingCost);
       // update cartSlice
       dispatch(setDiscountedPrice(newDiscountedPrice));
       dispatch(setFinalTotal(newFinalTotal));
     } else {
       //update cartSlice
       dispatch(setDiscountedPrice(subtotal));
-      dispatch(setFinalTotal(subtotal + shippingCost));
+      dispatch(setFinalTotal(formatPrice(subtotal + shippingCost)));
     }
   }, [couponApplied, couponDiscount, subtotal, shippingCost, dispatch]);
 
@@ -66,7 +69,7 @@ const CouponModal = () => {
       if (!couponApplied) {
         setCouponDiscount(0);
         dispatch(setDiscountedPrice(subtotal));
-        dispatch(setFinalTotal(subtotal + shippingCost));
+        dispatch(setFinalTotal(formatPrice(subtotal + shippingCost)));
       }
     }
   }, [couponModalOpen, couponApplied, subtotal, shippingCost, dispatch]);
@@ -114,8 +117,8 @@ const CouponModal = () => {
       if (coupon) {
         const discount = coupon.discountPercentage;
         setCouponDiscount(discount);
-        const newDiscountedPrice = Math.round(subtotal * (1 - discount / 100));
-        const newFinalTotal = Math.round(newDiscountedPrice + shippingCost);
+        const newDiscountedPrice = formatPrice(subtotal * (1 - discount / 100));
+        const newFinalTotal = formatPrice(newDiscountedPrice + shippingCost);
 
         // Transition button to success state smoothly
         setIsValidating(false);
@@ -124,7 +127,7 @@ const CouponModal = () => {
         dispatch(setDiscountedPrice(newDiscountedPrice));
         dispatch(setFinalTotal(newFinalTotal));
         toast.success(
-          `Coupon applied! You saved $${subtotal - newDiscountedPrice}`,
+          `Coupon applied! You saved $${formatPrice(subtotal - newDiscountedPrice)}`,
         );
 
         // Keep button success animation visible before switching and proceeding
@@ -158,7 +161,7 @@ const CouponModal = () => {
     setIsSuccess(false);
     setIsProceeding(false);
     dispatch(setDiscountedPrice(subtotal));
-    dispatch(setFinalTotal(subtotal + shippingCost));
+    dispatch(setFinalTotal(formatPrice(subtotal + shippingCost)));
     setCouponInput("");
     toast.success("Coupon removed");
   };
@@ -183,10 +186,10 @@ const CouponModal = () => {
     showCheckoutToast();
 
     // Dispatch individual state updates
-    dispatch(setDiscountedPrice(discountedPrice));
-    dispatch(setFinalTotal(finalTotal));
-    dispatch(setOriginalTotal(subtotal + shippingCost));
-    dispatch(setDiscountAmount(couponApplied ? subtotal - discountedPrice : 0));
+    dispatch(setDiscountedPrice(formatPrice(discountedPrice)));
+    dispatch(setFinalTotal(formatPrice(finalTotal)));
+    dispatch(setOriginalTotal(formatPrice(subtotal + shippingCost)));
+    dispatch(setDiscountAmount(couponApplied ? formatPrice(subtotal - discountedPrice) : 0));
 
     // Trigger order placement
     dispatch(setShouldProceedWithOrder(true));
@@ -212,8 +215,8 @@ const CouponModal = () => {
 
     // Dispatch individual state updates for no coupon scenario
     dispatch(setDiscountedPrice(subtotal));
-    dispatch(setFinalTotal(subtotal + shippingCost));
-    dispatch(setOriginalTotal(subtotal + shippingCost));
+    dispatch(setFinalTotal(formatPrice(subtotal + shippingCost)));
+    dispatch(setOriginalTotal(formatPrice(subtotal + shippingCost)));
     dispatch(setDiscountAmount(0));
 
     // Trigger order placement
@@ -223,55 +226,184 @@ const CouponModal = () => {
     dispatch(closeCouponModal());
   };
 
-  const handleClose = () => {
-    dispatch(closeCouponModal());
-  };
-
   if (!couponModalOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-md p-6 mx-auto border rounded-lg bg-black/95 border-white/10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">
-            Apply Coupon Code
-          </h2>
-          <button
-            onClick={handleClose}
-            className="transition-colors text-white/70 hover:text-white"
-          >
-            <img src={assets.close} alt="close" className="w-6 h-6" />
-          </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="relative w-full max-w-md p-6 bg-[#0b0b10] border rounded-2xl border-white/10 shadow-2xl">
+        {/* Close Button */}
+        <button
+          onClick={() => dispatch(closeCouponModal())}
+          className="absolute text-xl transition-colors cursor-pointer top-4 right-4 text-white/50 hover:text-white"
+        >
+          ✕
+        </button>
+
+        {/* Modal Header */}
+        <div className="mb-6 text-center">
+          <div className="flex items-center justify-center w-12 h-12 mx-auto mb-3 rounded-full bg-pink-500/20">
+            <img src={assets.tag} alt="Coupon" className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Apply Coupon</h2>
+          <p className="mt-1 text-sm text-white/60">
+            Enter a coupon code to get discount on your order
+          </p>
         </div>
 
-        {/* Coupon Input Section */}
-        {!couponApplied && (
-          <div className="mb-6 space-y-4">
+        {/* Coupon Input Form */}
+        <div className="mb-6">
+          <div className="flex gap-2">
             <input
               type="text"
               placeholder="Enter coupon code"
               value={couponInput}
-              onChange={(e) => setCouponInput(e.target.value)}
-              className="w-full px-4 py-3 text-white transition-colors border rounded-lg outline-none bg-white/10 border-white/20 placeholder:text-white/50 focus:border-yellow-500/50 disabled:opacity-60"
-              disabled={isValidating || isSuccess}
+              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+              disabled={couponApplied || isValidating || isProceeding}
+              className="flex-1 px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-white/40 focus:border-pink-500/50 outline-none text-sm uppercase transition-colors disabled:opacity-50"
             />
+            {!couponApplied ? (
+              <button
+                type="button"
+                onClick={handleApplyCoupon}
+                disabled={
+                  isValidating || !couponInput.trim() || isProceeding || isSuccess
+                }
+                className={`relative px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 min-w-[90px] flex items-center justify-center overflow-hidden ${
+                  isSuccess
+                    ? "bg-green-500 text-black shadow-lg shadow-green-500/25"
+                    : isValidating
+                      ? "bg-pink-500/80 text-black cursor-wait"
+                      : !couponInput.trim() || isProceeding
+                        ? "bg-white/10 text-white/40 cursor-not-allowed"
+                        : "bg-pink-500 text-black hover:bg-pink-400 cursor-pointer shadow-md shadow-pink-500/20 hover:shadow-pink-500/30"
+                }`}
+              >
+                {/* Spinner state */}
+                {isValidating && (
+                  <span className="flex items-center gap-1.5">
+                    <svg
+                      className="w-4 h-4 text-black animate-spin"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      />
+                    </svg>
+                    <span className="text-xs">Checking</span>
+                  </span>
+                )}
+
+                {/* Success state - smooth pulse */}
+                {isSuccess && (
+                  <span className="flex items-center gap-1 font-bold animate-pulse">
+                    <svg
+                      className="w-4 h-4 text-black"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    <span>Applied!</span>
+                  </span>
+                )}
+
+                {/* Default state */}
+                {!isValidating && !isSuccess && "Apply"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleRemoveCoupon}
+                disabled={isProceeding}
+                className="px-4 py-2.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg text-sm font-semibold hover:bg-red-500/30 cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Applied Coupon Display */}
+        {couponApplied && (
+          <div className="p-3 mb-6 border rounded-lg bg-green-500/10 border-green-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                <span className="text-sm font-medium text-green-400">
+                  {couponCode} Applied
+                </span>
+              </div>
+              <span className="text-sm font-bold text-green-400">
+                {couponDiscount}% OFF
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Price Summary */}
+        <div className="p-4 mb-6 space-y-2 rounded-lg bg-white/5">
+          <div className="flex justify-between text-white/70">
+            <span>Subtotal</span>
+            <span>${formatPrice(subtotal)}</span>
+          </div>
+          <div className="flex justify-between text-white/70">
+            <span>Shipping</span>
+            <span>${formatPrice(shippingCost)}</span>
+          </div>
+          {couponApplied && couponDiscount > 0 && (
+            <>
+              <div className="flex justify-between text-sm text-white/50">
+                <span>Original Total</span>
+                <span className="line-through">${formatPrice(subtotal + shippingCost)}</span>
+              </div>
+              <div className="flex justify-between text-green-400">
+                <span>Discount ({couponDiscount}%)</span>
+                <span>-${formatPrice(subtotal - discountedPrice)}</span>
+              </div>
+            </>
+          )}
+          <div className="pt-2 border-t border-white/10">
+            <div className="flex justify-between text-lg font-bold text-yellow-500">
+              <span>Total</span>
+              <span>${formatPrice(finalTotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          {couponApplied ? (
             <button
-              type="button"
-              onClick={handleApplyCoupon}
-              disabled={isValidating || isSuccess || !couponInput.trim()}
-              className={`flex items-center justify-center w-full gap-2 py-3 font-semibold rounded-lg transition-all duration-300 cursor-pointer ${
-                isSuccess
-                  ? "bg-emerald-500 text-black shadow-lg shadow-emerald-500/20"
-                  : isValidating
-                    ? "bg-yellow-400 text-black cursor-wait"
-                    : "bg-yellow-500 text-black hover:bg-yellow-400 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+              onClick={handleProceed}
+              disabled={isProceeding}
+              className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 text-sm flex items-center justify-center gap-2 ${
+                isProceeding
+                  ? "bg-pink-500/80 text-black cursor-wait"
+                  : "bg-pink-500 text-black hover:bg-pink-400 cursor-pointer shadow-lg shadow-pink-500/25"
               }`}
             >
-              {isValidating ? (
-                <div className="flex items-center justify-center gap-2">
+              {isProceeding ? (
+                <>
                   <svg
-                    className="w-5 h-5 text-black animate-spin"
+                    className="w-4 h-4 text-black animate-spin"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -287,103 +419,26 @@ const CouponModal = () => {
                     <path
                       className="opacity-75"
                       fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
                     />
                   </svg>
-                  <span>Applying Coupon...</span>
-                </div>
-              ) : isSuccess ? (
-                <div className="flex items-center justify-center gap-2 font-bold animate-pulse">
-                  <svg
-                    className="w-5 h-5 text-black"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span>Coupon Applied!</span>
-                </div>
+                  <span>Processing...</span>
+                </>
               ) : (
-                "Apply Coupon"
+                "Proceed to Checkout"
               )}
             </button>
-          </div>
-        )}
-
-        {/* Applied Coupon Display */}
-        {couponApplied && (
-          <div className="p-4 mb-6 border rounded-lg bg-green-500/10 border-green-500/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-green-400">Coupon Applied!</p>
-                <p className="text-sm text-white/70">Code: {couponCode}</p>
-                {isProceeding && (
-                  <p className="flex items-center gap-1 mt-1 text-xs text-yellow-400">
-                    <span className="animate-pulse">●</span>
-                    Proceeding to payment automatically...
-                  </p>
-                )}
-              </div>
-              {!isProceeding && (
-                <button
-                  onClick={handleRemoveCoupon}
-                  className="text-sm text-red-400 underline hover:text-red-300"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Price Summary */}
-        <div className="p-4 mb-6 space-y-2 rounded-lg bg-white/5">
-          <div className="flex justify-between text-white/70">
-            <span>Subtotal</span>
-            <span>${subtotal}</span>
-          </div>
-          <div className="flex justify-between text-white/70">
-            <span>Shipping</span>
-            <span>${shippingCost}</span>
-          </div>
-          {couponApplied && couponDiscount > 0 && (
+          ) : (
             <>
-              <div className="flex justify-between text-sm text-white/50">
-                <span>Original Total</span>
-                <span className="line-through">${subtotal + shippingCost}</span>
-              </div>
-              <div className="flex justify-between text-green-400">
-                <span>Discount ({couponDiscount}%)</span>
-                <span>-${subtotal - discountedPrice}</span>
-              </div>
+              <button
+                onClick={handleSkip}
+                className="w-full py-2.5 bg-white/10 text-white font-medium rounded-lg hover:bg-white/15 cursor-pointer transition-colors text-sm"
+              >
+                Continue without Coupon
+              </button>
             </>
           )}
-          <div className="pt-2 border-t border-white/10">
-            <div className="flex justify-between text-lg font-bold text-yellow-500">
-              <span>Total</span>
-              <span>${finalTotal}</span>
-            </div>
-          </div>
         </div>
-
-        {/* Action Buttons */}
-        {!couponApplied && (
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={handleSkip}
-              disabled={isValidating || isSuccess}
-              className="w-full py-3 font-semibold text-black transition-all duration-300 bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-400 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Skip Coupon & Proceed to Payment
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

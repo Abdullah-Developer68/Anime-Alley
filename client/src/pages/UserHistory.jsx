@@ -10,6 +10,7 @@ import assets from "../assets/asset.js";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Loader from "../components/Global/Loader";
+import { formatPrice } from "../utils/formatPrice";
 
 const UserHistory = () => {
   const navigate = useNavigate();
@@ -277,12 +278,12 @@ const UserHistory = () => {
                         {product.productId.name}
                       </h3>
                       <p className="text-xs text-white/40">
-                        Qty: {product.quantity} × {product.price} $
+                        Qty: {product.quantity} × {formatPrice(product.price)} $
                       </p>
                     </div>
                     <div className="flex-shrink-0 text-right">
                       <p className="font-medium text-pink-400">
-                        {product.price * product.quantity} $
+                        {formatPrice(product.price * product.quantity)} $
                       </p>
                     </div>
                   </div>
@@ -302,22 +303,22 @@ const UserHistory = () => {
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-white/60">
                     <span>Subtotal:</span>
-                    <span>{order.subtotal}$</span>
+                    <span>{formatPrice(order.subtotal)}$</span>
                   </div>
                   <div className="flex justify-between text-xs text-white/60">
                     <span>Shipping:</span>
-                    <span>{order.shippingCost}$</span>
+                    <span>{formatPrice(order.shippingCost)}$</span>
                   </div>
                   {order.discount > 0 && (
                     <div className="flex justify-between text-xs text-green-400">
                       <span>Discount:</span>
-                      <span>-{order.discount}$</span>
+                      <span>-{formatPrice(order.discount)}$</span>
                     </div>
                   )}
                   <div className="flex justify-between pt-2 text-white border-t border-white/10">
                     <span className="font-medium">Total</span>
                     <span className="font-bold text-pink-400">
-                      {order.finalAmount}$
+                      {formatPrice(order.finalAmount)}$
                     </span>
                   </div>
                 </div>

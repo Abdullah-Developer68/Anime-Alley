@@ -23,6 +23,7 @@ import { toast } from "react-toastify";
 import Loader from "../components/Global/Loader";
 import CouponModal from "../components/Cart/CouponModal";
 import { processStripePayment } from "../utils/stripePayment";
+import { formatPrice } from "../utils/formatPrice";
 
 const Cart = () => {
   // Redux setup
@@ -56,9 +57,9 @@ const Cart = () => {
 
   // Price calculations
   const calculateSubtotal = () => {
-    return Math.round(
+    return formatPrice(
       cartItems.reduce(
-        (total, item) => total + item.price * item.itemQuantity,
+        (total, item) => total + (item.price || 0) * item.itemQuantity,
         0,
       ),
     );
@@ -74,7 +75,7 @@ const Cart = () => {
       return;
     }
 
-    const totalBeforeDiscount = subtotal + shippingCost;
+    const totalBeforeDiscount = formatPrice(subtotal + shippingCost);
     dispatch(setFinalTotal(totalBeforeDiscount));
   }, [cartItems, subtotal, shippingCost, dispatch]);
 
@@ -337,7 +338,7 @@ const Cart = () => {
                               </h3>
                               <p className="text-base font-bold text-center text-white sm:text-lg sm:text-right">
                                 <span className="p-1 text-xs font-bold text-black bg-yellow-500 rounded-md">
-                                  {item.price * item.itemQuantity} $
+                                  {formatPrice(item.price * item.itemQuantity)} $
                                 </span>
                               </p>
                             </div>
@@ -414,16 +415,16 @@ const Cart = () => {
               <div className="mb-6 space-y-3 sm:space-y-4">
                 <div className="flex justify-between text-sm text-white/70 sm:text-base">
                   <span>Items ({cartItems.length})</span>
-                  <span>{subtotal} $</span>
+                  <span>{formatPrice(subtotal)} $</span>
                 </div>
                 <div className="flex justify-between text-sm text-white/70 sm:text-base">
                   <span>Shipping</span>
-                  <span>{shippingCost} $</span>
+                  <span>{formatPrice(shippingCost)} $</span>
                 </div>
                 <div className="pt-4 border-t border-white/10">
                   <div className="flex justify-between w-full text-base font-bold text-yellow-500 sm:text-lg">
                     <span>Total</span>
-                    <span>{subtotal + shippingCost} $</span>
+                    <span>{formatPrice(subtotal + shippingCost)} $</span>
                   </div>
                 </div>
               </div>
@@ -489,8 +490,6 @@ const Cart = () => {
           </div>
         </div>
       </div>
-
-      {/* Coupon Modal */}
       <CouponModal />
     </>
   );

@@ -12,6 +12,7 @@ import assets from "../../../../assets/asset";
 import ProductForm from "./ProductForm";
 import DeleteProduct from "./DeleteProduct";
 import { useCallback } from "react";
+import { formatPrice } from "../../../../utils/formatPrice";
 
 const ProductCatalog = () => {
   // base URL for images from server
@@ -249,7 +250,7 @@ const ProductCatalog = () => {
           />
           <div className="flex justify-between text-sm text-white/70">
             <span>{formFields.minPrice} $</span>
-            <span>{formFields.price} $</span>
+            <span>{formatPrice(formFields.price)} $</span>
             <span>{formFields.maxPrice} $</span>
           </div>
         </div>
@@ -449,7 +450,7 @@ const ProductCatalog = () => {
 
                     <td className="px-6 py-4">
                       <span className="text-sm text-white">
-                        {product.price} $
+                        {formatPrice(product.price)} $
                       </span>
                     </td>
 
@@ -479,7 +480,7 @@ const ProductCatalog = () => {
                                   : "bg-red-500/20 text-red-500"
                               }`}
                             >
-                              {product.category === "comics" ? "Vol. " : ""}
+                              {product.category === "comics" && !v.label.startsWith("V") ? "Vol. " : ""}
                               {v.label}: {v.stock > 0 ? v.stock : "Out"}
                             </span>
                           ))

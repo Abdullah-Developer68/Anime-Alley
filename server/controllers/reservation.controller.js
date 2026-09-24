@@ -2,6 +2,7 @@ const reservationModel = require("../db/models/reservation.model.js");
 const productModel = require("../db/models/product.model.js");
 const mongoose = require("mongoose");
 const dbConnect = require("../db/dbConnect.js");
+const { formatPrice } = require("../utils/formatPrice.utils.js");
 
 const reserveStock = async (req, res) => {
   let mongoSession = null;
@@ -248,7 +249,7 @@ const getCart = async (req, res) => {
       return {
         _id: product._id,
         name: product.name,
-        price: product.price,
+        price: formatPrice(product.price),
         image: product.image,
         category: product.category,
         selectedVariant: item.variant,

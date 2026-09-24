@@ -6,6 +6,8 @@ const {
   SHOE_TYPES,
   TOY_TYPES,
 } = require("../db/submodels/product/attributes.schema.js");
+const { formatPrice } = require("./formatPrice.utils.js");
+const { validateComicVolumes } = require("./volume.utils.js");
 
 // Validate and parse product data for creation and updates
 const validateProductData = (body, { isMultipart = false } = {}) => {
@@ -80,6 +82,8 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
       status: 400,
       message: "Price must be a valid non-negative number",
     };
+
+  price = formatPrice(price);
 
   // Validate category against allowed whitelist
   const validCategories = ["comics", "toys", "clothes", "shoes"];
@@ -163,6 +167,14 @@ const validateProductData = (body, { isMultipart = false } = {}) => {
         valid: false,
         status: 400,
         message: `Genres must only contain valid options: ${ALLOWED_GENRES.join(", ")}`,
+      };
+
+    const volumeValidation = validateComicVolumes(variantsData);
+    if (!volumeValidation.valid)
+      return {
+        valid: false,
+        status: 400,
+        message: volumeValidation.message,
       };
 
     productData.genres = genres.map((g) => g.trim());

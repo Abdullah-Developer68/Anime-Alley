@@ -6,6 +6,7 @@ import {
 } from "../../../../redux/Slice/DashboardSlice";
 import api from "../../../../api/api";
 import { toast } from "react-toastify";
+import { formatPrice } from "../../../../utils/formatPrice";
 
 const DeleteProduct = () => {
   const dispatch = useDispatch();
@@ -23,8 +24,7 @@ const DeleteProduct = () => {
     }
 
     if (productId !== selectedProduct.productID) {
-      setError("Product ID does not match the selected product");
-
+      setError("Product ID does not match");
       return;
     }
 
@@ -32,25 +32,20 @@ const DeleteProduct = () => {
       setIsDeleting(true);
       setError("");
 
-      const response = await api.deleteProduct(productId);
+      const res = await api.deleteProduct(selectedProduct._id);
 
-      if (response.data.success) {
-        // Show success alert
+      if (res.data.success) {
         toast.success("Product deleted successfully!");
-
-        // Activate reload reducer to refresh the product list
-        dispatch(setReloadData("products"));
-
-        // Close the modal
         handleClose();
+        dispatch(setReloadData());
       } else {
-        setError(response.data.message || "Failed to delete product");
+        toast.error(res.data.message || "Failed to delete product");
       }
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      setError(
-        error.response?.data?.message ||
-          "An error occurred while deleting the product",
+    } catch (err) {
+      console.error("Delete product error:", err);
+      toast.error(
+        err.response?.data?.message ||
+          "Failed to delete product. Please try again.",
       );
     } finally {
       setIsDeleting(false);
@@ -58,6 +53,7 @@ const DeleteProduct = () => {
   };
 
   const handleClose = () => {
+    if (isDeleting) return;
     setProductId("");
     setError("");
     dispatch(closeProductDeleteModal());
@@ -66,36 +62,22 @@ const DeleteProduct = () => {
   if (!isOpen || !selectedProduct) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md p-6 bg-gray-900 border rounded-xl border-red-500/20">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="relative w-full max-w-md p-6 bg-[#0b0b10] border rounded-2xl border-white/10 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-red-500">Delete Product</h2>
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+          <h2 className="text-xl font-bold text-white">Delete Product</h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 transition-colors hover:text-white"
+            className="text-gray-400 transition-colors cursor-pointer hover:text-white"
+            disabled={isDeleting}
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            ✕
           </button>
         </div>
 
-        {/* Product Information */}
-        <div className="p-4 mb-6 border rounded-lg bg-white/5 border-white/10">
-          <h3 className="mb-3 text-sm font-medium text-gray-400">
-            Product to be deleted:
-          </h3>
+        {/* Product Details Preview */}
+        <div className="p-4 mb-4 border rounded-lg bg-white/5 border-white/10">
           <div className="flex items-center gap-3">
             <img
               src={`${selectedProduct.image}`}
@@ -111,7 +93,7 @@ const DeleteProduct = () => {
                 Category: {selectedProduct.category}
               </p>
               <p className="text-sm text-gray-400">
-                Price: ${selectedProduct.price}
+                Price: ${formatPrice(selectedProduct.price)}
               </p>
             </div>
           </div>

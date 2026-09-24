@@ -9,7 +9,7 @@ test("Phase 3 validateProductData unit tests", async (t) => {
       name: "Naruto Vol 1",
       price: 10,
       category: "comics",
-      variants: [{ label: "Vol 1", stock: 10 }],
+      variants: [{ label: "V1", stock: 10 }],
       genres: ["Action", "Fantasy"],
     };
     const resValid = validateProductData(validComic);
@@ -20,7 +20,7 @@ test("Phase 3 validateProductData unit tests", async (t) => {
       name: "Naruto Vol 1",
       price: 10,
       category: "comics",
-      variants: [{ label: "Vol 1", stock: 10 }],
+      variants: [{ label: "V1", stock: 10 }],
     };
     const resMissing = validateProductData(missingGenres);
     assert.strictEqual(resMissing.valid, false);
@@ -30,7 +30,7 @@ test("Phase 3 validateProductData unit tests", async (t) => {
       name: "Naruto Vol 1",
       price: 10,
       category: "comics",
-      variants: [{ label: "Vol 1", stock: 10 }],
+      variants: [{ label: "V1", stock: 10 }],
       genres: ["Western"],
     };
     const resInvalid = validateProductData(invalidGenres);
@@ -226,13 +226,13 @@ test("Phase 3 validateProductData unit tests", async (t) => {
       name: "One Piece",
       price: "12.99",
       category: "comics",
-      variants: JSON.stringify([{ label: "Vol 1", stock: 5 }]),
+      variants: JSON.stringify([{ label: "V1", stock: 5 }]),
       genres: JSON.stringify(["Action", "Adventure"]),
     };
     const res = validateProductData(multipartData, { isMultipart: true });
     assert.strictEqual(res.valid, true);
     assert.strictEqual(res.data.price, 12.99);
-    assert.deepStrictEqual(res.data.variants, [{ label: "Vol 1", stock: 5 }]);
+    assert.deepStrictEqual(res.data.variants, [{ label: "V1", stock: 5 }]);
     assert.deepStrictEqual(res.data.genres, ["Action", "Adventure"]);
   });
 
@@ -374,5 +374,34 @@ test("Phase 3 validateProductData unit tests", async (t) => {
     assert.strictEqual(resZero.valid, true);
     assert.strictEqual(resZero.data.price, 0);
     assert.strictEqual(resZero.data.variants[0].stock, 0);
+  });
+  await t.test("validates comics requires volume labels in V<number> format (e.g. V1, V2)", () => {
+    const invalidLabels = ["Vol 1", "Volume 1", "v1", "1", "V", "Special", "V-1"];
+    for (const label of invalidLabels) {
+      const invalidComic = {
+        name: "Naruto",
+        price: 10,
+        category: "comics",
+        variants: [{ label, stock: 10 }],
+        genres: ["Action"],
+      };
+      const res = validateProductData(invalidComic);
+      assert.strictEqual(res.valid, false, `Label '${label}' should be rejected`);
+      assert.strictEqual(res.status, 400);
+      assert.ok(res.message.includes("Invalid comic volume format"));
+    }
+
+    const validLabels = ["V1", "V2", "V10", "V99"];
+    for (const label of validLabels) {
+      const validComic = {
+        name: "Naruto",
+        price: 10,
+        category: "comics",
+        variants: [{ label, stock: 10 }],
+        genres: ["Action"],
+      };
+      const res = validateProductData(validComic);
+      assert.strictEqual(res.valid, true, `Label '${label}' should be accepted`);
+    }
   });
 });

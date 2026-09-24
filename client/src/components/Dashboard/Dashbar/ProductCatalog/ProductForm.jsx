@@ -9,6 +9,8 @@ import {
 import { useSelector, useDispatch } from "react-redux";
 import assets from "../../../../assets/asset";
 import { toast } from "react-toastify";
+import { formatPrice } from "../../../../utils/formatPrice";
+import { validateComicVolumes } from "../../../../utils/volume";
 
 const ProductForm = () => {
   // State for image preview and file handling
@@ -57,7 +59,7 @@ const ProductForm = () => {
       setValue("productId", editProduct.productID || "");
       setValue("productName", editProduct.name || "");
       setValue("description", editProduct.description || "");
-      setValue("price", editProduct.price || "");
+      setValue("price", editProduct.price != null ? formatPrice(editProduct.price) : "");
       setValue("category", editProduct.category || "");
 
       // Handle array fields - convert arrays to comma-separated strings
@@ -151,7 +153,7 @@ const ProductForm = () => {
       if (volume === "") return; // Skip empty entries
 
       // Check if it matches the pattern (v or V followed by numbers)
-      const match = volume.match(/^[vV](\d+)$/);
+      const match = volume.match(/^(?:[vV])?(\d+)$/);
       if (match)
         processedVolumes.push(`V${match[1]}`);
       else if (volume !== "")
@@ -225,7 +227,7 @@ const ProductForm = () => {
 
       formData.append("name", data.productName);
       formData.append("description", data.description);
-      formData.append("price", Number(data.price));
+      formData.append("price", formatPrice(data.price));
       formData.append("category", data.category);
 
       // Handle image - only append if new file selected, otherwise keep existing
@@ -240,125 +242,152 @@ const ProductForm = () => {
           .map((v) => v.trim())
           .filter((v) => v);
 
-        const variantsList = volumes.map((volume) => ({
+        const volumeValidation = validateComicVolumes(volumes);
+        if (!volumeValidation.valid) {
+          toast.error(volumeValidation.message);
+          return;
+        }
+
+        const genres = data.genres
+          .split(",")
+          .map((g) => g.trim())
+          .filter((g) => g);
+
+        // Convert volumes array to structured variants array with numeric stock
+        const variants = volumes.map((volume) => ({
           label: volume,
           stock: Number(data[`stock_${volume}`]) || 0,
         }));
 
-        formData.append("variants", JSON.stringify(variantsList));
-        formData.append(
-          "genres",
-          JSON.stringify(
-            data.genres
-              .split(",")
-              .map((g) => g.trim())
-              .filter((g) => g),
-          ),
-        );
+        formData.append("genres", JSON.stringify(genres));
+        formData.append("variants", JSON.stringify(variants));
       } else if (data.category === "clothes") {
-        const variantsList = data.availableSizes.map((size) => ({
+        const sizes = Array.isArray(data.availableSizes)
+          ? data.availableSizes
+          : [];
+
+        // Convert sizes array to structured variants array with numeric stock
+        const variants = sizes.map((size) => ({
           label: size,
           stock: Number(data[`stock_${size}`]) || 0,
         }));
 
-        formData.append("variants", JSON.stringify(variantsList));
-        formData.append("clothesType", data.clothesType);
+        formData.append("clothesType", data.clothesType.toLowerCase());
+        formData.append("variants", JSON.stringify(variants));
       } else if (data.category === "shoes") {
-        const variantsList = data.availableSizes.map((size) => ({
+        const sizes = Array.isArray(data.availableSizes)
+          ? data.availableSizes
+          : [];
+
+        // Convert sizes array to structured variants array with numeric stock
+        const variants = sizes.map((size) => ({
           label: size,
           stock: Number(data[`stock_${size}`]) || 0,
         }));
 
-        formData.append("variants", JSON.stringify(variantsList));
-        formData.append("shoeType", data.shoeType);
+        formData.append("shoeType", data.shoeType.toLowerCase());
+        formData.append("variants", JSON.stringify(variants));
       } else if (data.category === "toys") {
-        const toyStock = Number(data.stock) || 0;
-        const variantsList = [{ label: "Default", stock: toyStock }];
+        formData.append("toyType", data.toyType.toLowerCase());
 
-        formData.append("variants", JSON.stringify(variantsList));
-        formData.append("toyType", data.toyType.trim());
-      }
-
-      // Determine if this is an edit or create operation
-      let response;
-      if (editProduct) {
-        toast.info("Update in progress...");
-        response = await api.updateProduct(formData);
+        // Toys have a single default variant with stock
+        const variants = [
+          {
+            label: "Default",
+            stock: Number(data.stock) || 0,
+          },
+        ];
+        formData.append("variants", JSON.stringify(variants));
       } else {
-        response = await api.createProduct(formData);
+        // Fallback for custom categories
+        const variants = [
+          {
+            label: "Default",
+            stock: Number(data.stock) || 0,
+          },
+        ];
+        formData.append("variants", JSON.stringify(variants));
       }
+
+      // API call to create or update product with proper error handling
+      let response;
+      if (editProduct)
+        response = await api.updateProduct(formData);
+      else
+        response = await api.createProduct(formData);
 
       if (response.data.success) {
-        // Show success message with generated product ID for new products
-        if (
-          !editProduct &&
-          response.data.product &&
-          response.data.product.productID
-        ) {
-          toast.success(
-            `Product created successfully! Generated ID: ${response.data.product.productID}`,
-          );
-        } else {
-          toast.success(
-            `Product ${editProduct ? "updated" : "created"} successfully!`,
-          );
-        }
-        dispatch(setReloadData("products"));
+        toast.success(
+          editProduct
+            ? "Product updated successfully!"
+            : "Product created successfully!",
+        );
         handleClose();
+        dispatch(setReloadData("products"));
       } else {
-        setError(response.data.message || "An error occurred");
+        toast.error(
+          response.data.message ||
+            `Failed to ${editProduct ? "update" : "create"} product`,
+        );
       }
-    } catch (error) {
-      console.error("Error saving product:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Product submission error:", err);
+      toast.error(
+        err.response?.data?.message ||
+          `Failed to ${editProduct ? "update" : "create"} product. Please try again.`,
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Closes the modal and resets form state
+  // Closes modal and resets state
   const handleClose = () => {
     dispatch(closeProductForm());
+    setPreviewImage(null);
+    setSelectedFile(null);
+    setError(null);
   };
 
-  // Handles size selection for clothes/shoes
-  // @param {string} size - Selected size
+  // Handles size checkbox selection for clothes and shoes
+  // @param {string} size - The size being toggled
   const handleSizeChange = (size) => {
-    const newSizes = availableSizes.includes(size)
-      ? availableSizes.filter((s) => s !== size)
-      : [...availableSizes, size];
+    const currentSizes = watch("availableSizes") || [];
+    let newSizes;
+
+    if (currentSizes.includes(size)) {
+      newSizes = currentSizes.filter((s) => s !== size);
+      // Clear stock field when size is unchecked
+      setValue(`stock_${size}`, "");
+    } else {
+      newSizes = [...currentSizes, size];
+    }
+
     setValue("availableSizes", newSizes, { shouldValidate: true });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-[#1a1a1a] rounded-xl w-full max-w-7xl max-h-[95vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="relative w-full max-w-4xl p-4 sm:p-6 bg-[#0b0b10] border rounded-2xl border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between sticky top-0 bg-[#1a1a1a] z-10">
+        <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
           <h2 className="text-lg font-bold text-white sm:text-xl">
-            Enter Product Details
+            {editProduct ? "Edit Product" : "Add New Product"}
           </h2>
           <button
             onClick={handleClose}
-            className="p-2 transition-colors rounded-lg hover:bg-white/10"
+            className="text-gray-400 transition-colors cursor-pointer hover:text-white"
           >
-            <img src={assets.cross} alt="cross" className="cursor-pointer" />
+            ✕
           </button>
         </div>
 
-        {/* Form */}
-        <form className="p-4 sm:p-6" onSubmit={handleSubmit(onSubmit)}>
-          {/* Main Content Grid */}
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Left Column - Basic Information */}
-            <div className="space-y-6 lg:col-span-2">
-              {/* Basic Information */}
+            {/* Left Column - Product Details */}
+            <div className="space-y-4 lg:col-span-2">
+              {/* Basic Fields */}
               <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white">
-                  Basic Information
-                </h3>
-
-                {/* Product Name */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-400">
                     Product Name
@@ -378,13 +407,13 @@ const ProductForm = () => {
                   )}
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-400">
                     Description
                   </label>
                   <textarea
-                    className="w-full px-3 sm:px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:border-pink-500 min-h-[100px] text-sm sm:text-base resize-none"
+                    rows="3"
+                    className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
                     placeholder="Enter product description"
                     {...register("description", {
                       required: "Description is required!",
@@ -397,14 +426,7 @@ const ProductForm = () => {
                   )}
                 </div>
 
-                {/* Price and Category (+ Single Stock for Toys) */}
-                <div
-                  className={`grid grid-cols-1 gap-4 ${
-                    selectedCategory === "toys"
-                      ? "sm:grid-cols-3"
-                      : "sm:grid-cols-2"
-                  }`}
-                >
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block mb-1 text-sm font-medium text-gray-400">
                       Price
@@ -438,12 +460,15 @@ const ProductForm = () => {
                       {...register("category", {
                         required: "Category is required!",
                       })}
-                      onChange={(e) => {
-                        setValue("category", e.target.value);
-                      }}
                     >
-                      <option className="text-gray-300 bg-gray-800" value="">
+                      <option className="text-white bg-black" value="">
                         Select Category
+                      </option>
+                      <option
+                        className="text-gray-300 bg-gray-800"
+                        value="comics"
+                      >
+                        Comics
                       </option>
                       <option
                         className="text-gray-300 bg-gray-800"
@@ -457,16 +482,7 @@ const ProductForm = () => {
                       >
                         Shoes
                       </option>
-                      <option
-                        className="text-gray-300 bg-gray-800"
-                        value="comics"
-                      >
-                        Comics
-                      </option>
-                      <option
-                        className="text-gray-300 bg-gray-800"
-                        value="toys"
-                      >
+                      <option className="text-gray-300 bg-gray-800" value="toys">
                         Toys
                       </option>
                     </select>
@@ -476,7 +492,10 @@ const ProductForm = () => {
                       </span>
                     )}
                   </div>
+                </div>
 
+                {/* Stock - Single Input for Toys */}
+                <div className="space-y-4">
                   {selectedCategory === "toys" && (
                     <div>
                       <label className="block mb-1 text-sm font-medium text-gray-400">
@@ -582,7 +601,7 @@ const ProductForm = () => {
                             <div key={volume} className="flex flex-col">
                               <div className="flex overflow-hidden transition-colors border rounded-lg border-white/10 bg-white/5 focus-within:border-pink-500">
                                 <span className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white/90 bg-white/10 border-r border-white/10 min-w-[54px]">
-                                  {volume.startsWith("V") ? volume : `Vol ${volume}`}
+                                  {volume}
                                 </span>
                                 <input
                                   type="number"
@@ -745,16 +764,12 @@ const ProductForm = () => {
                               .filter((v) => v !== "");
 
                             // Check if all volumes match the V+number format
-                            const invalidVolumes = volumes.filter(
-                              (v) => !/^V\d+$/.test(v),
-                            );
-                            if (invalidVolumes.length > 0)
-                              return `Invalid format: "${invalidVolumes.join(
-                                ", ",
-                              )}". Use format: V1, V2, V10, etc.`;
+                            const volumeValidation = validateComicVolumes(volumes);
+                            if (!volumeValidation.valid)
+                              return volumeValidation.message;
 
                             // Check for duplicates
-                            const uniqueVolumes = [...new Set(volumes)];
+                            const uniqueVolumes = [...new Set(volumes.map((v) => v.toUpperCase()))];
                             if (uniqueVolumes.length !== volumes.length)
                               return "Duplicate volume numbers are not allowed";
 

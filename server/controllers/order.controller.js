@@ -5,6 +5,7 @@ const couponModel = require("../db/models/coupon.model.js");
 const Reservation = require("../db/models/reservation.model.js");
 const mongoose = require("mongoose");
 const dbConnect = require("../db/dbConnect.js");
+const { formatPrice } = require("../utils/formatPrice.utils.js");
 
 const placeOrder = async (req, res) => {
   let session = null;
@@ -114,25 +115,27 @@ const placeOrder = async (req, res) => {
           `Product not found for ID: ${item.productId}. Order cannot be processed.`
         );
 
-      item.price = product.price;
+      item.price = formatPrice(product.price);
     }
 
     // Calculate subtotal from actual database prices
-    const subtotal = productsArray.reduce((total, item) => {
-      return total + item.price * item.quantity;
-    }, 0);
+    const subtotal = formatPrice(
+      productsArray.reduce((total, item) => {
+        return total + item.price * item.quantity;
+      }, 0)
+    );
 
     // Calculate discount if coupon is provided
     let discount = 0;
     let discountedPrice = subtotal;
 
     if (couponDoc) {
-      discount = Math.round(subtotal * (couponDoc.discountPercentage / 100));
-      discountedPrice = subtotal - discount;
+      discount = formatPrice(subtotal * (couponDoc.discountPercentage / 100));
+      discountedPrice = formatPrice(subtotal - discount);
     }
 
     // Calculate final cost
-    const finalCost = discountedPrice + SHIPPING_COST;
+    const finalCost = formatPrice(discountedPrice + SHIPPING_COST);
 
     // Generate unique orderID
     const orderID = "ORD" + Date.now() + Math.floor(Math.random() * 1000);

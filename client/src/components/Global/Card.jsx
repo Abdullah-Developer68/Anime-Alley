@@ -2,6 +2,7 @@ import assets from "../../assets/asset";
 import { useDispatch } from "react-redux";
 import { transferProductData } from "../../redux/Slice/shopSlice";
 import { Link } from "react-router-dom";
+import { formatPrice } from "../../utils/formatPrice";
 
 /* eslint-disable react/prop-types */
 const Cards = ({ product }) => {
@@ -46,7 +47,7 @@ const Cards = ({ product }) => {
           {/* Price and Add to Cart */}
           <div className="flex items-center justify-between">
             <p className="p-1 text-xs font-bold text-black bg-gray-300 rounded-md">
-              {product.price} $
+              {formatPrice(product.price)} $
             </p>
             {/* Add to Cart Button with product._id as the url parameter */}
             <span>

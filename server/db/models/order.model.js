@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const { formatPrice } = require("../../utils/formatPrice.utils.js");
 
 const orderSchema = new Schema(
   {
@@ -22,6 +23,7 @@ const orderSchema = new Schema(
         price: {
           type: Number,
           required: true,
+          set: (v) => formatPrice(v),
         },
       },
     ],
@@ -58,18 +60,22 @@ const orderSchema = new Schema(
     subtotal: {
       type: Number,
       required: true,
+      set: (v) => formatPrice(v),
     },
     shippingCost: {
       type: Number,
       required: true,
+      set: (v) => formatPrice(v),
     },
     discount: {
       type: Number,
       default: 0,
+      set: (v) => formatPrice(v),
     },
     finalAmount: {
       type: Number,
       required: true,
+      set: (v) => formatPrice(v),
     },
     couponCode: {
       type: String,

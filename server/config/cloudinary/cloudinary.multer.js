@@ -13,8 +13,15 @@ const storage = new CloudinaryStorage({
       req.path?.toLowerCase().includes("/user");
 
     if (isUserUpload) {
+      const userId =
+        req.params?.userId ||
+        req.user?._id?.toString() ||
+        req.user?.id ||
+        req.body?.userId ||
+        "general";
+
       return {
-        folder: "anime-alley-users",
+        folder: `anime-alley-users/${userId}`,
         allowed_formats: ["jpg", "jpeg", "png", "webp"],
         transformation: [{ width: 500, height: 500, crop: "limit" }],
       };
@@ -25,12 +32,15 @@ const storage = new CloudinaryStorage({
       ? String(req.body.category).toLowerCase().trim()
       : "";
 
-    // If category wasn't directly in req.body during an update, check database using _id
-    if (!category && req.body?._id) {
+    // If category wasn't directly in req.body during an update, check database using _id or productID
+    if (!category && (req.body?._id || req.params?.productID)) {
       try {
         const productModel = require("../../db/models/product.model.js");
+        const query = req.body?._id
+          ? { _id: req.body._id }
+          : { productID: req.params.productID };
         const existing = await productModel
-          .findById(req.body._id)
+          .findOne(query)
           .select("category")
           .lean();
         if (existing?.category) {

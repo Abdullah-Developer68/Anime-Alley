@@ -8,6 +8,7 @@ import {
 } from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
 import { useState, useEffect } from "react";
+import { formatPrice } from "../../utils/formatPrice";
 
 const FilterBar = () => {
   // Initialize form with default values
@@ -229,7 +230,7 @@ const FilterBar = () => {
             />
             <div className="absolute left-0 right-0 flex justify-between text-sm -bottom-6 text-white/70">
               <span> 0 $</span>
-              <span> {formFields.price} $</span>
+              <span> {formatPrice(formFields.price)} $</span>
               <span>100 $</span>
             </div>
           </div>

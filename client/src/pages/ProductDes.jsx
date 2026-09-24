@@ -4,6 +4,7 @@ import { addToCartAsync } from "../redux/Thunk/cartThunks";
 import { Link } from "react-router-dom";
 import assets from "../assets/asset";
 import { toast } from "react-toastify";
+import { formatPrice } from "../utils/formatPrice";
 
 const ProductDescription = () => {
   const dispatch = useDispatch();
@@ -19,7 +20,7 @@ const ProductDescription = () => {
   const [stockStatus, setStockStatus] = useState({});
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-  const totalPrice = itemQuantity * selectedProduct.price;
+  const totalPrice = formatPrice(itemQuantity * (selectedProduct?.price || 0));
 
   // Set up variant options based on product variants array
   useEffect(() => {
@@ -304,7 +305,7 @@ const ProductDescription = () => {
                 <div className="text-right">
                   <p className="text-sm text-white/60">Unit Price</p>
                   <p className="text-2xl font-bold text-yellow-500">
-                    ${selectedProduct.price}
+                    ${formatPrice(selectedProduct.price)}
                   </p>
                 </div>
               </div>
@@ -314,7 +315,7 @@ const ProductDescription = () => {
             <div className="flex items-center justify-between pt-8 border-t border-white/10">
               <div>
                 <p className="text-white/60">Total Price</p>
-                <p className="text-3xl font-bold text-white">{totalPrice} $</p>
+                <p className="text-3xl font-bold text-white">{formatPrice(totalPrice)} $</p>
               </div>
               <button
                 onClick={handleAddToCart}

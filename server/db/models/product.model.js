@@ -2,6 +2,7 @@
 const mongoose = require("mongoose");
 const { attributesField } = require("../submodels/product/attributes.schema.js");
 const { variantsField } = require("../submodels/product/variant.schema.js");
+const { formatPrice } = require("../../utils/formatPrice.utils.js");
 
 const productSchema = new mongoose.Schema({
   productID: {
@@ -21,6 +22,7 @@ const productSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 0,
+    set: (v) => formatPrice(v),
   },
   image: {
     type: String,
