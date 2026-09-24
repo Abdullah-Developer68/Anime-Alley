@@ -89,7 +89,7 @@ const getProducts = async (req, res) => {
       }
     }
 
-    const { category, productTypes, price, sortBy, page, searchQuery } =
+    const { category, productTypes, price, sortBy, page, searchQuery, limit } =
       constraints || {};
 
     if (!category || !page)
@@ -178,8 +178,11 @@ const getProducts = async (req, res) => {
       }
     }
 
-    // Calculate pagination slice
-    const itemsPerPage = 20;
+    // Calculate pagination slice (default 24 items per page to evenly fill 2, 3, 4, and 6 column grids)
+    const itemsPerPage =
+      Number.isInteger(Number(limit)) && Number(limit) > 0
+        ? Number(limit)
+        : 24;
     const startIndex = (page - 1) * itemsPerPage;
 
     // Get the total count of products matching the query
