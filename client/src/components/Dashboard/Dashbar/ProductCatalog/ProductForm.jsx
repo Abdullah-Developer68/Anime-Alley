@@ -33,7 +33,7 @@ const ProductForm = () => {
     watch,
   } = useForm({
     defaultValues: {
-      productId: "", // Will be auto-generated for new products
+      productId: "", // Auto-generated for new products, kept in state
       productName: "",
       description: "",
       price: "",
@@ -219,7 +219,7 @@ const ProductForm = () => {
       const formData = new FormData();
 
       // Basic fields
-      // Product ID is displayed only; updates identify the product by Mongo _id in the request body.
+      // Product ID is generated on creation; updates identify the product by Mongo _id in the request body.
       if (editProduct)
         formData.append("_id", editProduct._id);
 
@@ -357,57 +357,28 @@ const ProductForm = () => {
                 <h3 className="text-lg font-medium text-white">
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Product ID
-                      {!editProduct && (
-                        <span className="ml-2 text-xs text-yellow-500">
-                          (Auto-generated)
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      className={`w-full px-3 sm:px-4 py-2 border rounded-lg text-sm sm:text-base ${"bg-white/5 border-white/10 text-white placeholder:text-white/50 cursor-not-allowed"}`}
-                      placeholder={
-                        editProduct ? "Product ID" : "Will be auto-generated"
-                      }
-                      readOnly
-                      {...register("productId")}
-                    />
-                    {errors.productId && editProduct && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.productId.message}
-                      </span>
-                    )}
-                    {!editProduct && (
-                      <span className="block mt-1 text-xs text-yellow-500">
-                        Product ID will be automatically generated based on
-                        category
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Product Name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
-                      placeholder="Enter product name"
-                      {...register("productName", {
-                        required: "Product name is required!",
-                      })}
-                    />
-                    {errors.productName && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.productName.message}
-                      </span>
-                    )}
-                  </div>
+
+                {/* Product Name */}
+                <div>
+                  <label className="block mb-1 text-sm font-medium text-gray-400">
+                    Product Name
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
+                    placeholder="Enter product name"
+                    {...register("productName", {
+                      required: "Product name is required!",
+                    })}
+                  />
+                  {errors.productName && (
+                    <span className="block mt-1 text-xs text-red-500">
+                      {errors.productName.message}
+                    </span>
+                  )}
                 </div>
 
+                {/* Description */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-400">
                     Description
@@ -426,7 +397,14 @@ const ProductForm = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {/* Price and Category (+ Single Stock for Toys) */}
+                <div
+                  className={`grid grid-cols-1 gap-4 ${
+                    selectedCategory === "toys"
+                      ? "sm:grid-cols-3"
+                      : "sm:grid-cols-2"
+                  }`}
+                >
                   <div>
                     <label className="block mb-1 text-sm font-medium text-gray-400">
                       Price
@@ -499,113 +477,11 @@ const ProductForm = () => {
                     )}
                   </div>
 
-                  <div className="sm:col-span-2 xl:col-span-1">
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Stock
-                    </label>
-                    {selectedCategory === "comics" ? (
-                      <>
-                        {volumes
-                          .split(",")
-                          .map((v) => v.trim())
-                          .filter((v) => v).length === 0 ? (
-                          <div className="p-2 mb-2 text-xs text-yellow-400 rounded bg-yellow-400/10">
-                            Please enter at least one volume number below to
-                            enter stock values.
-                          </div>
-                        ) : (
-                          <div className="space-y-2 overflow-y-auto max-h-32">
-                            {volumes
-                              .split(",")
-                              .map((v) => v.trim())
-                              .filter((v) => v)
-                              .map((volume) => (
-                                <div
-                                  key={volume}
-                                  className="flex flex-col"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-white/70 text-xs min-w-[60px]">
-                                      Vol {volume}:
-                                    </span>
-                                    <input
-                                      type="number"
-                                      step="1"
-                                      min="0"
-                                      className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-                                      placeholder={`Stock`}
-                                      {...register(`stock_${volume}`, {
-                                        required: `Stock for Volume ${volume} is required!`,
-                                        min: {
-                                          value: 0,
-                                          message: "Stock cannot be negative",
-                                        },
-                                        validate: (value) =>
-                                          Number.isInteger(Number(value)) ||
-                                          "Must be a valid integer",
-                                      })}
-                                    />
-                                  </div>
-                                  {errors[`stock_${volume}`] && (
-                                    <span className="block mt-1 text-xs text-red-500">
-                                      {errors[`stock_${volume}`].message}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </>
-                    ) : selectedCategory === "clothes" ||
-                      selectedCategory === "shoes" ? (
-                      <>
-                        {availableSizes.length === 0 ? (
-                          <div className="p-2 mb-2 text-xs text-yellow-400 rounded bg-yellow-400/10">
-                            Please select at least one size below to enter stock
-                            values.
-                          </div>
-                        ) : (
-                          <div className="space-y-2 overflow-y-auto max-h-32">
-                            {["XS", "S", "M", "L", "XL", "XXL"]
-                              .filter((size) => availableSizes.includes(size))
-                              .map((size) => (
-                                <div
-                                  key={size}
-                                  className="flex flex-col"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-white hover:text-black hover:bg-white text-xs min-w-[50px]">
-                                      {size}:
-                                    </span>
-                                    <input
-                                      type="number"
-                                      step="1"
-                                      min="0"
-                                      className="flex-1 px-2 py-1 text-sm text-white border rounded bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-                                      placeholder={`Stock`}
-                                      {...register(`stock_${size}`, {
-                                        required: `Stock for Size ${size} is required!`,
-                                        min: {
-                                          value: 0,
-                                          message: "Stock cannot be negative",
-                                        },
-                                        validate: (value) =>
-                                          Number.isInteger(Number(value)) ||
-                                          "Must be a valid integer",
-                                      })}
-                                    />
-                                  </div>
-                                  {errors[`stock_${size}`] && (
-                                    <span className="block mt-1 text-xs text-red-500">
-                                      {errors[`stock_${size}`].message}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </>
-                    ) : selectedCategory !== "" ? (
+                  {selectedCategory === "toys" && (
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
+                        Stock
+                      </label>
                       <input
                         type="number"
                         step="1"
@@ -623,14 +499,154 @@ const ProductForm = () => {
                             "Must be a valid integer",
                         })}
                       />
-                    ) : null}
-                    {errors.stock && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.stock.message}
-                      </span>
+                      {errors.stock && (
+                        <span className="block mt-1 text-xs text-red-500">
+                          {errors.stock.message}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Stock per Size for Clothes and Shoes */}
+                {(selectedCategory === "clothes" ||
+                  selectedCategory === "shoes") && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-400">
+                      Stock per Size
+                    </label>
+                    {availableSizes.length === 0 ? (
+                      <div className="p-3 text-xs text-yellow-400 border rounded-lg bg-yellow-400/10 border-yellow-400/20">
+                        Please select at least one size below under Additional Details to enter stock values.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
+                        {["XS", "S", "M", "L", "XL", "XXL"]
+                          .filter((size) => availableSizes.includes(size))
+                          .map((size) => (
+                            <div key={size} className="flex flex-col">
+                              <div className="flex overflow-hidden transition-colors border rounded-lg border-white/10 bg-white/5 focus-within:border-pink-500">
+                                <span className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white/90 bg-white/10 border-r border-white/10 min-w-[44px]">
+                                  {size}
+                                </span>
+                                <input
+                                  type="number"
+                                  step="1"
+                                  min="0"
+                                  className="w-full px-3 py-2 text-sm text-white bg-transparent placeholder:text-white/40 focus:outline-none sm:text-base"
+                                  placeholder="0"
+                                  {...register(`stock_${size}`, {
+                                    required: `Stock for Size ${size} is required!`,
+                                    min: {
+                                      value: 0,
+                                      message: "Stock cannot be negative",
+                                    },
+                                    validate: (value) =>
+                                      Number.isInteger(Number(value)) ||
+                                      "Must be a valid integer",
+                                  })}
+                                />
+                              </div>
+                              {errors[`stock_${size}`] && (
+                                <span className="block mt-1 text-xs text-red-500">
+                                  {errors[`stock_${size}`].message}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
+
+                {/* Stock per Volume for Comics */}
+                {selectedCategory === "comics" && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-400">
+                      Stock per Volume
+                    </label>
+                    {volumes
+                      .split(",")
+                      .map((v) => v.trim())
+                      .filter((v) => v).length === 0 ? (
+                      <div className="p-3 text-xs text-yellow-400 border rounded-lg bg-yellow-400/10 border-yellow-400/20">
+                        Please enter at least one volume number below under Additional Details to enter stock values.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                        {volumes
+                          .split(",")
+                          .map((v) => v.trim())
+                          .filter((v) => v)
+                          .map((volume) => (
+                            <div key={volume} className="flex flex-col">
+                              <div className="flex overflow-hidden transition-colors border rounded-lg border-white/10 bg-white/5 focus-within:border-pink-500">
+                                <span className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white/90 bg-white/10 border-r border-white/10 min-w-[54px]">
+                                  {volume.startsWith("V") ? volume : `Vol ${volume}`}
+                                </span>
+                                <input
+                                  type="number"
+                                  step="1"
+                                  min="0"
+                                  className="w-full px-3 py-2 text-sm text-white bg-transparent placeholder:text-white/40 focus:outline-none sm:text-base"
+                                  placeholder="0"
+                                  {...register(`stock_${volume}`, {
+                                    required: `Stock for Volume ${volume} is required!`,
+                                    min: {
+                                      value: 0,
+                                      message: "Stock cannot be negative",
+                                    },
+                                    validate: (value) =>
+                                      Number.isInteger(Number(value)) ||
+                                      "Must be a valid integer",
+                                  })}
+                                />
+                              </div>
+                              {errors[`stock_${volume}`] && (
+                                <span className="block mt-1 text-xs text-red-500">
+                                  {errors[`stock_${volume}`].message}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Fallback Single Stock for any other custom category */}
+                {selectedCategory !== "" &&
+                  !["clothes", "shoes", "comics", "toys"].includes(
+                    selectedCategory
+                  ) && (
+                    <div>
+                      <label className="block mb-1 text-sm font-medium text-gray-400">
+                        Stock
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
+                        placeholder="Enter stock"
+                        {...register("stock", {
+                          required: "Stock is required!",
+                          min: {
+                            value: 0,
+                            message: "Stock cannot be negative",
+                          },
+                          validate: (value) =>
+                            Number.isInteger(Number(value)) ||
+                            "Must be a valid integer",
+                        })}
+                      />
+                      {errors.stock && (
+                        <span className="block mt-1 text-xs text-red-500">
+                          {errors.stock.message}
+                        </span>
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* Category Specific Fields */}
