@@ -20,7 +20,7 @@ const Shop = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex mt-[52px] md:mt-[64px] lg:h-[calc(100vh-64px)] lg:overflow-hidden">
+      <div className="flex mt-[52px] md:mt-[64px] min-h-[calc(100dvh-52px)] md:min-h-[calc(100dvh-64px)] lg:h-[calc(100vh-64px)] lg:overflow-hidden">
         <div
           className={`fixed top-[52px] md:top-[64px] left-0 ${
             isFilterBarOpen ? "translate-x-0" : "-translate-x-full"
@@ -28,13 +28,15 @@ const Shop = () => {
         >
           <FilterBar />
         </div>
-        <div className="flex flex-col items-center justify-between w-full min-w-0 px-2 lg:px-4 lg:h-full">
+        <div className="flex flex-col items-center justify-between w-full min-w-0 px-2 lg:px-4 flex-1 min-h-[calc(100dvh-52px)] md:min-h-[calc(100dvh-64px)] lg:min-h-0 lg:h-full">
           {/* Standalone product nav on mobile and tablet */}
           <div className="mb-4 lg:hidden">
             <ProductNav />
           </div>
           <ProductGrid />
-          <Pagination />
+          <div className="w-full flex justify-center mt-auto pb-2">
+            <Pagination />
+          </div>
         </div>
       </div>
     </>

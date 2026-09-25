@@ -26,15 +26,11 @@ const ProductGrid = () => {
       return;
     }
 
+    let isMounted = true;
+    dispatch(setLoading(true));
+
     const fetchProducts = async () => {
       try {
-        // Set loading state with a small delay to prevent flickering for fast API calls
-        const loadingTimer = setTimeout(() => {
-          console.log("Setting loading to true after delay");
-          console.log("The fecth api is running!");
-          dispatch(setLoading(true));
-        }, 200);
-
         const { productTypes, price, sortBy, searchQuery } = appliedFilters;
 
         // Create a single object with all constraints
@@ -48,9 +44,8 @@ const ProductGrid = () => {
         };
 
         const response = await api.getProducts(apiPayload);
+        if (!isMounted) return;
 
-        // Clear the loading timer since API call completed
-        clearTimeout(loadingTimer);
         dispatch(setLoading(false));
 
         if (response.data.success) {
@@ -71,6 +66,7 @@ const ProductGrid = () => {
           dispatch(setProductsCache([]));
         }
       } catch (error) {
+        if (!isMounted) return;
         console.error("Error fetching products:", error);
         dispatch(setLoading(false));
         dispatch(setProductsCache([]));
@@ -78,6 +74,10 @@ const ProductGrid = () => {
     };
 
     fetchProducts();
+
+    return () => {
+      isMounted = false;
+    };
   }, [products.length, currCategory, appliedFilters, currPage, dispatch]);
 
   return (
@@ -86,10 +86,15 @@ const ProductGrid = () => {
       <ActiveFiltersDisplay />
 
       {/* Product Grid */}
-      <div className="w-full flex-1 min-h-0 h-[600px] lg:h-full overflow-y-auto">
+      <div className="w-full flex-1 min-h-[350px] lg:h-full overflow-y-auto flex flex-col">
         {isLoading ? (
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center flex-1 min-h-[350px]">
             <Loader size="lg" />
+          </div>
+        ) : products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-[350px] text-white/60">
+            <p className="text-lg font-medium">No products found</p>
+            <p className="text-sm text-white/40">Try adjusting your filters or search query</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
