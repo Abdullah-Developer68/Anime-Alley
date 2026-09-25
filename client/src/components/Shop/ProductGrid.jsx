@@ -81,7 +81,7 @@ const ProductGrid = () => {
   }, [products.length, currCategory, appliedFilters, currPage, dispatch]);
 
   return (
-    <div className="w-full">
+    <div className="w-full flex-1 min-h-0 flex flex-col">
       {/* Active Filters Display */}
       <ActiveFiltersDisplay
         appliedFilters={appliedFilters}
@@ -89,7 +89,7 @@ const ProductGrid = () => {
       />
 
       {/* Product Grid */}
-      <div className="w-full h-[600px] lg:h-[calc(100vh-210px)] overflow-y-auto">
+      <div className="w-full flex-1 min-h-0 h-[600px] lg:h-full overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader size="lg" />
