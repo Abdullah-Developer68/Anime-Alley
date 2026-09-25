@@ -1,10 +1,16 @@
-/* eslint-disable react/prop-types */
-import { useDispatch } from "react-redux";
-import { transferFilterData } from "../../redux/Slice/shopSlice";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  transferFilterData,
+  updateCurrPage,
+  setProductsCache,
+} from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
 
-const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
+const ActiveFiltersDisplay = () => {
   const dispatch = useDispatch();
+  const appliedFilters = useSelector((state) => state.shop.productTypes);
+  const currCategory = useSelector((state) => state.shop.currCategory);
+
   // Check if any filters are applied
   const hasActiveFilters = () => {
     if (!appliedFilters || Object.keys(appliedFilters).length === 0)
@@ -19,7 +25,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
 
     return (
       (searchQuery && searchQuery.trim() !== "") ||
-      (price && price > 0) ||
+      (price && price > 0 && price < 100) ||
       (productTypes &&
         productTypes.length > 0 &&
         !productTypes.includes("all")) ||
@@ -56,6 +62,18 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
     return category.charAt(0).toUpperCase() + category.slice(1);
   };
 
+  // Clear single price filter
+  const clearPriceFilter = () => {
+    dispatch(
+      transferFilterData({
+        ...appliedFilters,
+        price: 0,
+      }),
+    );
+    dispatch(updateCurrPage(1));
+    dispatch(setProductsCache([]));
+  };
+
   // Clear all filters
   const clearAllFilters = () => {
     dispatch(
@@ -66,6 +84,8 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
         searchQuery: "",
       }),
     );
+    dispatch(updateCurrPage(1));
+    dispatch(setProductsCache([]));
   };
 
   if (!hasActiveFilters()) return null;
@@ -99,7 +119,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
                     className="w-3 h-3 opacity-70"
                   />
                   <span className="truncate max-w-[120px] sm:max-w-[200px]">
-                    {searchQuery}
+                    "{searchQuery}"
                   </span>
                 </div>,
               );
@@ -124,11 +144,22 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
             }
 
             // Price Filter
-            if (price && price > 0) {
+            if (price && price > 0 && price < 100) {
               filterItems.push(
-                <span key="price" className="text-white/70">
-                  Min: ${price}
-                </span>,
+                <div
+                  key="price"
+                  className="flex items-center gap-1 text-white/70"
+                >
+                  <span>Up to ${price}</span>
+                  <button
+                    type="button"
+                    onClick={clearPriceFilter}
+                    className="ml-0.5 text-xs text-white/40 hover:text-yellow-400 transition-colors cursor-pointer"
+                    title="Remove price filter"
+                  >
+                    ×
+                  </button>
+                </div>,
               );
             }
 
@@ -159,7 +190,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
               (productTypes &&
                 productTypes.length > 0 &&
                 !productTypes.includes("all")) ||
-              (price && price > 0) ||
+              (price && price > 0 && price < 100) ||
               (sortBy && sortBy !== "popular");
 
             return (
@@ -176,7 +207,7 @@ const ActiveFiltersDisplay = ({ appliedFilters, currCategory }) => {
         {/* Clear All Button */}
         <button
           onClick={clearAllFilters}
-          className="flex items-center flex-shrink-0 gap-1 text-xs font-medium text-yellow-500 transition-colors duration-200 hover:text-yellow-400"
+          className="flex items-center flex-shrink-0 gap-1 text-xs font-medium text-yellow-500 transition-colors duration-200 cursor-pointer hover:text-yellow-400"
         >
           <span className="w-1 h-3 bg-yellow-500 rounded-full"></span>
           Clear All

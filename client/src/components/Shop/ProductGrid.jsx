@@ -83,10 +83,7 @@ const ProductGrid = () => {
   return (
     <div className="w-full flex-1 min-h-0 flex flex-col">
       {/* Active Filters Display */}
-      <ActiveFiltersDisplay
-        appliedFilters={appliedFilters}
-        currCategory={currCategory}
-      />
+      <ActiveFiltersDisplay />
 
       {/* Product Grid */}
       <div className="w-full flex-1 min-h-0 h-[600px] lg:h-full overflow-y-auto">

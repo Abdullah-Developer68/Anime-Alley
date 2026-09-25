@@ -12,36 +12,60 @@ import { useState, useEffect } from "react";
 import { formatPrice } from "../../utils/formatPrice";
 
 const FilterBar = () => {
-  // Initialize form with default values
+  // Redux state hooks
+  const currCategory = useSelector((state) => state.shop.currCategory);
+  const barState = useSelector((state) => state.shop.openFilterBar);
+  const appliedFilters = useSelector((state) => state.shop.productTypes);
+  const dispatch = useDispatch();
+
+  // Helper to extract initial values from Redux state
+  const getInitialValues = () => {
+    const rawPrice = Number(appliedFilters?.price);
+    const initialPrice =
+      !isNaN(rawPrice) && rawPrice > 0 && rawPrice < 100 ? rawPrice : 100;
+    const initialTypes =
+      appliedFilters?.productTypes && appliedFilters.productTypes.length > 0
+        ? appliedFilters.productTypes.map((t) =>
+            t.toLowerCase() === "all"
+              ? "All"
+              : t.charAt(0).toUpperCase() + t.slice(1),
+          )
+        : ["All"];
+
+    return {
+      productTypes: initialTypes,
+      currProductType: initialTypes[0] || "All",
+      price: initialPrice,
+      sortBy: appliedFilters?.sortBy || "popular",
+      searchQuery: appliedFilters?.searchQuery || "",
+    };
+  };
+
+  // Initialize form with values synchronized from Redux
   const {
     register,
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm({
-    defaultValues: {
-      productTypes: ["All"],
-      currProductType: "All",
-      price: 0,
-      sortBy: "popular",
-      searchQuery: "",
-    },
+    defaultValues: getInitialValues(),
   });
-
-  // Redux state hooks
-  const currCategory = useSelector((state) => state.shop.currCategory);
-  const barState = useSelector((state) => state.shop.openFilterBar);
-  const dispatch = useDispatch();
 
   // Local component state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availProductTypes, setAvailProductTypes] = useState([]);
 
-  // Watch form fields for changes
+  // Watch form fields for dynamic UI updates
   const formFields = watch();
 
-  //  Dynamically update available filters based on current category.
+  // Sync form when Redux appliedFilters updates (e.g. cleared externally)
+  useEffect(() => {
+    reset(getInitialValues());
+  }, [appliedFilters, reset]);
+
+  // Dynamically update available filters based on current category
   useEffect(() => {
     const currProductTypes = ["All"];
 
@@ -71,73 +95,79 @@ const FilterBar = () => {
     setAvailProductTypes(currProductTypes);
   }, [currCategory]);
 
-  // Automatically deselect "All" when other filters are active
-  // to avoid conflicting intent and vice versa
+  // Automatically deselect "All" when other filters are active and vice-versa
   useEffect(() => {
     let updatedFilters;
 
     if (formFields.currProductType === "All")
-      updatedFilters = formFields.productTypes.filter((filter) => filter === "All");
+      updatedFilters = formFields.productTypes.filter(
+        (filter) => filter === "All",
+      );
     else
-      updatedFilters = formFields.productTypes.filter((filter) => filter !== "All");
+      updatedFilters = formFields.productTypes.filter(
+        (filter) => filter !== "All",
+      );
 
-    // Only update if the values are actually different to prevent infinite loops
     const isDifferent =
       JSON.stringify(updatedFilters) !==
       JSON.stringify(formFields.productTypes);
 
-    if (isDifferent)
-      setValue("productTypes", updatedFilters);
+    if (isDifferent) setValue("productTypes", updatedFilters);
   }, [formFields.currProductType, formFields.productTypes, setValue]);
 
-  // Form submission handler
-  // Sends the selected filters, price, sort, and query to the store.
-  const onSubmit = async (data) => {
-    try {
-      setIsSubmitting(true);
-
-      const formData = {
-        productTypes: data.productTypes?.map((filter) =>
-          filter.toLowerCase(),
-        ) || ["all"],
-        sortBy: data.sortBy?.toLowerCase() || "popular",
-        price: Number(data.price) || 0,
-        searchQuery: data.searchQuery?.trim() || "",
-      };
-
-      // Reset to page 1 if search was used
-      if (formFields.searchQuery)
-        dispatch(updateCurrPage(1));
-
-      // Only transfer data if filters are actually applied
-      if (
-        formData.price > 0 ||
-        formData.productTypes.length > 0 ||
-        formData.searchQuery ||
-        formData.sortBy !== "popular"
-      )
-        dispatch(transferFilterData(formData));
-
-      // Auto-close the filter bar after applying filters (similar to close button behavior)
-      dispatch(openFilterBar(false));
-      dispatch(setProductsCache([])); // Clear cached products to trigger refetch with new filters
-    } catch (error) {
-      console.error("Error applying filters:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Price calculations
+  const currentPrice =
+    formFields.price !== undefined && formFields.price !== null
+      ? Number(formFields.price)
+      : 100;
+  const isAllPrices = currentPrice >= 100 || currentPrice <= 0;
 
   // Custom background styling for range input based on current price
   const getBackgroundStyle = (value) => {
-    const percentage = (value / 100) * 100;
+    const num = Number(value);
+    const clamped = isNaN(num) ? 100 : Math.max(0, Math.min(100, num));
     return {
-      background: `linear-gradient(to right, #EAB308 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%)`,
+      background: `linear-gradient(to right, #EAB308 ${clamped}%, rgba(255, 255, 255, 0.1) ${clamped}%)`,
     };
   };
 
   const updateCurrProductType = (filter) => {
     setValue("currProductType", filter);
+  };
+
+  // Form submission handler
+  const onSubmit = async (data) => {
+    try {
+      setIsSubmitting(true);
+
+      const rawPrice = Number(data.price);
+      // Normalized price: if 100 or <= 0, treat as unconstrained (0 on backend)
+      const normalizedPrice =
+        isNaN(rawPrice) || rawPrice >= 100 || rawPrice <= 0 ? 0 : rawPrice;
+
+      const formData = {
+        productTypes:
+          data.productTypes?.map((filter) => filter.toLowerCase()) || ["all"],
+        sortBy: data.sortBy?.toLowerCase() || "popular",
+        price: normalizedPrice,
+        searchQuery: data.searchQuery?.trim() || "",
+      };
+
+      // Reset to page 1 whenever filters change
+      dispatch(updateCurrPage(1));
+
+      // Update Redux store
+      dispatch(transferFilterData(formData));
+
+      // Auto-close filter bar on mobile/tablet drawer
+      dispatch(openFilterBar(false));
+      // Clear cached products to trigger fresh fetch
+      dispatch(setProductsCache([]));
+    } catch (error) {
+      console.error("Error applying filters:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -154,7 +184,7 @@ const FilterBar = () => {
         </div>
 
         {/* Product Nav above search input on desktop */}
-        <div className="hidden lg:flex justify-center pt-4">
+        <div className="justify-center hidden pt-4 lg:flex">
           <ProductNav />
         </div>
 
@@ -216,26 +246,50 @@ const FilterBar = () => {
 
         {/* Price range selector */}
         <div>
-          <h3 className="flex items-center gap-2 mb-3 text-base font-semibold text-white/90">
-            <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
-            Price Range
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-white/90">
+              <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
+              Price Range
+            </h3>
+            {!isAllPrices && (
+              <button
+                type="button"
+                onClick={() =>
+                  setValue("price", 100, {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  })
+                }
+                className="font-mono text-xs text-yellow-500 transition-colors cursor-pointer hover:text-yellow-400"
+              >
+                Reset
+              </button>
+            )}
+          </div>
           <div className="px-2">
             <input
               type="range"
               min="0"
               max="100"
-              {...register("price", { valueAsNumber: true })}
-              onChange={(e) => setValue("price", Number(e.target.value))}
-              style={getBackgroundStyle(formFields.price)}
+              step="1"
+              value={currentPrice}
+              onChange={(e) =>
+                setValue("price", Number(e.target.value), {
+                  shouldDirty: true,
+                  shouldTouch: true,
+                })
+              }
+              style={getBackgroundStyle(currentPrice)}
               className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
             />
-            <div className="flex justify-between text-xs text-white/70 mt-2 font-mono">
-              <span>0 $</span>
+            <div className="flex justify-between mt-2 font-mono text-xs text-white/70">
+              <span>$0</span>
               <span className="font-semibold text-yellow-500">
-                {formatPrice(formFields.price)} $
+                {isAllPrices
+                  ? "All Prices"
+                  : `Up to $${formatPrice(currentPrice)}`}
               </span>
-              <span>100 $</span>
+              <span>$100</span>
             </div>
           </div>
         </div>
