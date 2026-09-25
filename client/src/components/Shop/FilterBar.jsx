@@ -171,7 +171,7 @@ const FilterBar = () => {
   };
 
   return (
-    <div className="w-[280px] h-full min-h-[calc(100vh-63px)] bg-black/95 backdrop-blur-sm p-6 shadow-xl border border-white/10 rounded-r-sm overflow-y-auto">
+    <div className="w-[280px] h-[820px] max-h-[calc(100vh-63px)] lg:h-full bg-zinc-950 p-6 shadow-2xl border border-white/10 rounded-r-sm overflow-y-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Mobile close button */}
         <div className="flex items-center justify-end lg:hidden">
