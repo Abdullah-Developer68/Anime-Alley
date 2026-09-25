@@ -17,8 +17,9 @@ const Shop = () => {
         >
           <FilterBar />
         </div>
-        <div className="flex flex-col items-center justify-center w-full">
-          <div className="mb-5">
+        <div className="flex flex-col items-center justify-between w-full min-w-0 px-2 lg:px-4">
+          {/* Standalone product nav on mobile and tablet */}
+          <div className="mb-4 lg:hidden">
             <ProductNav />
           </div>
           <ProductGrid />

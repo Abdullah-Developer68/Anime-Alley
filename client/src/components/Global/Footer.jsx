@@ -1,89 +1,62 @@
+import { Link } from "react-router-dom";
 import assets from "../../assets/asset";
 
 const Footer = () => {
   return (
-    <footer className="py-3 bg-black border-t border-red-500 text-white/90 sm:py-6">
-      <div className="container px-3 mx-auto">
-        <div className="flex flex-col items-center gap-3 sm:gap-0 sm:flex-row sm:justify-between">
-          {/* Logo and Title Section - More compact for mobile */}
-          <div className="flex items-center gap-3">
+    <footer className="relative z-30 w-full py-3.5 sm:py-4 bg-black border-t border-red-500/80 text-white/90">
+      <div className="w-full px-4 sm:px-8 lg:px-12">
+        {/* Main Footer Row: Brand on far left, Navigation links on far right */}
+        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row sm:gap-0">
+          {/* Logo and Title Section on Far Left */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
             <img
               src={assets.footerPic}
               alt="Anime Alley Logo"
-              className="object-contain w-12 h-12 border-2 border-red-500 rounded-full shadow-lg sm:w-16 sm:h-16"
+              className="object-contain w-9 h-9 border-2 border-red-500 rounded-full shadow-lg sm:w-10 sm:h-10"
             />
             <div className="text-center sm:text-left">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight mb-0.5">
+              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl leading-tight">
                 Anime Alley
               </h1>
-              <p className="text-xs italic sm:text-sm text-white/70">
+              <p className="text-[11px] sm:text-xs italic text-white/70">
                 Your Anime Collection Starts Here
               </p>
             </div>
           </div>
 
-          {/* Navigation Links - Horizontal on mobile */}
-          <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
-            <a
-              href="#"
-              className="text-sm transition-colors hover:text-pink-500"
+          {/* Navigation Links on Far Right */}
+          <nav className="flex flex-wrap items-center justify-center gap-4 sm:justify-end sm:gap-6">
+            <Link
+              to="/"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
             >
               Home
-            </a>
-            <a
-              href="#"
-              className="text-sm transition-colors hover:text-pink-500"
+            </Link>
+            <Link
+              to="/about"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
             >
               About
-            </a>
-            <a
-              href="#"
-              className="text-sm transition-colors hover:text-pink-500"
+            </Link>
+            <Link
+              to="/privacy"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
             >
               Privacy
-            </a>
-            <a
-              href="#"
-              className="text-sm transition-colors hover:text-pink-500"
+            </Link>
+            <Link
+              to="/contact"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
             >
               Contact
-            </a>
-          </div>
-
-          {/* Social Media Icons - Compact spacing */}
-          <div className="flex gap-3 sm:gap-4">
-            <a
-              href="#"
-              className="text-lg transition-colors text-white/70 hover:text-pink-500 sm:text-xl"
-              aria-label="Twitter"
-            >
-              <i className="fab fa-twitter"></i>
-            </a>
-            <a
-              href="#"
-              className="text-lg transition-colors text-white/70 hover:text-pink-500 sm:text-xl"
-              aria-label="Facebook"
-            >
-              <i className="fab fa-facebook-f"></i>
-            </a>
-            <a
-              href="#"
-              className="text-lg transition-colors text-white/70 hover:text-pink-500 sm:text-xl"
-              aria-label="Instagram"
-            >
-              <i className="fab fa-instagram"></i>
-            </a>
-          </div>
+            </Link>
+          </nav>
         </div>
 
-        {/* Footer Bottom - Reduced spacing */}
-        <div className="mt-3 text-center sm:mt-6">
-          <p className="text-white/60 text-[10px] sm:text-xs">
-            © {new Date().getFullYear()} Anime Alley. All rights reserved.
-          </p>
-          <p className="text-white/40 text-[10px] sm:text-xs">
-            Bringing anime collectibles to life
-          </p>
+        {/* Subtle separator and bottom credits */}
+        <div className="flex flex-col items-center justify-between pt-2.5 mt-3 text-[11px] sm:text-xs border-t sm:flex-row border-white/10 text-white/60 gap-1 sm:gap-0">
+          <p>© {new Date().getFullYear()} Anime Alley. All rights reserved.</p>
+          <p className="italic text-white/40">Bringing anime collectibles to life</p>
         </div>
       </div>
     </footer>

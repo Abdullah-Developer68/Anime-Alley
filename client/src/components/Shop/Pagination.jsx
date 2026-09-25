@@ -34,7 +34,7 @@ const Pagination = () => {
   };
 
   return (
-    <div className="flex items-center justify-center my-8">
+    <div className="flex items-center justify-center my-2.5">
       <button
         className="flex items-center justify-center h-8 px-4 ml-2 transition-colors bg-gray-300 border-gray-300 rounded-full cursor-pointer hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={currentPage === 1}

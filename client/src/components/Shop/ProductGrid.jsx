@@ -89,7 +89,7 @@ const ProductGrid = () => {
       />
 
       {/* Product Grid */}
-      <div className="w-full h-[600px] overflow-auto">
+      <div className="w-full h-[600px] lg:h-[calc(100vh-210px)] overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader size="lg" />

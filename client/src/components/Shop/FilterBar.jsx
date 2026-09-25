@@ -7,6 +7,7 @@ import {
   setProductsCache,
 } from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
+import ProductNav from "./ProductNav";
 import { useState, useEffect } from "react";
 import { formatPrice } from "../../utils/formatPrice";
 
@@ -140,20 +141,21 @@ const FilterBar = () => {
   };
 
   return (
-    <div className="w-[280px] h-[820px] lg:h-[900px] bg-black/95 backdrop-blur-sm p-6 shadow-xl border border-white/10 rounded-r-lg overflow-y-auto">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        {/* Filter header with close icon */}
-        <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-white/90">
-            <span className="w-1 h-5 bg-yellow-500 rounded-full"></span>
-            Filters
-          </h3>
+    <div className="w-[280px] h-[820px] lg:h-[calc(100vh-80px)] bg-black/95 backdrop-blur-sm p-6 shadow-xl border border-white/10 rounded-r-sm overflow-y-auto">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Mobile close button */}
+        <div className="flex items-center justify-end lg:hidden">
           <img
             src={assets.close}
             alt="close"
-            className="w-8 transition-opacity cursor-pointer lg:hidden hover:opacity-75"
+            className="w-8 transition-opacity cursor-pointer hover:opacity-75"
             onClick={() => dispatch(openFilterBar(!barState))}
           />
+        </div>
+
+        {/* Product Nav above search input on desktop */}
+        <div className="hidden lg:flex justify-center pt-4">
+          <ProductNav />
         </div>
 
         {/* Search input */}
@@ -184,7 +186,7 @@ const FilterBar = () => {
 
         {/* Filters section */}
         <div>
-          <h3 className="flex items-center gap-2 mb-4 text-base font-semibold text-white/90">
+          <h3 className="flex items-center gap-2 mb-3 text-base font-semibold text-white/90">
             <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
             Available Filters
           </h3>
@@ -214,11 +216,11 @@ const FilterBar = () => {
 
         {/* Price range selector */}
         <div>
-          <h3 className="flex items-center gap-2 mb-4 text-base font-semibold text-white/90">
+          <h3 className="flex items-center gap-2 mb-3 text-base font-semibold text-white/90">
             <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
             Price Range
           </h3>
-          <div className="relative px-2">
+          <div className="px-2">
             <input
               type="range"
               min="0"
@@ -228,9 +230,11 @@ const FilterBar = () => {
               style={getBackgroundStyle(formFields.price)}
               className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
             />
-            <div className="absolute left-0 right-0 flex justify-between text-sm -bottom-6 text-white/70">
-              <span> 0 $</span>
-              <span> {formatPrice(formFields.price)} $</span>
+            <div className="flex justify-between text-xs text-white/70 mt-2 font-mono">
+              <span>0 $</span>
+              <span className="font-semibold text-yellow-500">
+                {formatPrice(formFields.price)} $
+              </span>
               <span>100 $</span>
             </div>
           </div>
@@ -238,7 +242,7 @@ const FilterBar = () => {
 
         {/* Sort options */}
         <div>
-          <h3 className="flex items-center gap-2 mb-4 text-base font-semibold text-white/90">
+          <h3 className="flex items-center gap-2 mb-3 text-base font-semibold text-white/90">
             <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
             Sort By
           </h3>

@@ -63,6 +63,10 @@ Follow this strict two-part convention across all controllers, services, and mid
    ```
 - **Never use multi-line comment blocks (`/* ... */`)**: Multi-line comment blocks can interfere with linting, minification, and diff clarity.
 
+### No Prop Drilling Standard
+- **No Prop Drilling**: Prop drilling (passing state, configuration, layout flags, or handlers down component trees) is strictly forbidden across the codebase.
+- **Redux as Single Source of Truth**: Any shared state, layout modes, or cross-component communication must be read and dispatched via Redux Toolkit slices (`useSelector` / `useDispatch`), never passed down as component props.
+
 ---
 
 ## 2. Project Architecture & Setup
