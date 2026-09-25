@@ -1,32 +1,30 @@
-import { useEffect } from "react";
 import FilterBar from "../components/Shop/FilterBar";
 import ProductNav from "../components/Shop/ProductNav";
 import ProductGrid from "../components/Shop/ProductGrid";
 import Pagination from "../components/Shop/Pagination";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { openFilterBar as setOpenFilterBar } from "../redux/Slice/shopSlice";
 
 const Shop = () => {
-  const openFilterBar = useSelector((state) => state.shop.openFilterBar);
-
-  // Prevent background scrolling when filter drawer is open on mobile
-  useEffect(() => {
-    if (openFilterBar) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
-  }, [openFilterBar]);
+  const dispatch = useDispatch();
+  const isFilterBarOpen = useSelector((state) => state.shop.openFilterBar);
 
   return (
     <>
-      {/* Main Content */}
-      <div className="flex mt-[63px] lg:h-[calc(100vh-63px)] lg:overflow-hidden">
+      {/* Invisible backdrop: Touching or clicking outside immediately closes the drawer without darkening the screen */}
+      {isFilterBarOpen && (
         <div
-          className={`fixed top-[63px] left-0 ${
-            openFilterBar ? "translate-x-0" : "-translate-x-full"
-          } lg:relative lg:top-auto lg:left-0 lg:translate-x-0 transition-transform duration-300 ease-in-out z-40 lg:h-full max-h-[calc(100vh-63px)] will-change-transform`}
+          className="fixed inset-0 top-[52px] md:top-[64px] bg-transparent z-30 lg:hidden cursor-pointer"
+          onClick={() => dispatch(setOpenFilterBar(false))}
+        />
+      )}
+
+      {/* Main Content */}
+      <div className="flex mt-[52px] md:mt-[64px] lg:h-[calc(100vh-64px)] lg:overflow-hidden">
+        <div
+          className={`fixed top-[52px] md:top-[64px] left-0 ${
+            isFilterBarOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:relative lg:top-auto lg:left-0 lg:translate-x-0 transition-transform duration-300 ease-in-out z-40 lg:h-full max-h-[calc(100vh-52px)] md:max-h-[calc(100vh-64px)] will-change-transform`}
         >
           <FilterBar />
         </div>

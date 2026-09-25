@@ -12,7 +12,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="w-full fixed top-0 bg-gradient-to-r bg-[#0F172A] flex justify-between items-center px-3 py-1.5 md:px-4 md:py-2 shadow-lg shadow-indigo-500/10 z-50">
+      <nav className="w-full fixed top-0 h-[52px] md:h-[64px] bg-gradient-to-r bg-[#0F172A] flex justify-between items-center px-3 py-1.5 md:px-4 md:py-2 shadow-lg shadow-indigo-500/10 z-50">
         <span className="flex items-center gap-2 md:gap-3">
           {/* Logo */}
           <img
