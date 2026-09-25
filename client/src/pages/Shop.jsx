@@ -11,9 +11,9 @@ const Shop = () => {
       {/* Main Content */}
       <div className="flex mt-[63px] lg:h-[calc(100vh-63px)] lg:overflow-hidden">
         <div
-          className={`absolute ${
+          className={`absolute top-[63px] bottom-0 ${
             openFilterBar ? "left-0" : "-left-72"
-          } lg:relative lg:left-0 transition-all duration-200 z-40 lg:h-full`}
+          } lg:relative lg:top-auto lg:bottom-auto lg:left-0 transition-all duration-200 z-40 lg:h-full`}
         >
           <FilterBar />
         </div>
