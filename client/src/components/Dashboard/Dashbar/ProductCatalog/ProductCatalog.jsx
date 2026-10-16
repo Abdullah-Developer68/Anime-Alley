@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setReloadData,
@@ -11,158 +10,89 @@ import api from "../../../../api/api";
 import assets from "../../../../assets/asset";
 import ProductForm from "./ProductForm";
 import DeleteProduct from "./DeleteProduct";
-import { useCallback } from "react";
 import { formatPrice } from "../../../../utils/formatPrice";
+import { Plus, Download } from "lucide-react";
 
 const ProductCatalog = () => {
-  // base URL for images from server
-
-  // react hook form setup
-  const { register, handleSubmit, watch, setValue } = useForm({
-    defaultValues: {
-      category: "comics",
-      price: 0,
-      sortBy: "popular",
-      searchQuery: "",
-      minPrice: 0,
-      maxPrice: 100, // max price is 100 for the range input
-      currProductType: "All",
-      productTypes: ["all"], // default to "all" for product types
-    },
-  });
-
-  // Watch form fields for changes
-  const formFields = watch();
-
   // states
   const [products, setProducts] = useState([]);
-  const [availProductTypes, setAvailProductTypes] = useState(["All"]);
   const [currPage, setCurrPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [apiPayload, setApiPayload] = useState({
-    category: "comics",
-    productTypes: ["all"],
-    price: 0,
-    sortBy: "popular",
-    page: currPage,
-    searchQuery: "",
-  });
 
   // redux
-  const { reloadData, productDeleteModalState, productFormState } = useSelector(
-    (state) => state.dashboard,
-  );
+  const {
+    reloadData,
+    productDeleteModalState,
+    productFormState,
+    productFilters,
+  } = useSelector((state) => state.dashboard);
 
   const dispatch = useDispatch();
 
-  //  Dynamically update available filters based on current category.
-  useEffect(() => {
-    const currProductTypes = ["All"];
-
-    switch (formFields.category) {
-      case "comics":
-        currProductTypes.push(
-          "Action",
-          "Adventure",
-          "Comedy",
-          "Drama",
-          "Fantasy",
-        );
-        break;
-      case "clothes":
-        currProductTypes.push("T-Shirt", "Jacket", "Pants");
-        break;
-      case "shoes":
-        currProductTypes.push("Sneakers", "Boots");
-        break;
-      case "toys":
-        currProductTypes.push("Action-Figure", "Car", "Doll");
-        break;
-      default:
-        break;
-    }
-    setAvailProductTypes(currProductTypes);
-  }, [formFields.category]);
-
-  // Initial API payload setup
-  const onSubmit = async (data) => {
-    setCurrPage(1); // Reset to page 1 when filters are changed
-    const newPayload = {
-      category: data.category.toLowerCase(),
-      productTypes: formFields.productTypes.length
-        ? formFields.productTypes.map((type) => type.toLowerCase())
-        : ["all"],
-      price: Number(data.price) || 0,
-      sortBy: data.sortBy || "popular",
-      page: currPage,
-      searchQuery: data.searchQuery?.trim() || "",
-    };
-
-    setApiPayload(newPayload);
-  };
-
-  // This changes the reference of the function on currPage, and apiPayload
+  // Load products based on Redux productFilters and current page
   const loadProducts = useCallback(async () => {
     setLoading(true);
+    const activeFilters = productFilters || {};
+    const payload = {
+      category: (activeFilters.category || "comics").toLowerCase(),
+      productTypes:
+        activeFilters.productTypes && activeFilters.productTypes.length
+          ? activeFilters.productTypes.map((type) => type.toLowerCase())
+          : ["all"],
+      price: Number(activeFilters.price) || 0,
+      sortBy: activeFilters.sortBy || "popular",
+      page: currPage,
+      searchQuery: (activeFilters.searchQuery || "").trim(),
+    };
+
     try {
-      const response = await api.getProducts(apiPayload);
+      const response = await api.getProducts(payload);
       if (response.data.success) {
-        // Update products and total pages from the response
         setProducts(response.data.currPageProducts);
         setTotalPages(response.data.totalPages);
         setTotalProducts(response.data.totalProducts);
       }
     } catch (error) {
-      console.error("Error details:", {
+      console.error("Error loading products:", {
         message: error.message,
         response: error.response?.data,
-        payload: apiPayload,
+        payload,
       });
     } finally {
       setLoading(false);
     }
-  }, [apiPayload]);
+  }, [productFilters, currPage]);
 
-  const handleCheckboxChange = (item) => {
-    const currentTypes = formFields.productTypes;
+  // Reset page to 1 whenever filters change
+  useEffect(() => {
+    setCurrPage(1);
+  }, [
+    productFilters?.category,
+    productFilters?.searchQuery,
+    productFilters?.price,
+    productFilters?.productTypes,
+    productFilters?.filterVersion,
+  ]);
 
-    if (item === "All") {
-      // If "All" is selected, clear other filters
-      setValue("productTypes", ["all"]);
-    } else {
-      // If other filter is selected
-      let newTypes;
-      if (currentTypes.includes(item.toLowerCase())) {
-        // If item already selected, remove it
-        newTypes = currentTypes.filter((type) => type !== item.toLowerCase());
-        // If no filters left, set back to "all"
-        if (newTypes.length === 0) {
-          newTypes = ["all"];
-        }
-      } else {
-        // Add new item and remove "all"
-        newTypes = currentTypes
-          .filter((type) => type !== "all")
-          .concat(item.toLowerCase());
-      }
-      setValue("productTypes", newTypes);
+  // Fetch products on mount and when loadProducts changes
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  // Reloads products when productReload is triggered via Redux
+  useEffect(() => {
+    if (reloadData === "products") {
+      loadProducts().then(() => {
+        dispatch(setReloadData(null));
+      });
     }
-  };
+  }, [reloadData, dispatch, loadProducts]);
 
-  //Custom background styling for range input based on current price
-  const getBackgroundStyle = (value) => {
-    const percentage = (value / formFields.maxPrice) * 100;
-    return {
-      background: `linear-gradient(to right, #EAB308 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%)`,
-    };
-  };
-
-  // Pagination function
+  // Pagination handler
   const handlePg = (value) => {
     let newPage;
-
     if (value === "next" && currPage < totalPages) {
       newPage = currPage + 1;
     } else if (value === "prev" && currPage > 1) {
@@ -170,34 +100,10 @@ const ProductCatalog = () => {
     } else if (typeof value === "number") {
       newPage = value;
     } else {
-      return; // Invalid input
+      return;
     }
-
     setCurrPage(newPage);
-    setApiPayload((prev) => ({
-      ...prev,
-      page: newPage,
-    }));
   };
-  // reset page to 1 when category changes
-  useEffect(() => {
-    setCurrPage(1);
-  }, [formFields.category]);
-
-  // Loads products when the component mounts or when apiPayload changes
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  // Reloads products when productReload is true
-  useEffect(() => {
-    if (reloadData === "products") {
-      loadProducts().then(() => {
-        // Reset the reload flag after loading
-        dispatch(setReloadData(null));
-      });
-    }
-  }, [reloadData, dispatch, loadProducts]);
 
   const handleDeleteModal = (product) => {
     dispatch(openProductDeleteModal(product));
@@ -208,133 +114,30 @@ const ProductCatalog = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header Section */}
-      <div className="flex max-[565px]:flex-col flex-row justify-between max-[565px]:justify-center max-[565px]:items-end gap-4">
-        <h1 className="ml-20 text-2xl font-bold text-white">Products</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => dispatch(openExportModal("products"))}
-            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            Export
-          </button>
-          <button
-            onClick={() => openForm()}
-            className="flex items-center gap-2 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <img
-              src={assets.plus}
-              className="w-5 h-5 invert"
-              alt="Add product"
-            />
-            Add New Product
-          </button>
-        </div>
-      </div>
-
-      {/*(ProductForm) Modal for adding and editing items */}
+    <div className="p-6 space-y-4">
       {productFormState.isOpen && <ProductForm />}
 
-      {/* Search and Filter Section */}
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
-        <div className="flex flex-col mb-4">
-          <input
-            type="range"
-            min={formFields.minPrice}
-            max={formFields.maxPrice}
-            {...register("price", { valueAsNumber: true })}
-            onChange={(e) => setValue("price", Number(e.target.value))}
-            style={getBackgroundStyle(formFields.price)}
-            className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white mb-4"
-          />
-          <div className="flex justify-between text-sm text-white/70">
-            <span>{formFields.minPrice} $</span>
-            <span>{formatPrice(formFields.price)} $</span>
-            <span>{formFields.maxPrice} $</span>
-          </div>
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Search products..."
-              className="w-full px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-              {...register("searchQuery")}
-            />
-          </div>
-          <div className="flex gap-2">
-            <select
-              className="px-4 py-2 text-white border rounded-lg cursor-pointer bg-white/5 border-white/10 focus:outline-none focus:border-pink-500"
-              {...register("category")}
-            >
-              <option className="text-black bg-gray-400" value="comics">
-                Comics
-              </option>
-              <option className="text-black bg-gray-400" value="clothes">
-                Clothes
-              </option>
-              <option className="text-black bg-gray-400" value="shoes">
-                Shoes
-              </option>
-              <option className="text-black bg-gray-400" value="toys">
-                Toys
-              </option>
-            </select>
-          </div>
-          <button
-            type="submit"
-            className="p-2 text-black bg-gray-300 rounded-md cursor-pointer hover:bg-white"
-          >
-            Load Products
-          </button>
-        </div>
-        {/* Replace the checkBoxes function call with direct JSX */}
-        {formFields.category && (
-          <div className="mt-8">
-            <label className="block mb-2 text-sm font-medium text-white">
-              {formFields.category === "clothes"
-                ? "Available Cloth Types"
-                : formFields.category === "shoes"
-                  ? "Available Shoe Types"
-                  : formFields.category === "comics"
-                    ? "Available Genres"
-                    : formFields.category === "toys"
-                      ? "Available Toy Types"
-                      : null}
-            </label>
-            <div className="flex flex-wrap gap-4">
-              {availProductTypes.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 px-3 py-2 transition-colors rounded-lg bg-white/5 hover:bg-white/10"
-                >
-                  <input
-                    type="checkbox"
-                    id={`${formFields.category}-${item}`}
-                    value={item}
-                    className="w-4 h-4 text-pink-500 border-gray-300 rounded cursor-pointer focus:ring-pink-500"
-                    checked={formFields.productTypes.includes(
-                      item.toLowerCase(),
-                    )}
-                    onChange={() => handleCheckboxChange(item)}
-                  />
-                  <label
-                    htmlFor={`${formFields.category}-${item}`}
-                    className="text-sm text-gray-300 transition-colors cursor-pointer hover:text-white"
-                  >
-                    {item}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </form>
-      {/* Products Table */}
+      <div className="flex items-center justify-end gap-2 pb-1">
+        <button
+          type="button"
+          onClick={() => dispatch(openExportModal("products"))}
+          title="Export Products"
+          className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
+        >
+          <Download className="w-5 h-5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => openForm()}
+          title="Add New Product"
+          className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
+        >
+          <Plus className="w-5 h-5" />
+        </button>
+      </div>
+
       <div className="border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-auto h-[400px]">
-          {/* Single table with fixed header */}
+        <div className="relative overflow-auto h-[620px] max-h-[calc(100vh-220px)] min-h-[500px]">
           <table className="w-full min-w-[800px]">
             <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
               <tr className="border-b border-white/10">
@@ -390,7 +193,6 @@ const ProductCatalog = () => {
                     key={index}
                     className="transition-colors hover:bg-white/5"
                   >
-                    {/* Edit & Delete buttons*/}
                     <td className="px-6 py-4">
                       <div className="flex justify-start gap-2">
                         <button
@@ -480,7 +282,10 @@ const ProductCatalog = () => {
                                   : "bg-red-500/20 text-red-500"
                               }`}
                             >
-                              {product.category === "comics" && !v.label.startsWith("V") ? "Vol. " : ""}
+                              {product.category === "comics" &&
+                              !v.label.startsWith("V")
+                                ? "Vol. "
+                                : ""}
                               {v.label}: {v.stock > 0 ? v.stock : "Out"}
                             </span>
                           ))
@@ -495,7 +300,6 @@ const ProductCatalog = () => {
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-400">
           {products.length > 0

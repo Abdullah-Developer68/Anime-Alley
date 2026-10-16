@@ -18,13 +18,13 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <div className="flex min-h-screen mt-16 max-[770px]:mt-12 relative">
+    <div className="relative flex min-h-screen mt-16 max-[770px]:mt-12">
       {/* Sidebar for desktop, and for mobile if open */}
       {(!isMobile || isSidebarOpen) && (
         <aside
-          className={`w-64 shrink-0 ${
+          className={`w-[280px] shrink-0 ${
             isMobile
-              ? "fixed z-50 top-0 left-0 h-full bg-gradient-to-b from-black to-gray-900"
+              ? "fixed z-50 top-0 left-0 h-full bg-zinc-950"
               : ""
           }`}
         >
@@ -40,7 +40,7 @@ const Dashboard = () => {
       {/* Hamburger button for mobile */}
       {isMobile && !isSidebarOpen && (
         <button
-          className="absolute top-5 z-10 p-3  ml-5 text-white rounded-full shadow-lg max-[1120px]:block min-[1121px]:hidden flex items-center justify-center"
+          className="absolute z-10 flex items-center justify-center p-3 ml-5 text-white rounded-full shadow-lg top-5 max-[1120px]:block min-[1121px]:hidden"
           onClick={() => dispatch(openSidebar())}
           aria-label="Open sidebar"
         >

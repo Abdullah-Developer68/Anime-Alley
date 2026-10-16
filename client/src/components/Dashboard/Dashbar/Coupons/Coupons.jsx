@@ -13,6 +13,7 @@ import {
 import EditCoupon from "./EditCoupon";
 import DeleteCoupon from "./DeleteCoupon";
 import CreateCoupon from "./CreateCoupon";
+import { Download, RefreshCw, Plus } from "lucide-react";
 
 const Coupons = () => {
   const { user } = useAuth();
@@ -129,27 +130,31 @@ const Coupons = () => {
       {/* Header Section */}
       <div className="flex max-[565px]:flex-col flex-row justify-between max-[565px]:justify-center max-[565px]:items-end gap-4">
         <h1 className="ml-20 text-2xl font-bold text-white">Coupons</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={handleRefreshStats}
-            className="flex items-center gap-2 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg hover:bg-white"
             disabled={loading}
+            title="Refresh Stats"
+            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white disabled:opacity-50"
           >
-            {loading ? <img src={assets.loader} alt="loading" /> : null}
-            Refresh Stats
+            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
+            type="button"
             onClick={() => dispatch(openExportModal("coupons"))}
-            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
+            title="Export Coupons"
+            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
           >
-            Export
+            <Download className="w-5 h-5" />
           </button>
           <button
-            className="flex items-center gap-2 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg hover:bg-white"
+            type="button"
             onClick={() => dispatch(openCouponCreateModal())}
+            title="Create Coupon"
+            className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
           >
-            <img src={assets.plus} alt="add" className="w-5 h-5 invert" />
-            Create Coupon
+            <Plus className="w-5 h-5" />
           </button>
         </div>
       </div>

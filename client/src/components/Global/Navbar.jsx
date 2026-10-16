@@ -1,14 +1,35 @@
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import assets from "../../assets/asset";
 import useAuth from "../../Hooks/UseAuth";
-import Logout from "./Logout";
+import ProfileDropdown from "./ProfileDropdown";
 
 const Navbar = () => {
   const { user } = useAuth();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const updatedProfilePic = useSelector(
     (state) => state.dashboard.updatedProfilePic,
   );
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [isDropdownOpen]);
 
   return (
     <>
@@ -22,7 +43,7 @@ const Navbar = () => {
           />
         </span>
 
-        {/* Search and Auth */}
+        {/* Navigation & Auth */}
         <div className="flex items-center gap-2 md:gap-4">
           <Link to="/">
             <img src={assets.homeIcon} alt="home" />
@@ -43,28 +64,38 @@ const Navbar = () => {
           )}
 
           {user ? (
-            <div className="flex items-center gap-2 md:gap-4">
-              <img
-                key={`${user?.id}-${updatedProfilePic || user?.profilePic}`}
-                src={
-                  updatedProfilePic || user?.profilePic || assets.defaultProfile
-                }
-                alt={`${user?.username}'s Profile`}
-                className="object-cover rounded-full w-7 h-7 md:w-10 md:h-10"
-                referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
-                onError={(e) => {
-                  console.error("Profile Image Error:", {
-                    error: e,
-                    attemptedSrc: e.target.src,
-                    userId: user?.id,
-                    profilePicUrl: updatedProfilePic || user?.profilePic,
-                  });
-                  e.target.onerror = null; // prevent infinite loop
-                  e.target.src = assets.defaultProfile;
-                }}
-              />
-              <Logout />
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen((prev) => !prev)}
+                className="flex items-center cursor-pointer focus:outline-none rounded-full ring-2 ring-transparent hover:ring-indigo-500/50 transition-all"
+                aria-label="User Profile Menu"
+              >
+                <img
+                  key={`${user?.id}-${updatedProfilePic || user?.profilePic}`}
+                  src={
+                    updatedProfilePic || user?.profilePic || assets.defaultProfile
+                  }
+                  alt={`${user?.username}'s Profile`}
+                  className="object-cover rounded-full w-7 h-7 md:w-10 md:h-10 cursor-pointer"
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    console.error("Profile Image Error:", {
+                      error: e,
+                      attemptedSrc: e.target.src,
+                      userId: user?.id,
+                      profilePicUrl: updatedProfilePic || user?.profilePic,
+                    });
+                    e.target.onerror = null; // prevent infinite loop
+                    e.target.src = assets.defaultProfile;
+                  }}
+                />
+              </button>
+
+              {isDropdownOpen && (
+                <ProfileDropdown onClose={() => setIsDropdownOpen(false)} />
+              )}
             </div>
           ) : (
             <Link to="/login">

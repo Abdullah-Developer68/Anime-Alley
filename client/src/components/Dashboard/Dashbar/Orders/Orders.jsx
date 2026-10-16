@@ -12,6 +12,7 @@ import {
 import { useSelector } from "react-redux";
 import EditOrder from "./EditOrder";
 import DeleteOrder from "./DeleteOrder";
+import { Download, RefreshCw } from "lucide-react";
 
 const Orders = () => {
   const { user } = useAuth();
@@ -125,20 +126,23 @@ const Orders = () => {
       {/* Header Section */}
       <div className="flex max-[362px]:flex-col flex-row justify-between max-[362px]:justify-center max-[362px]:items-end gap-4">
         <h1 className="ml-20 text-2xl font-bold text-white">Orders</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => dispatch(openExportModal("orders"))}
-            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            Export
-          </button>
-          <button
+            type="button"
             onClick={fetchOrderStats}
-            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
             disabled={statsLoading}
             title="Refresh Stats"
+            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white disabled:opacity-50"
           >
-            {statsLoading ? "Refreshing..." : "Refresh Stats"}
+            <RefreshCw className={`w-5 h-5 ${statsLoading ? "animate-spin" : ""}`} />
+          </button>
+          <button
+            type="button"
+            onClick={() => dispatch(openExportModal("orders"))}
+            title="Export Orders"
+            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
+          >
+            <Download className="w-5 h-5" />
           </button>
         </div>
       </div>

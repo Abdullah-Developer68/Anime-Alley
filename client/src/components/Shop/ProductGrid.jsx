@@ -9,11 +9,10 @@ import { useEffect } from "react";
 import Cards from "../Global/Card";
 import Loader from "../Global/Loader";
 import api from "../../api/api";
-import ActiveFiltersDisplay from "./ActiveFiltersDisplay";
 
 const ProductGrid = () => {
   const dispatch = useDispatch();
-  //Access the category state and filters of that category from the redux store
+  // Access the category state and filters of that category from the redux store
   const products = useSelector((state) => state.shop.productsCache);
   const currCategory = useSelector((state) => state.shop.currCategory);
   const appliedFilters = useSelector((state) => state.shop.productTypes);
@@ -37,7 +36,7 @@ const ProductGrid = () => {
         const apiPayload = {
           category: currCategory.toLowerCase(),
           productTypes: productTypes || ["all"],
-          price: typeof price === "number" ? price : (Number(price) || 0),
+          price: typeof price === "number" ? price : Number(price) || 0,
           sortBy: sortBy || "popular",
           page: currPage,
           searchQuery: searchQuery || "",
@@ -81,10 +80,7 @@ const ProductGrid = () => {
   }, [products.length, currCategory, appliedFilters, currPage, dispatch]);
 
   return (
-    <div className="w-full flex-1 min-h-0 flex flex-col">
-      {/* Active Filters Display */}
-      <ActiveFiltersDisplay />
-
+    <div className="flex flex-col flex-1 w-full min-h-0">
       {/* Product Grid */}
       <div className="w-full flex-1 min-h-[350px] lg:h-full overflow-y-auto flex flex-col">
         {isLoading ? (
@@ -98,7 +94,6 @@ const ProductGrid = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-            {/* Key prop helps React identify which items have changed, been added, or been removed in lists */}
             {products.map((product) => (
               <Cards key={product._id} product={product} />
             ))}

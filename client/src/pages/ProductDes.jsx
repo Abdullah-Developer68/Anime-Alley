@@ -221,25 +221,26 @@ const ProductDescription = () => {
               <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-white to-white/80 bg-clip-text">
                 {selectedProduct.name}
               </h1>
-              <div className="flex gap-2">
-                <div className="flex items-center gap-3">
+              <div className="flex flex-wrap gap-2">
+                {selectedProduct.category?.toLowerCase() === "comics" ? (
+                  Array.isArray(selectedProduct.genres) &&
+                  selectedProduct.genres.map((genre) => (
+                    <span
+                      key={genre}
+                      className="px-4 py-1.5 bg-gray-500 text-black text-sm font-medium rounded-md capitalize"
+                    >
+                      {genre}
+                    </span>
+                  ))
+                ) : (
                   <span className="px-4 py-1.5 bg-gray-500 text-black text-sm font-medium rounded-md">
-                    {selectedProduct.category?.toLowerCase() === "comics"
-                      ? "Comic"
-                      : selectedProduct.category?.toLowerCase() === "clothes"
-                        ? selectedProduct.clothesType || "Clothing"
-                        : selectedProduct.category?.toLowerCase() === "shoes"
-                          ? selectedProduct.shoeType || "Shoes"
-                          : selectedProduct.category?.toLowerCase() === "toys"
-                            ? selectedProduct.toyType || "Toy"
-                            : "Item"}
-                  </span>
-                </div>
-                {selectedProduct.category?.toLowerCase() === "comics" && (
-                  <span className="px-4 py-1.5 bg-gray-500 text-black text-sm font-medium rounded-md">
-                    {Array.isArray(selectedProduct.genres)
-                      ? selectedProduct.genres.join(", ")
-                      : ""}
+                    {selectedProduct.category?.toLowerCase() === "clothes"
+                      ? selectedProduct.clothesType || "Clothing"
+                      : selectedProduct.category?.toLowerCase() === "shoes"
+                        ? selectedProduct.shoeType || "Shoes"
+                        : selectedProduct.category?.toLowerCase() === "toys"
+                          ? selectedProduct.toyType || "Toy"
+                          : "Item"}
                   </span>
                 )}
               </div>

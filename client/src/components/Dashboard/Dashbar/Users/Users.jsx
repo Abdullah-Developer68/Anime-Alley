@@ -14,6 +14,7 @@ import {
 import EditUser from "./EditUser";
 import DeleteUser from "./DeleteUser";
 import { toast } from "react-toastify";
+import { Download, Search } from "lucide-react";
 
 const Users = () => {
   const { user } = useAuth();
@@ -138,12 +139,14 @@ const Users = () => {
       {/* Header Section */}
       <div className="flex max-[362px]:flex-col flex-row justify-between max-[362px]:justify-center max-[362px]:items-end gap-4">
         <h1 className="ml-20 text-2xl font-bold text-white">Users</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => dispatch(openExportModal("users"))}
-            className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
+            title="Export Users"
+            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
           >
-            Export
+            <Download className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -178,14 +181,16 @@ const Users = () => {
           </option>
         </select>
         <button
-          className="px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg hover:bg-white"
+          type="button"
+          title="Search Users"
+          className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white shrink-0"
           onClick={() => {
             setSubmittedSearch(searchQuery);
             setSubmittedRole(role);
             setCurrPage(1); // Reset to first page on new search/filter
           }}
         >
-          Load Users
+          <Search className="w-5 h-5" />
         </button>
       </div>
 

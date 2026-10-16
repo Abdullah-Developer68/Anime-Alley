@@ -55,6 +55,16 @@ const initialState = {
     dataType: null, // To specify 'users', 'products', or 'coupons'
   },
   isSidebarOpen: false, // For responsive Dashbar
+  productFilters: {
+    category: "comics",
+    productTypes: ["all"],
+    price: 0,
+    minPrice: 0,
+    maxPrice: 100,
+    searchQuery: "",
+    sortBy: "popular",
+    filterVersion: 0,
+  },
 };
 
 const persistedState = loadModalState();
@@ -175,6 +185,26 @@ const dashboardSlice = createSlice({
     clearUpdatedProfilePic: (state) => {
       state.updatedProfilePic = null;
     },
+    // Product Filters for Sidebar Navigation
+    setProductFilters: (state, action) => {
+      state.productFilters = {
+        ...state.productFilters,
+        ...action.payload,
+        filterVersion: (state.productFilters?.filterVersion || 0) + 1,
+      };
+    },
+    resetProductFilters: (state) => {
+      state.productFilters = {
+        category: "comics",
+        productTypes: ["all"],
+        price: 0,
+        minPrice: 0,
+        maxPrice: 100,
+        searchQuery: "",
+        sortBy: "popular",
+        filterVersion: (state.productFilters?.filterVersion || 0) + 1,
+      };
+    },
   },
 });
 
@@ -205,5 +235,7 @@ export const {
   openSidebar,
   closeSidebar,
   toggleSidebar,
+  setProductFilters,
+  resetProductFilters,
 } = dashboardSlice.actions;
 export default dashboardSlice.reducer;

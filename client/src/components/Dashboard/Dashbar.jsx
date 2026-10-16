@@ -1,23 +1,24 @@
-import { Link } from "react-router-dom";
-import assets from "../../assets/asset";
+import { useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { closeSidebar } from "../../redux/Slice/DashboardSlice";
 import { motion, AnimatePresence } from "framer-motion";
+import DashboardNavDock from "./DashboardNavDock";
+import ProductSidebarFilters from "./Dashbar/ProductSidebarFilters";
 
 const Dashbar = () => {
   const dispatch = useDispatch();
+  const location = useLocation();
   const isSidebarOpen = useSelector((state) => state.dashboard.isSidebarOpen);
   const isMobile =
     typeof window !== "undefined" ? window.innerWidth <= 1120 : false;
 
-  // Handler for navigation click
-  const handleNavClick = () => {
-    if (isMobile && isSidebarOpen) {
-      dispatch(closeSidebar());
-    }
-  };
+  const isProducts =
+    location.pathname === "/dashboard" || location.pathname === "/dashboard/";
+  const isOrders = location.pathname.startsWith("/dashboard/orders");
+  const isUsers = location.pathname.startsWith("/dashboard/users");
+  const isCoupons = location.pathname.startsWith("/dashboard/coupons");
 
-  // Animation variants for mobile sidebar
+  // Animation variants for mobile sidebar drawer
   const sidebarVariants = {
     hidden: { x: "-100%" },
     visible: {
@@ -30,6 +31,59 @@ const Dashbar = () => {
     },
   };
 
+  const navContent = (
+    <div className="flex flex-col h-full space-y-5">
+      <div className="text-center shrink-0">
+        <h2 className="text-lg font-bold tracking-wide text-white">
+          Dashboard
+        </h2>
+      </div>
+
+      <div className="shrink-0 flex justify-center">
+        <DashboardNavDock />
+      </div>
+
+      <div className="w-full h-px shrink-0 bg-white/10" />
+
+      <div className="flex-1 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
+        {isProducts && <ProductSidebarFilters />}
+
+        {isOrders && (
+          <div className="space-y-3 text-center pt-4">
+            <h3 className="text-xs font-semibold text-gray-400 tracking-wider uppercase">
+              Orders Management
+            </h3>
+            <p className="text-xs text-gray-500">
+              Manage and track customer order status, invoices, and fulfillment.
+            </p>
+          </div>
+        )}
+
+        {isUsers && (
+          <div className="space-y-3 text-center pt-4">
+            <h3 className="text-xs font-semibold text-gray-400 tracking-wider uppercase">
+              Users Management
+            </h3>
+            <p className="text-xs text-gray-500">
+              View customer profiles, roles, permissions, and accounts.
+            </p>
+          </div>
+        )}
+
+        {isCoupons && (
+          <div className="space-y-3 text-center pt-4">
+            <h3 className="text-xs font-semibold text-gray-400 tracking-wider uppercase">
+              Coupons Management
+            </h3>
+            <p className="text-xs text-gray-500">
+              Create and manage promotional discounts and coupon codes.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   if (isMobile) {
     return (
       <AnimatePresence>
@@ -40,137 +94,26 @@ const Dashbar = () => {
             animate="visible"
             exit="exit"
             variants={sidebarVariants}
-            className="fixed top-0 left-0 z-50 flex flex-col w-64 h-screen p-4 text-white bg-gradient-to-b from-black to-gray-900"
+            className="fixed top-0 left-0 z-50 flex flex-col w-[280px] h-screen p-5 overflow-y-auto text-white bg-zinc-950 border-r border-white/10 shadow-2xl scrollbar-thin scrollbar-thumb-white/10"
           >
-            {/* Close button for mobile */}
             <button
-              className="absolute top-4 right-4 z-50 text-3xl bg-black bg-opacity-30 rounded-full px-3 py-1 min-[1121px]:hidden"
+              className="absolute z-50 px-3 py-1 text-2xl text-white bg-black rounded-full top-3 right-3 bg-opacity-40 min-[1121px]:hidden"
               onClick={() => dispatch(closeSidebar())}
               aria-label="Close sidebar"
             >
               &times;
             </button>
-            {/* Logo/Brand Section */}
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-transparent bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text">
-                Anime Alley
-              </h1>
-              <p className="text-sm text-gray-400">Admin Dashboard</p>
-            </div>
-            {/* Navigation Section */}
-            <nav className="flex-1">
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    to="/dashboard/"
-                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-                    onClick={handleNavClick}
-                  >
-                    <img
-                      src={assets.product}
-                      alt="product"
-                      className="invert"
-                    />
-                    <span className="text-sm font-medium">Products</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/dashboard/orders"
-                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-                    onClick={handleNavClick}
-                  >
-                    <img src={assets.orders} alt="orders" className="invert" />
-                    <span className="text-sm font-medium">Orders</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/dashboard/users"
-                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-                    onClick={handleNavClick}
-                  >
-                    <img src={assets.users} alt="users" className="invert" />
-                    <span className="text-sm font-medium">Users</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/dashboard/coupons"
-                    className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-                    onClick={handleNavClick}
-                  >
-                    <img
-                      src={assets.coupons}
-                      alt="coupons"
-                      className="invert"
-                    />
-                    <span className="text-sm font-medium">Coupons</span>
-                  </Link>
-                </li>
-              </ul>
-            </nav>
+            {navContent}
           </motion.div>
         )}
       </AnimatePresence>
     );
   }
 
-  // Desktop: no animation, normal sidebar
+  // Desktop: normal fixed-width sidebar matching shop FilterBar dimensions
   return (
-    <div className="relative flex flex-col w-64 h-screen p-4 text-white bg-gradient-to-b from-black to-gray-900">
-      {/* Logo/Brand Section */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-transparent bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text">
-          Anime Alley
-        </h1>
-        <p className="text-sm text-gray-400">Admin Dashboard</p>
-      </div>
-      {/* Navigation Section */}
-      <nav className="flex-1">
-        <ul className="space-y-2">
-          <li>
-            <Link
-              to="/dashboard/"
-              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-              onClick={handleNavClick}
-            >
-              <img src={assets.product} alt="product" className="invert" />
-              <span className="text-sm font-medium">Products</span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              to="/dashboard/orders"
-              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-              onClick={handleNavClick}
-            >
-              <img src={assets.orders} alt="orders" className="invert" />
-              <span className="text-sm font-medium">Orders</span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              to="/dashboard/users"
-              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-              onClick={handleNavClick}
-            >
-              <img src={assets.users} alt="users" className="invert" />
-              <span className="text-sm font-medium">Users</span>
-            </Link>
-          </li>
-          <li>
-            <Link
-              to="/dashboard/coupons"
-              className="flex items-center gap-3 px-4 py-3 transition-colors rounded-lg hover:bg-white/10 group"
-              onClick={handleNavClick}
-            >
-              <img src={assets.coupons} alt="coupons" className="invert" />
-              <span className="text-sm font-medium">Coupons</span>
-            </Link>
-          </li>
-        </ul>
-      </nav>
+    <div className="relative flex flex-col w-[280px] h-[calc(100vh-4rem)] p-5 text-white bg-zinc-950 border-r border-white/10 shadow-2xl overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+      {navContent}
     </div>
   );
 };
