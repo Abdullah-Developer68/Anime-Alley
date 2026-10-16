@@ -12,7 +12,7 @@ import {
 } from "../../redux/Slice/cartSlice";
 import api from "../../api/api";
 import { toast } from "react-toastify";
-import assets from "../../assets/asset";
+import { Tag } from "lucide-react";
 import { formatPrice } from "../../utils/formatPrice";
 
 const CouponModal = () => {
@@ -242,7 +242,7 @@ const CouponModal = () => {
         {/* Modal Header */}
         <div className="mb-6 text-center">
           <div className="flex items-center justify-center w-12 h-12 mx-auto mb-3 rounded-full bg-pink-500/20">
-            <img src={assets.tag} alt="Coupon" className="w-6 h-6" />
+            <Tag className="w-6 h-6 text-pink-500" />
           </div>
           <h2 className="text-xl font-bold text-white">Apply Coupon</h2>
           <p className="mt-1 text-sm text-white/60">
