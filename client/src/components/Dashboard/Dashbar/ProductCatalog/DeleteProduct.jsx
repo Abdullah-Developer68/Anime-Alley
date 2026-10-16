@@ -32,15 +32,14 @@ const DeleteProduct = () => {
       setIsDeleting(true);
       setError("");
 
-      const res = await api.deleteProduct(selectedProduct._id);
+      const res = await api.deleteProduct(selectedProduct.productID);
 
       if (res.data.success) {
         toast.success("Product deleted successfully!");
         handleClose();
-        dispatch(setReloadData());
-      } else {
+        dispatch(setReloadData("products"));
+      } else
         toast.error(res.data.message || "Failed to delete product");
-      }
     } catch (err) {
       console.error("Delete product error:", err);
       toast.error(
