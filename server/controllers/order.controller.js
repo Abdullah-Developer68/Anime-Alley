@@ -6,6 +6,8 @@ const Reservation = require("../db/models/reservation.model.js");
 const mongoose = require("mongoose");
 const dbConnect = require("../db/dbConnect.js");
 const { formatPrice } = require("../utils/formatPrice.utils.js");
+const { validateCouponForUser } = require("../utils/coupon.utils.js");
+const { expireOpenSessions } = require("../services/stripe.js");
 
 const placeOrder = async (req, res) => {
   let session = null;
@@ -49,31 +51,18 @@ const placeOrder = async (req, res) => {
       });
     }
 
-    // If a coupon is provided, check if the user has already used it
+    // If a coupon is provided, apply the shared rules: exists, not expired, not already used by this user
     let couponDoc = null;
     if (couponCode) {
-      couponDoc = await couponModel.findOne({ couponCode }).session(session);
-
-      if (!couponDoc) {
+      const couponCheck = await validateCouponForUser(couponCode, user, { session });
+      if (!couponCheck.valid) {
         await session.abortTransaction();
-        return res.status(400).json({
+        return res.status(couponCheck.status).json({
           success: false,
-          message: "Coupon not found.",
+          message: couponCheck.message,
         });
       }
-
-      if (
-        user.couponCodeUsed &&
-        user.couponCodeUsed.some(
-          (id) => id.toString() === couponDoc._id.toString()
-        )
-      ) {
-        await session.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          message: "You have already used this coupon.",
-        });
-      }
+      couponDoc = couponCheck.coupon;
     }
 
     // Define shipping cost (server-controlled)
@@ -153,18 +142,19 @@ const placeOrder = async (req, res) => {
       shippingCost: SHIPPING_COST, // Server-controlled shipping cost
       discount: discount, // Server-calculated discount
       finalAmount: finalCost, // Server-calculated final cost
-      couponCode,
+      couponCode: couponDoc ? couponDoc.couponCode : null, // Only the validated code is stored
     };
 
     const newOrder = await orderModel.create([orderData], { session });
 
     // === COUPON PROCESSING  ===
 
-    // Update coupon statistics and user coupon usage (if coupon was applied)
-    if (couponCode && discount > 0) {
+    // Update coupon statistics and user coupon usage (if a validated coupon was applied).
+    // The coupon is marked as used even if the discount rounds to 0 so it cannot be reused.
+    if (couponDoc) {
       // Update coupon statistics (totalUsage, lifeTimeDiscount) with session
-      await couponModel.findOneAndUpdate(
-        { couponCode },
+      await couponModel.findByIdAndUpdate(
+        couponDoc._id,
         {
           $inc: {
             totalUsage: 1,
@@ -174,15 +164,14 @@ const placeOrder = async (req, res) => {
         { session }
       );
 
-      // Add coupon to user's couponCodeUsed array with session
-      if (couponDoc && !user.couponCodeUsed.includes(couponDoc._id))
-        await userModel.findByIdAndUpdate(
-          user._id,
-          {
-            $addToSet: { couponCodeUsed: couponDoc._id },
-          },
-          { session }
-        );
+      // Add coupon to user's couponCodeUsed array with session ($addToSet prevents duplicates)
+      await userModel.findByIdAndUpdate(
+        user._id,
+        {
+          $addToSet: { couponCodeUsed: couponDoc._id },
+        },
+        { session }
+      );
     }
 
     // === USER ORDER HISTORY UPDATE  ===
@@ -209,6 +198,14 @@ const placeOrder = async (req, res) => {
 
     // Commit transaction on success BEFORE sending response
     await session.commitTransaction();
+
+    // The cart (and any coupon) is now consumed, so open Stripe sessions for the old cart
+    // must not be payable anymore. Best effort: never fail an already-committed order.
+    try {
+      await expireOpenSessions(user._id);
+    } catch (expireErr) {
+      console.error("Failed to expire open checkout sessions:", expireErr);
+    }
 
     res.status(201).json({
       success: true,

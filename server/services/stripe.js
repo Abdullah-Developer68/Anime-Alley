@@ -1,13 +1,40 @@
 const Stripe = require("stripe");
 const dotenv = require("dotenv");
 const reservationModel = require("../db/models/reservation.model.js");
+const userModel = require("../db/models/user.model.js");
+const checkoutSessionModel = require("../db/models/checkoutSession.model.js");
 const dbConnect = require("../db/dbConnect.js");
-const couponModel = require("../db/models/coupon.model.js");
 const { resolveTrustedClientOrigin } = require("../utils/origin.utils.js");
+const { validateCouponForUser } = require("../utils/coupon.utils.js");
+const { formatPrice } = require("../utils/formatPrice.utils.js");
 dotenv.config();
 
 // Initialized Stripe instance for backends
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+const SHIPPING_COST = 5;
+const CURRENCY = "usd";
+
+// Expire the user's other open checkout sessions so only the newest one can be paid.
+// This stops an old session (with an old cart or an already-used coupon) from being paid later.
+// If Stripe refuses (the session already completed or expired), the webhook reconciles its status.
+const expireOpenSessions = async (userId) => {
+  const openSessions = await checkoutSessionModel
+    .find({ userId, status: "pending" })
+    .select("stripeSessionID");
+
+  for (const open of openSessions) {
+    try {
+      await stripe.checkout.sessions.expire(open.stripeSessionID);
+      await checkoutSessionModel.updateOne(
+        { _id: open._id, status: "pending" },
+        { status: "expired" },
+      );
+    } catch (err) {
+      console.warn(`Could not expire checkout session ${open.stripeSessionID}: ${err.message}`);
+    }
+  }
+};
 
 const createCheckoutSession = async (req, res) => {
   try {
@@ -24,82 +51,91 @@ const createCheckoutSession = async (req, res) => {
 
     const trimmedCouponCode = typeof couponCode === "string" ? couponCode.trim() : "";
 
-    await dbConnect();
-
     // Extract user info from verified JWT token (set by verifyTokenMiddleware)
     const userId = req.user?.id;
     const authenticatedUserEmail = req.user?.email;
-    const shippingCost = 5;
+    if (!userId)
+      return res.status(401).json({ error: "Invalid user session" });
+
+    await dbConnect();
+
+    const user = await userModel.findById(userId);
+    if (!user)
+      return res.status(404).json({ error: "User not found" });
 
     // Find reservation by userId from verified token
     const reservation = await reservationModel
       .findOne({ userId })
       .populate("products.productId");
 
-    if (
-      !reservation ||
-      !reservation.products ||
-      reservation.products.length === 0
-    )
-      return res
-        .status(404)
-        .json({ error: "No reservations found for this cart" });
+    if (!reservation || !reservation.products || reservation.products.length === 0)
+      return res.status(404).json({ error: "No reservations found for this cart" });
 
-    // Create line items using the FINAL discounted prices
+    // Every reserved product must still exist, otherwise the charge would not match the cart
+    if (reservation.products.some((item) => !item.productId))
+      return res.status(409).json({
+        error: "Some products in your cart are no longer available. Please review your cart.",
+      });
 
-    // Calculate per-item discount ratio
-    const calculatedSubtotal = reservation.products.reduce(
-      (sum, currItem) => sum + (currItem.productId?.price || 0) * currItem.quantity,
-      0
+    // Snapshot of exactly what is being paid for, using current DB prices
+    const snapshotProducts = reservation.products.map((item) => ({
+      productId: item.productId._id,
+      variant: item.variant,
+      quantity: item.quantity,
+      price: formatPrice(item.productId.price),
+      name: item.productId.name,
+      image: item.productId.image,
+    }));
+
+    const subtotal = formatPrice(
+      snapshotProducts.reduce((sum, item) => sum + item.price * item.quantity, 0),
     );
+    if (subtotal <= 0)
+      return res.status(400).json({ error: "Cart total must be greater than zero" });
+
+    // Coupon: same rules as every other payment path (exists, not expired, not used by this user)
     let coupon = null;
-    let discountAmount = 0;
     if (trimmedCouponCode.length > 0) {
-      // find the coupon used
-      coupon = await couponModel.findOne({ couponCode: trimmedCouponCode });
+      const couponCheck = await validateCouponForUser(trimmedCouponCode, user);
+      if (!couponCheck.valid)
+        // do not proceed with the payment if the coupon cannot be applied
+        return res.status(couponCheck.status).json({ error: couponCheck.message });
+      coupon = couponCheck.coupon;
+    }
 
-      if (!coupon)
-        // do not proceed further because we do not want to procced with the payment if coupon was not applied
-        return res.status(400).json({ error: "Coupon not found" });
-      // calculate the discount
-      discountAmount = Math.round(
-        calculatedSubtotal * (coupon.discountPercentage / 100)
-      );
-    } else
-      discountAmount = 0;
+    const discountAmount = coupon
+      ? formatPrice(subtotal * (coupon.discountPercentage / 100))
+      : 0;
+    const finalTotal = formatPrice(subtotal + SHIPPING_COST - discountAmount);
 
-    // calculate final Total
-    const finalTotal = calculatedSubtotal + shippingCost - discountAmount;
-    // calculate the discount ratio
-    const discountRatio = finalTotal / calculatedSubtotal;
-    // calculate the discounted price for each item
-    const lineItems = reservation.products.map((item) => {
-      const itemOriginalPrice = item.productId.price;
-      const itemDiscountedPrice = itemOriginalPrice * discountRatio;
-
-      return {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: item.productId.name,
-            images: [`${item.productId.image}`],
-          },
-          unit_amount: Math.round(itemDiscountedPrice * 100), // Use discounted price
+    // Spread shipping and discount proportionally across the line items
+    // (prices are pre-discounted, so no Stripe discounts are added)
+    const discountRatio = finalTotal / subtotal;
+    const lineItems = snapshotProducts.map((item) => ({
+      price_data: {
+        currency: CURRENCY,
+        product_data: {
+          name: item.name,
+          images: item.image ? [`${item.image}`] : [],
         },
-        quantity: item.quantity,
-      };
-    });
+        unit_amount: Math.round(item.price * discountRatio * 100),
+      },
+      quantity: item.quantity,
+    }));
 
-    // Get coupon info for display (if provided)
-    let appliedCoupon = null;
-    if (trimmedCouponCode && authenticatedUserEmail)
-      appliedCoupon = coupon || (await couponModel.findOne({ couponCode: trimmedCouponCode }));
+    // The exact amount Stripe will charge; the webhook checks the paid amount against it
+    const amountTotalCents = lineItems.reduce(
+      (sum, item) => sum + item.price_data.unit_amount * item.quantity,
+      0,
+    );
+
+    // Only the newest session for this user may be paid
+    await expireOpenSessions(userId);
 
     // Resolve trusted client base URL to return user to their originating deployment domain
     const clientBaseUrl = resolveTrustedClientOrigin(req);
 
-    // Create checkout session configuration with locked email
-    const sessionConfig = {
+    const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
@@ -111,37 +147,52 @@ const createCheckoutSession = async (req, res) => {
       customer_creation: "always",
       customer_email: authenticatedUserEmail,
 
+      // Informational only - the webhook builds the order from the stored snapshot
       metadata: {
-        userId: userId.toString(), // Use userId from verified token
-        couponCode: trimmedCouponCode,
-        userEmail: authenticatedUserEmail, // Use authenticated email
-        discountAmount: discountAmount.toString(),
-        originalTotal: calculatedSubtotal.toFixed(2),
-        finalTotal: finalTotal.toFixed(2),
-        shippingAddress: deliveryAddress.trim(),
-        shippingCost: shippingCost.toString(),
+        userId: userId.toString(),
+        couponCode: coupon ? coupon.couponCode : "",
       },
-    };
+    });
 
-    // DO NOT add Stripe discounts - prices are already discounted
-    // The discount was applied in cart.jsx before reaching this point
-
-    // Create a new Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // Persist the snapshot. If this fails, kill the session so it can never be paid without one.
+    try {
+      await checkoutSessionModel.create({
+        stripeSessionID: session.id,
+        userId,
+        products: snapshotProducts.map(({ productId, variant, quantity, price }) => ({
+          productId,
+          variant,
+          quantity,
+          price,
+        })),
+        couponId: coupon ? coupon._id : null,
+        couponCode: coupon ? coupon.couponCode : null,
+        subtotal,
+        discount: discountAmount,
+        shippingCost: SHIPPING_COST,
+        amountTotalCents,
+        currency: CURRENCY,
+        shippingAddress: deliveryAddress.trim(),
+      });
+    } catch (snapshotErr) {
+      await stripe.checkout.sessions.expire(session.id).catch(() => {});
+      throw snapshotErr;
+    }
 
     res.json({
       sessionId: session.id,
-      subtotal: calculatedSubtotal.toFixed(2),
+      subtotal: subtotal.toFixed(2),
       discountAmount: discountAmount || "0",
-      finalTotal: finalTotal || calculatedSubtotal.toFixed(2),
-      couponApplied: appliedCoupon ? appliedCoupon.couponCode : null,
+      finalTotal: (amountTotalCents / 100).toFixed(2),
+      couponApplied: coupon ? coupon.couponCode : null,
     });
   } catch (err) {
     console.error("Stripe session creation error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Failed to create checkout session" });
   }
 };
 
 module.exports = {
   createCheckoutSession,
+  expireOpenSessions,
 };

@@ -5,27 +5,68 @@ const reservationModel = require("../db/models/reservation.model.js");
 const orderModel = require("../db/models/order.model.js");
 const userModel = require("../db/models/user.model.js");
 const couponModel = require("../db/models/coupon.model.js");
+const productModel = require("../db/models/product.model.js");
+const checkoutSessionModel = require("../db/models/checkoutSession.model.js");
 const dbConnect = require("../db/dbConnect.js");
 dotenv.config();
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const webHookSecretKey = process.env.STRIPE_WEBHOOK_SECRET;
-const processedSessions = new Set(); // In-memory store for processed sessions
+const processedSessions = new Set(); // In-memory fast path; the DB checks below are the real guard
 
-// Strictly coerces and validates non-negative finite numeric values
-// Rejects partially numeric strings ("10abc"), booleans, arrays, whitespace, and negative values
-const parseValidAmount = (value, defaultValue = 0) => {
-  if (typeof value === "number" && Number.isFinite(value) && value >= 0)
-    return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const num = Number(value.trim());
-    if (Number.isFinite(num) && num >= 0)
-      return num;
+// Removes the purchased quantities from the user's cart reservation.
+// Stock for reserved items was already decremented when they were reserved, so normally
+// this only shrinks the reservation. If the user removed items from the cart after starting
+// checkout (which released that stock), the shortfall is taken from product stock instead.
+const consumeReservation = async (userId, paidProducts, mongoSession) => {
+  const reservation = await reservationModel
+    .findOne({ userId })
+    .session(mongoSession);
+
+  for (const item of paidProducts) {
+    const entry = reservation?.products.find(
+      (p) => String(p.productId) === String(item.productId) && p.variant === item.variant,
+    );
+    const takenFromReservation = entry ? Math.min(entry.quantity, item.quantity) : 0;
+    if (entry)
+      entry.quantity -= takenFromReservation;
+
+    const shortfall = item.quantity - takenFromReservation;
+    if (shortfall > 0) {
+      // $elemMatch makes the label and stock conditions apply to the SAME variant
+      const result = await productModel.updateOne(
+        {
+          _id: item.productId,
+          variants: { $elemMatch: { label: item.variant, stock: { $gte: shortfall } } },
+        },
+        { $inc: { "variants.$.stock": -shortfall } },
+        { session: mongoSession },
+      );
+      if (result.modifiedCount === 0)
+        // The customer already paid, so the order is still recorded; flag it for manual follow-up
+        console.warn(
+          `Oversold: product ${item.productId} (${item.variant}) is short by ${shortfall} for paid order of user ${userId}`,
+        );
+    }
   }
-  return defaultValue;
+
+  if (!reservation)
+    return;
+
+  reservation.products = reservation.products.filter((p) => p.quantity > 0);
+  if (reservation.products.length === 0)
+    await reservationModel.deleteOne({ _id: reservation._id }, { session: mongoSession });
+  else
+    await reservation.save({ session: mongoSession });
 };
 
 const processSuccessfulPayment = async (StripeSession) => {
+  // Async payment methods report "unpaid" here and succeed later via async_payment_succeeded
+  if (StripeSession.payment_status !== "paid") {
+    console.log(`Session ${StripeSession.id} completed but not paid yet (${StripeSession.payment_status}), skipping`);
+    return;
+  }
+
   // Prevent double processing
   if (processedSessions.has(StripeSession.id)) {
     console.log(`Session ${StripeSession.id} already processed, skipping`);
@@ -44,9 +85,7 @@ const processSuccessfulPayment = async (StripeSession) => {
 
     // Check if order already exists for this session
     const existingOrder = await orderModel
-      .findOne({
-        stripeSessionID: StripeSession.id,
-      })
+      .findOne({ stripeSessionID: StripeSession.id })
       .session(mongoSession);
 
     if (existingOrder) {
@@ -55,145 +94,80 @@ const processSuccessfulPayment = async (StripeSession) => {
       return;
     }
 
-    const {
-      userId,
-      couponCode,
-      originalTotal,
-      finalTotal,
-      discountAmount,
-      shippingAddress,
-      shippingCost,
-      userEmail: metadataUserEmail,
-    } = StripeSession.metadata || {};
-
-    // Find the reservation by userId from verified token
-    const reservation = await reservationModel
-      .findOne({ userId })
-      .populate("products.productId")
+    // The order is built ONLY from what was stored when this session was created
+    const snapshot = await checkoutSessionModel
+      .findOne({ stripeSessionID: StripeSession.id })
       .session(mongoSession);
 
-    if (!reservation) {
-      await mongoSession.abortTransaction();
-      console.error(`No reservation found for user: ${userId}`);
-      throw new Error(`No reservation found for user: ${userId}`);
-    }
+    if (!snapshot)
+      throw new Error(`No checkout snapshot found for session ${StripeSession.id}`);
 
-    // Extract user email for user identification
-    const userEmail =
-      StripeSession.customer_details?.email || metadataUserEmail;
+    // The session must belong to the user the snapshot was created for
+    const metadataUserId = StripeSession.metadata?.userId;
+    if (metadataUserId && String(snapshot.userId) !== String(metadataUserId))
+      throw new Error(`User mismatch for session ${StripeSession.id}`);
 
-    // Find the user to get their ID (required for Order model)
-    const user = await userModel
-      .findOne({ email: userEmail })
-      .session(mongoSession);
-    if (!user) {
-      await mongoSession.abortTransaction();
-      console.error(`No user found with email: ${userEmail}`);
-      console.error(
-        `Session customer email: ${StripeSession.customer_details?.email}`
-      );
-      throw new Error(`No user found with email: ${userEmail}`);
-    }
-
-    // Additional validation: ensure the emails match for security
+    // What Stripe charged must exactly match what the snapshot says was being paid for
     if (
-      StripeSession.customer_details?.email &&
-      StripeSession.customer_details.email !== userEmail
-    ) {
-      console.warn(`Email mismatch detected:`);
-      console.warn(
-        `   Session customer email: ${StripeSession.customer_details.email}`
+      StripeSession.amount_total !== snapshot.amountTotalCents ||
+      String(StripeSession.currency || "").toLowerCase() !== snapshot.currency
+    )
+      throw new Error(
+        `Amount mismatch for session ${StripeSession.id}: charged ${StripeSession.amount_total} ${StripeSession.currency}, expected ${snapshot.amountTotalCents} ${snapshot.currency}`,
       );
-      console.warn(`   Metadata email: ${userEmail}`);
-      console.warn(`   Using metadata email for consistency`);
-    }
 
-    const validSubtotal = parseValidAmount(originalTotal, 0);
-    const validShipping = parseValidAmount(shippingCost, 5);
-    const validDiscount = parseValidAmount(discountAmount, 0);
-    const validFinalTotal = parseValidAmount(finalTotal, 0);
+    // Identify the user by ID (not by the email typed into Stripe Checkout)
+    const user = await userModel.findById(snapshot.userId).session(mongoSession);
+    if (!user)
+      throw new Error(`No user found with id: ${snapshot.userId}`);
 
-    // Create order from reservation data matching your Order model structure
     const orderData = {
       orderID: `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-      stripeSessionID: StripeSession.id, // Add this field
-      products: reservation.products
-        .filter((item) => item?.productId)
-        .map((item) => ({
-          productId: item.productId._id || item.productId,
-          quantity: item.quantity,
-          price: item.productId.price || 0,
-        })),
-      user: user._id, // Required field in your Order model
-      shippingAddress,
+      stripeSessionID: StripeSession.id,
+      products: snapshot.products.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      user: user._id,
+      shippingAddress: snapshot.shippingAddress,
       paymentMethod: "stripe",
-      subtotal: validSubtotal,
-      shippingCost: validShipping,
-      discount: validDiscount,
-      finalAmount: validFinalTotal,
-      couponCode: couponCode || null,
-      status: "processing", // Using your enum values
+      subtotal: snapshot.subtotal,
+      shippingCost: snapshot.shippingCost,
+      discount: snapshot.discount,
+      finalAmount: StripeSession.amount_total / 100, // the amount actually charged
+      couponCode: snapshot.couponCode || null,
+      status: "processing",
       orderDate: new Date(),
     };
 
-    const order = new orderModel(orderData);
+    const [savedOrder] = await orderModel.create([orderData], { session: mongoSession });
 
-    const savedOrder = await order.save({ session: mongoSession });
-
-    // Handle coupon usage if coupon was used
-    if (couponCode) {
-      const coupon = await couponModel
-        .findOne({ couponCode })
-        .session(mongoSession);
-      if (coupon) {
-        // Update coupon statistics
-        await couponModel.findByIdAndUpdate(
-          coupon._id,
-          {
-            $inc: {
-              totalUsage: 1,
-              lifeTimeDiscount: validDiscount,
-            },
-          },
-          { session: mongoSession }
-        );
-
-        // Add coupon to user's used coupons array (prevent reuse)
-        if (!user.couponCodeUsed.includes(coupon._id))
-          await userModel.findByIdAndUpdate(
-            user._id,
-            {
-              $push: {
-                couponCodeUsed: coupon._id,
-                orders: savedOrder._id,
-              },
-            },
-            { session: mongoSession }
-          );
-        else
-          // Just add the order if coupon already used
-          await userModel.findByIdAndUpdate(
-            user._id,
-            {
-              $push: { orders: savedOrder._id },
-            },
-            { session: mongoSession }
-          );
-      }
-    } else
-      // No coupon used, just add order to user
-      await userModel.findByIdAndUpdate(
-        user._id,
-        {
-          $push: { orders: savedOrder._id },
-        },
-        { session: mongoSession }
+    // Record coupon usage (validated when the session was created)
+    if (snapshot.couponId) {
+      await couponModel.findByIdAndUpdate(
+        snapshot.couponId,
+        { $inc: { totalUsage: 1, lifeTimeDiscount: snapshot.discount } },
+        { session: mongoSession },
       );
+      if ((user.couponCodeUsed || []).some((id) => String(id) === String(snapshot.couponId)))
+        console.warn(`Coupon ${snapshot.couponCode} was already used by user ${user._id} (session ${StripeSession.id})`);
+    }
 
-    // Delete reservation after successful order creation
-    await reservationModel.deleteOne({ userId }, { session: mongoSession });
+    await userModel.findByIdAndUpdate(
+      user._id,
+      {
+        $push: { orders: savedOrder._id },
+        ...(snapshot.couponId && { $addToSet: { couponCodeUsed: snapshot.couponId } }),
+      },
+      { session: mongoSession },
+    );
 
-    // Commit the transaction
+    // Remove only the paid items from the cart; anything added after checkout stays in the cart
+    await consumeReservation(user._id, snapshot.products, mongoSession);
+
+    snapshot.status = "completed";
+    await snapshot.save({ session: mongoSession });
 
     await mongoSession.commitTransaction();
   } catch (error) {
@@ -236,27 +210,22 @@ const handleStripeWebhook = async (req, res) => {
     event = stripe.webhooks.constructEvent(req.body, sig, webHookSecretKey);
   } catch (err) {
     console.error(`Webhook signature verification failed:`, err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    return res.status(400).send("Webhook signature verification failed");
   }
 
-  // Handle successful payment completion
-  if (event.type === "checkout.session.completed") {
-    const StripeSession = event.data.object;
-
+  // Handle successful payment completion (cards complete immediately; async methods succeed later)
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
     try {
-      // Now process payment
-      await processSuccessfulPayment(StripeSession);
-
+      await processSuccessfulPayment(event.data.object);
       // Only send 200 after everything succeeds
-      res.status(200).json({ received: true }); // tells stripe that the data sent by your server via webhook has been processed
-      return;
+      return res.status(200).json({ received: true });
     } catch (error) {
       console.error("Error processing payment:", error);
-      console.error("Error stack:", error.stack);
-
-      // Send 500 so Stripe retries
-      res.status(500).json({ error: error.message });
-      return;
+      // Send 500 so Stripe retries (no internal details in the response)
+      return res.status(500).json({ error: "Payment processing failed" });
     }
   }
 
@@ -266,39 +235,21 @@ const handleStripeWebhook = async (req, res) => {
     event.type === "payment_intent.payment_failed"
   ) {
     const session = event.data.object;
-    const { userId, userEmail: metadataUserEmail } = session.metadata || {};
-
-    try {
-      // Log the failed payment but keep reservation intact
-      const userEmail = session.customer_details?.email || metadataUserEmail;
-
-      console.log(`Payment failed for user: ${userId}, email: ${userEmail}`);
-
-      // Just log the failure - don't modify reservation model
-      console.log(`Payment failure logged for tracking: ${event.type}`);
-    } catch (error) {
-      console.error("Error logging failed payment:", error);
-      // Don't throw error - this shouldn't block webhook processing
-    }
+    console.log(`Payment failed for user: ${session.metadata?.userId} (${event.type})`);
   }
 
-  // Handle expired sessions - Just log, don't delete reservations
+  // Expired sessions: mark the snapshot expired, keep the reservation (auto-cleaned after 2 days)
   if (event.type === "checkout.session.expired") {
     const session = event.data.object;
-    const { userId, userEmail: metadataUserEmail } = session.metadata || {};
-
     try {
-      const userEmail = session.customer_details?.email || metadataUserEmail;
-
-      console.log(
-        `Checkout session expired for user: ${userId}, email: ${userEmail}`
-      );
-      console.log(
-        `Reservation preserved - will be auto-cleaned by cleanup script after 2 days`
+      await dbConnect();
+      await checkoutSessionModel.updateOne(
+        { stripeSessionID: session.id, status: "pending" },
+        { status: "expired" },
       );
     } catch (error) {
-      console.error("Error logging expired session:", error);
-      // Don't throw error - this shouldn't block webhook processing
+      // Don't fail the webhook - this is bookkeeping only
+      console.error("Error marking checkout session expired:", error);
     }
   }
 
@@ -309,5 +260,4 @@ const handleStripeWebhook = async (req, res) => {
 module.exports = {
   handleStripeWebhook,
   processSuccessfulPayment,
-  parseValidAmount,
 };

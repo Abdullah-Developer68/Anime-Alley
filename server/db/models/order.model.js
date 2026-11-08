@@ -52,6 +52,10 @@ const orderSchema = new Schema(
     },
     stripeSessionID: {
       type: String,
+      // One order per Stripe session (DB-level guard against duplicate webhook processing).
+      // sparse: COD orders have no session ID and are not indexed.
+      unique: true,
+      sparse: true,
       required: function () {
         if (this.paymentMethod === "stripe")
           return true;

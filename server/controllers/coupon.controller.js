@@ -1,57 +1,35 @@
 const couponModel = require("../db/models/coupon.model.js");
 const userModel = require("../db/models/user.model.js");
 const dbConnect = require("../db/dbConnect.js");
-const { validateCouponFields } = require("../utils/coupon.utils.js");
+const {
+  validateCouponFields,
+  validateCouponForUser,
+} = require("../utils/coupon.utils.js");
 
 const checkCoupon = async (req, res) => {
   try {
-    // Get email from verified token
-    const userEmail = req.user?.email;
+    // User is identified from the verified token
+    const userId = req.user?.id;
     const couponCode = req.body?.couponCode;
 
-    if (!couponCode)
+    if (!couponCode || typeof couponCode !== "string")
       return res.status(400).json({
         success: false,
         message: "Coupon code is required",
       });
 
     await dbConnect();
-    // Find the coupon
-    const coupon = await couponModel.findOne({ couponCode });
-    if (!coupon)
-      return res.status(404).json({
+
+    const user = await userModel.findById(userId).populate("couponCodeUsed");
+
+    // Shared rules: exists, not expired, not already used by this user
+    const couponCheck = await validateCouponForUser(couponCode, user);
+    if (!couponCheck.valid)
+      return res.status(couponCheck.status).json({
         success: false,
-        message: "Coupon not found",
+        message: couponCheck.message,
       });
-
-    // Check if coupon is expired
-    if (coupon.expiryDate < new Date())
-      return res.status(400).json({
-        success: false,
-        message: "Coupon has expired",
-      });
-
-    // Find user
-    const user = await userModel
-      .findOne({ email: userEmail })
-      .populate("couponCodeUsed");
-
-    if (!user)
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-
-    // Check if coupon was already used
-    const isCouponUsed = user.couponCodeUsed.some(
-      (usedCoupon) => usedCoupon._id.toString() === coupon._id.toString(),
-    );
-
-    if (isCouponUsed)
-      return res.status(400).json({
-        success: false,
-        message: "Coupon already used",
-      });
+    const { coupon } = couponCheck;
 
     return res.status(200).json({
       success: true,
