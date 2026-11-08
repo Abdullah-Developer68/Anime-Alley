@@ -62,6 +62,7 @@ Follow this strict two-part convention across all controllers, services, and mid
    // Abort transaction and return early if user information is missing
    ```
 - **Never use multi-line comment blocks (`/* ... */`)**: Multi-line comment blocks can interfere with linting, minification, and diff clarity.
+- **Comment density limit**: At most 1 line of comment for every 3 lines of code. Comment the *why* (security reasons, non-obvious behavior), not what the code already says.
 
 ### No Prop Drilling Standard
 - **No Prop Drilling**: Prop drilling (passing state, configuration, layout flags, or handlers down component trees) is strictly forbidden across the codebase.

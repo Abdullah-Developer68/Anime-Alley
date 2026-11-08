@@ -1,19 +1,9 @@
 const couponModel = require("../db/models/coupon.model.js");
-// Re-export validateCouponFields from centralized validation utilities
 const { validateCouponFields } = require("./validation.utils.js");
 
-// Single source of truth for "can this user apply this coupon right now?"
-// Used by checkCoupon (cart preview), placeOrder (COD) and createCheckoutSession (Stripe)
-// so every payment path enforces the same rules: the coupon exists, is not expired,
-// and has not already been used by this user.
-//
-// couponCode - raw value from the client (must be a non-empty string)
-// user       - user document (couponCodeUsed may be ObjectIds or populated coupon docs)
-// options.session - optional mongoose session for use inside transactions
-//
-// Returns { valid: true, coupon } or { valid: false, status, message }
+// Shared coupon rules for every payment path: exists, not expired, not already used by this user
 const validateCouponForUser = async (couponCode, user, { session = null } = {}) => {
-  // Reject non-strings so objects such as {"$ne": null} can never reach the query
+  // Non-strings are rejected so query operators like {"$ne": null} never reach MongoDB
   if (typeof couponCode !== "string" || !couponCode.trim())
     return { valid: false, status: 400, message: "Coupon code must be a non-empty string" };
 
@@ -31,6 +21,7 @@ const validateCouponForUser = async (couponCode, user, { session = null } = {}) 
   if (!coupon.expiryDate || coupon.expiryDate < new Date())
     return { valid: false, status: 400, message: "Coupon has expired" };
 
+  // couponCodeUsed may hold ObjectIds or populated coupon documents
   const alreadyUsed = (user.couponCodeUsed || []).some(
     (used) => String(used?._id ?? used) === String(coupon._id),
   );

@@ -12,7 +12,6 @@ dotenv.config();
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const webHookSecretKey = process.env.STRIPE_WEBHOOK_SECRET;
-const processedSessions = new Set(); // In-memory fast path; the DB checks below are the real guard
 
 // Removes the purchased quantities from the user's cart reservation.
 // Stock for reserved items was already decremented when they were reserved, so normally
@@ -67,12 +66,6 @@ const processSuccessfulPayment = async (StripeSession) => {
     return;
   }
 
-  // Prevent double processing
-  if (processedSessions.has(StripeSession.id)) {
-    console.log(`Session ${StripeSession.id} already processed, skipping`);
-    return;
-  }
-
   let mongoSession = null;
 
   try {
@@ -80,10 +73,7 @@ const processSuccessfulPayment = async (StripeSession) => {
     mongoSession = await mongoose.startSession();
     mongoSession.startTransaction();
 
-    // Mark session as being processed
-    processedSessions.add(StripeSession.id);
-
-    // Check if order already exists for this session
+    // Duplicate deliveries are stopped here and by the unique index on orders.stripeSessionID
     const existingOrder = await orderModel
       .findOne({ stripeSessionID: StripeSession.id })
       .session(mongoSession);
@@ -171,8 +161,6 @@ const processSuccessfulPayment = async (StripeSession) => {
 
     await mongoSession.commitTransaction();
   } catch (error) {
-    // Remove from processed set if transaction fails
-    processedSessions.delete(StripeSession.id);
     if (mongoSession && (typeof mongoSession.inTransaction === "function" ? mongoSession.inTransaction() : true)) {
       try {
         await mongoSession.abortTransaction();
