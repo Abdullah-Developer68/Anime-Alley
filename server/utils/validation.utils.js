@@ -269,13 +269,14 @@ const validateCouponFields = ({ discountPercentage, expiryDate } = {}) => {
 
 // Validates essential order parameters before session acquisition
 const validateOrderData = (body) => {
-  const { couponCode, userInfo, deliveryAddress, paymentMethod } = body || {};
+  // The ordering user comes from the verified token, not the request body
+  const { couponCode, deliveryAddress, paymentMethod } = body || {};
 
-  if (!userInfo?.email || !deliveryAddress || !paymentMethod)
+  if (!deliveryAddress || !paymentMethod)
     return {
       valid: false,
       status: 400,
-      message: "User information, delivery address and payment method are required",
+      message: "Delivery address and payment method are required",
     };
 
   const VALID_PAYMENT_METHODS = ["cod", "stripe"];
@@ -288,7 +289,7 @@ const validateOrderData = (body) => {
 
   return {
     valid: true,
-    data: { couponCode, userInfo, deliveryAddress, paymentMethod },
+    data: { couponCode, deliveryAddress, paymentMethod },
   };
 };
 

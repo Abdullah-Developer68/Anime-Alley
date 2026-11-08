@@ -11,15 +11,19 @@ const placeOrder = async (req, res) => {
   let session = null;
 
   try {
-    const userId = req.user?.id; // Get userId from verified token
-    const { couponCode, userInfo, deliveryAddress, paymentMethod } = req.body || {};
+    // The user is identified ONLY by the verified token, never by request body data,
+    // so a client cannot place orders (or bypass coupon checks) as another user
+    const userId = req.user?.id;
+    const { couponCode, deliveryAddress, paymentMethod } = req.body || {};
+
+    if (!userId)
+      return res.status(401).json({ success: false, message: "Invalid user session" });
 
     // Validate essential order information
-    if (!userInfo?.email || !deliveryAddress || !paymentMethod)
+    if (!deliveryAddress || !paymentMethod)
       return res.status(400).json({
         success: false,
-        message:
-          "User information, delivery address and payment method are required",
+        message: "Delivery address and payment method are required",
       });
 
     const VALID_PAYMENT_METHODS = ["cod", "stripe"];
@@ -35,10 +39,8 @@ const placeOrder = async (req, res) => {
 
     // Pricing validation removed - all calculations done server-side for security
 
-    // Verify user exists in database
-    const user = await userModel
-      .findOne({ email: userInfo.email })
-      .session(session);
+    // Verify the authenticated user still exists in database
+    const user = await userModel.findById(userId).session(session);
     if (!user) {
       await session.abortTransaction();
       return res.status(404).json({
@@ -249,18 +251,23 @@ const placeOrder = async (req, res) => {
 
 const getOrderHistory = async (req, res) => {
   try {
-    const { email, currPage } = req.query || {};
+    // Orders are always fetched for the authenticated user from the verified token;
+    // any email/user identifier in the query is ignored to prevent reading other users' orders
+    const userId = req.user?.id;
+    const currPage = req.query?.currPage;
 
-    // Validate user email and current page
-    if (!email || !currPage)
+    if (!userId)
+      return res.status(401).json({ success: false, message: "Invalid user session" });
+
+    if (!currPage)
       return res.status(400).json({
         success: false,
-        message: "User email and current page are required",
+        message: "Current page is required",
       });
 
     await dbConnect();
     // Verify user exists
-    const user = await userModel.findOne({ email });
+    const user = await userModel.findById(userId);
 
     if (!user)
       return res.status(404).json({

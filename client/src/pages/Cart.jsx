@@ -140,14 +140,10 @@ const Cart = () => {
         dispatch(setCartLoading(true));
       }, 200);
 
-      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-
       const res = await api.placeOrder(
         couponCode,
-        userInfo,
         deliveryAddress,
         paymentMethod,
-        userInfo?.id, // Use userId instead of cartId
       );
 
       // Clear the loading timer since API call completed

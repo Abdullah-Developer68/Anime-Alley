@@ -67,7 +67,7 @@ const UserHistory = () => {
         return;
       }
 
-      const res = await api.getOrderHistory(userInfo, currentPage);
+      const res = await api.getOrderHistory(currentPage);
 
       if (res.status === 200) {
         // Save to Redux (which also saves to localStorage)

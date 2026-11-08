@@ -172,7 +172,6 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     const req = {
       user: { id: "user123", email: "user@test.com" },
       body: {
-        userInfo: { email: "user@test.com" },
         deliveryAddress: "123 Main St",
         paymentMethod: "cod",
       },
@@ -189,7 +188,7 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     activeSessions.length = 0;
     const req = {
       user: { id: "user123" },
-      body: {}, // Missing userInfo, deliveryAddress, paymentMethod
+      body: {}, // Missing deliveryAddress, paymentMethod
     };
     const res = createMockRes();
 
@@ -204,7 +203,6 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     const req = {
       user: { id: "user123" },
       body: {
-        userInfo: { email: "user@test.com" },
         deliveryAddress: "123 Main St",
         paymentMethod: "bitcoin_invalid",
       },
@@ -220,13 +218,13 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
   await t.test("placeOrder catches transaction commit failure without ERR_HTTP_HEADERS_SENT", async () => {
     activeSessions.length = 0;
     // Mock user and reservation to pass up to commitTransaction
-    const originalUserFindOne = userModel.findOne;
+    const originalUserFindById = userModel.findById;
     const originalReservationFindOne = reservationModel.findOne;
     const originalProductFindById = productModel.findById;
     const originalOrderCreate = orderModel.create;
     const originalOrderFindById = orderModel.findById;
 
-    userModel.findOne = () => ({
+    userModel.findById = () => ({
       session: () => ({
         _id: "u123",
         email: "user@test.com",
@@ -265,7 +263,6 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     const req = {
       user: { id: "user123" },
       body: {
-        userInfo: { email: "user@test.com" },
         deliveryAddress: "123 Main St",
         paymentMethod: "cod",
       },
@@ -280,7 +277,7 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     assert.strictEqual(activeSessions[0].isEnded, true);
 
     // Restore
-    userModel.findOne = originalUserFindOne;
+    userModel.findById = originalUserFindById;
     reservationModel.findOne = originalReservationFindOne;
     productModel.findById = originalProductFindById;
     orderModel.create = originalOrderCreate;
@@ -290,7 +287,7 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
 
   await t.test("getOrderHistory returns 500 when dbConnect fails", async () => {
     dbConnectShouldFail = true;
-    const req = { query: { email: "test@example.com", currPage: "1" } };
+    const req = { user: { id: "user123" }, query: { currPage: "1" } };
     const res = createMockRes();
     await orderController.getOrderHistory(req, res);
     assert.strictEqual(res.statusCode, 500);
@@ -346,6 +343,88 @@ test("1. Order Controller: Database Resilience & Transaction Safety", async (t) 
     assert.strictEqual(res.statusCode, 500);
     assert.strictEqual(res._json.success, false);
     dbConnectShouldFail = false;
+  });
+
+  await t.test("placeOrder identifies the user from the token and ignores body email/userInfo", async () => {
+    const originalFindById = userModel.findById;
+    const originalFindOne = userModel.findOne;
+    const originalReservationFindOne = reservationModel.findOne;
+    let lookedUpId = null;
+    let findOneCalled = false;
+
+    userModel.findById = (id) => {
+      lookedUpId = id;
+      return { session: () => null }; // user not found -> 404, ends flow early
+    };
+    userModel.findOne = () => {
+      findOneCalled = true;
+      return { session: () => ({ _id: "victim", couponCodeUsed: [] }) };
+    };
+    reservationModel.findOne = () => ({ session: () => null });
+
+    const req = {
+      user: { id: "attacker123" },
+      body: {
+        userInfo: { email: "victim@test.com" },
+        email: "victim@test.com",
+        deliveryAddress: "123 Main St",
+        paymentMethod: "cod",
+      },
+    };
+    const res = createMockRes();
+    await orderController.placeOrder(req, res);
+
+    assert.strictEqual(lookedUpId, "attacker123");
+    assert.strictEqual(findOneCalled, false);
+    assert.strictEqual(res.statusCode, 404);
+
+    userModel.findById = originalFindById;
+    userModel.findOne = originalFindOne;
+    reservationModel.findOne = originalReservationFindOne;
+  });
+
+  await t.test("placeOrder returns 401 without a token user id", async () => {
+    activeSessions.length = 0;
+    const req = { user: {}, body: { deliveryAddress: "123 Main St", paymentMethod: "cod" } };
+    const res = createMockRes();
+    await orderController.placeOrder(req, res);
+    assert.strictEqual(res.statusCode, 401);
+    assert.strictEqual(activeSessions.length, 0);
+  });
+
+  await t.test("getOrderHistory only returns the token user's orders and ignores query email", async () => {
+    const originalFindById = userModel.findById;
+    const originalFindOne = userModel.findOne;
+    const originalCount = orderModel.countDocuments;
+    let lookedUpId = null;
+    let findOneCalled = false;
+    let countFilter = null;
+
+    userModel.findById = async (id) => {
+      lookedUpId = id;
+      return { _id: id };
+    };
+    userModel.findOne = async () => {
+      findOneCalled = true;
+      return { _id: "victim" };
+    };
+    orderModel.countDocuments = async (filter) => {
+      countFilter = filter;
+      return 0;
+    };
+
+    const req = { user: { id: "attacker123" }, query: { email: "victim@test.com", currPage: "1" } };
+    const res = createMockRes();
+    await orderController.getOrderHistory(req, res);
+
+    assert.strictEqual(lookedUpId, "attacker123");
+    assert.strictEqual(findOneCalled, false);
+    assert.deepStrictEqual(countFilter, { user: "attacker123" });
+    assert.strictEqual(res.statusCode, 200);
+
+    userModel.findById = originalFindById;
+    userModel.findOne = originalFindOne;
+    orderModel.countDocuments = originalCount;
   });
 });
 
@@ -1064,8 +1143,8 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     assert.strictEqual(emptyRes.statusCode, 400);
   });
 
-  await t.test("getOrderHistory returns 400 without dbConnect on missing email or currPage", async () => {
-    const req = { query: { email: "test@test.com" } };
+  await t.test("getOrderHistory rejects missing session or currPage without dbConnect", async () => {
+    const req = { user: { id: "u1" }, query: {} };
     const res = createMockRes();
     await orderController.getOrderHistory(req, res);
     assert.strictEqual(res.statusCode, 400);
@@ -1073,7 +1152,7 @@ test("9. Fail-Fast Early Return In-Memory Validation (Resource Preservation)", a
     const emptyReq = {};
     const emptyRes = createMockRes();
     await orderController.getOrderHistory(emptyReq, emptyRes);
-    assert.strictEqual(emptyRes.statusCode, 400);
+    assert.strictEqual(emptyRes.statusCode, 401);
   });
 
   await t.test("getUsers returns 400 without dbConnect on missing currPage", async () => {

@@ -98,19 +98,12 @@ api.searchProduct = (data) => {
 
 // --- ORDER API'S ---
 
-api.placeOrder = (
-  couponCode,
-  userInfo,
-  deliveryAddress,
-  paymentMethod,
-  userId,
-) => {
+// The server identifies the user from the auth token, so no user info is sent
+api.placeOrder = (couponCode, deliveryAddress, paymentMethod) => {
   return api.post("/order/placeOrder", {
     couponCode,
-    userInfo,
     deliveryAddress,
     paymentMethod,
-    userId,
   });
 };
 
@@ -130,10 +123,10 @@ api.deleteOrder = (orderId) => {
   return api.delete(`/order/delete/${orderId}`);
 };
 
-api.getOrderHistory = (userInfo, currPage) => {
+// The server returns the authenticated user's orders based on the auth token
+api.getOrderHistory = (currPage) => {
   return api.get("/order/getOrders", {
     params: {
-      email: userInfo.email,
       currPage,
     },
   });
