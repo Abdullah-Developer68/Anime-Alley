@@ -5,7 +5,8 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { validateProductData } = require("../utils/validation.utils.js");
+const { validateProductData, isOptionalString } = require("../utils/validation.utils.js");
+const { hasOperatorKey } = require("../middlewares/custom/rejectOperators.middleware.js");
 
 // Generate unique product ID based on category
 // category: Product category (comics, toys, clothes, shoes)
@@ -90,8 +91,15 @@ const getProducts = async (req, res) => {
       }
     }
 
+    // productConstraints is JSON inside the query string, so the app-wide operator check can't see inside it
+    if (hasOperatorKey(constraints))
+      return res.status(400).json({ success: false, message: "Invalid product constraints" });
+
     const { category, productTypes, price, sortBy, page, searchQuery, limit } =
       constraints || {};
+
+    if (!isOptionalString(searchQuery))
+      return res.status(400).json({ success: false, message: "Search query must be a string" });
 
     if (!category || !page)
       return res.status(400).json({

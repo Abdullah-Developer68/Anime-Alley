@@ -3,6 +3,7 @@ const productModel = require("../db/models/product.model.js");
 const mongoose = require("mongoose");
 const dbConnect = require("../db/dbConnect.js");
 const { formatPrice } = require("../utils/formatPrice.utils.js");
+const { isOptionalString } = require("../utils/validation.utils.js");
 
 const reserveStock = async (req, res) => {
   let mongoSession = null;
@@ -19,6 +20,10 @@ const reserveStock = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields" });
+
+    // Both end up in stock-update filters, so they must be plain values, not operator objects
+    if (typeof productId !== "string" || !mongoose.isValidObjectId(productId) || !isOptionalString(variant))
+      return res.status(400).json({ success: false, message: "Invalid product or variant" });
 
     if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1)
       return res
@@ -286,6 +291,9 @@ const updateCartItem = async (req, res) => {
 
     if (!mongoose.isValidObjectId(productId))
       return res.status(400).json({ success: false, message: "Invalid product id" });
+
+    if (!isOptionalString(variant))
+      return res.status(400).json({ success: false, message: "Variant must be a string" });
 
     if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0)
       return res.status(400).json({

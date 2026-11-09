@@ -6,6 +6,8 @@ const {
   updateUser,
 } = require("../../controllers/user.controller.js");
 const upload = require("../../middlewares/modules/multerConfig.js");
+// Multipart bodies are parsed after the app-wide check, so they are checked again after multer
+const { rejectOperatorKeys } = require("../../middlewares/custom/rejectOperators.middleware.js");
 const {
   verifyTokenMiddleware,
   requireAdmin,
@@ -15,7 +17,7 @@ const {
 router.use(verifyTokenMiddleware, requireAdmin);
 
 router.get("/", getUsers);
-router.patch("/:userId", upload.single("profilePic"), updateUser);
+router.patch("/:userId", upload.single("profilePic"), rejectOperatorKeys, updateUser);
 router.delete("/:userId", deleteUser);
 
 module.exports = router;

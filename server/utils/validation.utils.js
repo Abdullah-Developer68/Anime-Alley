@@ -376,7 +376,13 @@ const validatePagination = (query) => {
   };
 };
 
+// Values that go into Mongoose filters must be plain strings, never objects like {"$ne": null}
+const isNonEmptyString = (value) => typeof value === "string" && value.trim() !== "";
+const isOptionalString = (value) => value === undefined || value === null || typeof value === "string";
+
 module.exports = {
+  isNonEmptyString,
+  isOptionalString,
   validateProductData,
   validateCouponFields,
   validateOrderData,

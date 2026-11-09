@@ -5,6 +5,7 @@ const {
   validateCouponFields,
   validateCouponForUser,
 } = require("../utils/coupon.utils.js");
+const { isNonEmptyString } = require("../utils/validation.utils.js");
 
 const checkCoupon = async (req, res) => {
   try {
@@ -177,7 +178,7 @@ const createCoupon = async (req, res) => {
     const email = req.user?.email;
     const { couponCode, discountPercentage, expiryDate } = req.body || {};
 
-    if (!couponCode || !discountPercentage)
+    if (!isNonEmptyString(couponCode) || !discountPercentage)
       return res
         .status(400)
         .json({ success: false, message: "Missing required fields." });

@@ -7,6 +7,7 @@ const sendOTP = require("../utils/sendOTP.js");
 const dbConnect = require("../db/dbConnect.js");
 const otpData = require("../utils/otpGenerator.js");
 const createTemporaryPasswordHash = require("../utils/tempPasswordHash.js");
+const { isNonEmptyString } = require("../utils/validation.utils.js");
 
 dotenv.config();
 
@@ -25,7 +26,7 @@ const sendSignupOtp = async (req, res) => {
   try {
     const email = req.body?.email;
 
-    if (!email)
+    if (!isNonEmptyString(email))
       return res.status(400).json({
         success: false,
         message: "Email is required",
@@ -116,7 +117,7 @@ const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body || {};
 
-    if (!email || !otp)
+    if (!isNonEmptyString(email) || !isNonEmptyString(otp))
       return res
         .status(400)
         .json({ success: false, message: "Email and OTP are required" });
@@ -164,14 +165,14 @@ const signUp = async (req, res) => {
   try {
     const { email, password, username, verificationToken } = req.body || {};
 
-    if (!email || !password || !username)
+    if (!isNonEmptyString(email) || !isNonEmptyString(password) || !isNonEmptyString(username))
       return res.status(400).json({
         success: false,
         message: "Email, password, and username are required!",
       });
 
     // Strict check: verificationToken must be present
-    if (!verificationToken)
+    if (!isNonEmptyString(verificationToken))
       return res.status(400).json({
         success: false,
         message: "OTP verification is required before signup. Verification token missing.",
@@ -262,7 +263,7 @@ const login = async (req, res) => {
     const { email, password } = req.body || {};
 
     // Check if credentials are provided
-    if (!email || !password)
+    if (!isNonEmptyString(email) || !isNonEmptyString(password))
       return res.status(400).json({
         success: false,
         status: false,

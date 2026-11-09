@@ -7,6 +7,7 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
+const { isOptionalString } = require("../utils/validation.utils.js");
 
 const getUsers = async (req, res) => {
   try {
@@ -185,10 +186,12 @@ const updateUser = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(userId))
       return res.status(400).json({ message: "Invalid User ID format." });
 
-    await dbConnect();
-
     // These are the fields of the user to be updated
     const { username, email, role, password } = req.body || {};
+    if (![username, email, role, password].every(isOptionalString))
+      return res.status(400).json({ message: "Username, email, role and password must be strings." });
+
+    await dbConnect();
     // This is the email of the editor (admin making the change) from the token
     const editorEmail = req.user?.email;
     const editorId = req.user?.id;
