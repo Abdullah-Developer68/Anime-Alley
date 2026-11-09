@@ -5,8 +5,25 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { validateProductData, isOptionalString } = require("../utils/validation.utils.js");
+const { validateProductData, isOptionalString, escapeRegex } = require("../utils/validation.utils.js");
 const { hasOperatorKey } = require("../middlewares/custom/rejectOperators.middleware.js");
+const {
+  ALLOWED_GENRES,
+  CLOTHES_TYPES,
+  SHOE_TYPES,
+  TOY_TYPES,
+} = require("../db/submodels/product/attributes.schema.js");
+
+// Product-type filter per category: the field it filters on and the only values it accepts
+const PRODUCT_TYPE_FILTERS = {
+  comics: { field: "genres", allowed: ALLOWED_GENRES },
+  clothes: { field: "clothesType", allowed: CLOTHES_TYPES },
+  shoes: { field: "shoeType", allowed: SHOE_TYPES },
+  toys: { field: "toyType", allowed: TOY_TYPES },
+};
+const DEFAULT_PAGE_SIZE = 24;
+const MAX_PAGE_SIZE = 48;
+const MAX_SEARCH_LENGTH = 100;
 
 // Generate unique product ID based on category
 // category: Product category (comics, toys, clothes, shoes)
@@ -98,13 +115,26 @@ const getProducts = async (req, res) => {
     const { category, productTypes, price, sortBy, page, searchQuery, limit } =
       constraints || {};
 
-    if (!isOptionalString(searchQuery))
-      return res.status(400).json({ success: false, message: "Search query must be a string" });
+    if (!isOptionalString(searchQuery) || searchQuery?.length > MAX_SEARCH_LENGTH)
+      return res.status(400).json({
+        success: false,
+        message: `Search query must be text of at most ${MAX_SEARCH_LENGTH} characters`,
+      });
 
     if (!category || !page)
       return res.status(400).json({
         success: false,
         message: "Category and page is required",
+      });
+
+    if (!Number.isInteger(page) || page < 1)
+      return res.status(400).json({ success: false, message: "Page must be a positive integer" });
+
+    // Capped so one request can't pull the whole catalog
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE_SIZE))
+      return res.status(400).json({
+        success: false,
+        message: `Limit must be an integer from 1 to ${MAX_PAGE_SIZE}`,
       });
 
     // Validate price if provided: must strictly be a finite non-negative number
@@ -136,40 +166,21 @@ const getProducts = async (req, res) => {
         ? [productTypes.trim()]
         : [];
 
-    const normalizedProductTypes = rawProductTypes
-      .filter((type) => typeof type === "string" && type.trim() && type.trim().toLowerCase() !== "all")
-      .map((type) => type.trim());
+    // Only values from the category's allow-list reach the query; anything else ("all", stale
+    // filters from another category, attack strings) is ignored. Values are escaped as well.
+    const typeFilter = PRODUCT_TYPE_FILTERS[catLower];
+    const selectedTypes = typeFilter
+      ? [...new Set(rawProductTypes
+        .filter((type) => typeof type === "string")
+        .map((type) => type.trim().toLowerCase())
+        .filter((type) => typeFilter.allowed.includes(type)))]
+      : [];
 
-    // Add filter to the query of the respective category
-    // Note: Using case-insensitive regex matching to handle frontend lowercase conversion
-    // Alternative optimization: normalize data storage to lowercase in database
-    if (normalizedProductTypes.length > 0) {
-      if (catLower === "comics") {
-        // Use case-insensitive regex matching for genres
-        const genreRegexArray = normalizedProductTypes.map(
-          (type) => new RegExp(`^${type}$`, "i"),
-        );
-        query.genres = { $in: genreRegexArray };
-      } else if (catLower === "clothes") {
-        // Use case-insensitive regex matching for clothesType
-        const clothesTypeRegexArray = normalizedProductTypes.map(
-          (type) => new RegExp(`^${type}$`, "i"),
-        );
-        query.clothesType = { $in: clothesTypeRegexArray };
-      } else if (catLower === "shoes") {
-        // Use case-insensitive regex matching for shoeType
-        const shoeTypeRegexArray = normalizedProductTypes.map(
-          (type) => new RegExp(`^${type}$`, "i"),
-        );
-        query.shoeType = { $in: shoeTypeRegexArray };
-      } else if (catLower === "toys") {
-        // Use case-insensitive regex matching for toyType
-        const toyTypeRegexArray = normalizedProductTypes.map(
-          (type) => new RegExp(`^${type}$`, "i"),
-        );
-        query.toyType = { $in: toyTypeRegexArray };
-      }
-    }
+    // Case-insensitive, because stored genres keep the case they were entered with
+    if (selectedTypes.length > 0)
+      query[typeFilter.field] = {
+        $in: selectedTypes.map((type) => new RegExp(`^${escapeRegex(type)}$`, "i")),
+      };
 
     // Define sorting options
     const sortOptions = {};
@@ -188,10 +199,7 @@ const getProducts = async (req, res) => {
     }
 
     // Calculate pagination slice (default 24 items per page to evenly fill 2, 3, 4, and 6 column grids)
-    const itemsPerPage =
-      Number.isInteger(Number(limit)) && Number(limit) > 0
-        ? Number(limit)
-        : 24;
+    const itemsPerPage = limit ?? DEFAULT_PAGE_SIZE;
     const startIndex = (page - 1) * itemsPerPage;
 
     // Get the total count of products matching the query

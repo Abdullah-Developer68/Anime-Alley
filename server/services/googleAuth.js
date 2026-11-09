@@ -1,10 +1,10 @@
 const passport = require("../config/passport/passport.js");
-const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 dotenv.config();
 const dbConnect = require("../db/dbConnect.js");
 const userModel = require("../db/models/user.model.js");
 const { isNonEmptyString } = require("../utils/validation.utils.js");
+const { createSession } = require("../utils/authSession.utils.js");
 const {
   isValidChallenge,
   challengeFromVerifier,
@@ -69,23 +69,12 @@ const exchangeGoogleCode = async (req, res) => {
 
   try {
     await dbConnect();
-    const user = await userModel.findById(payload.uid);
+    const user = await userModel.exists({ _id: payload.uid, accountStatus: "active" });
     if (!user)
       return res.status(401).json({ success: false, message: "Google login could not be completed" });
 
-    const token = jwt.sign(
-      {
-        userid: user._id,
-        email: user.email,
-        username: user.username,
-        profilePic: user.profilePic,
-        role: user.role,
-      },
-      process.env.JWT_KEY,
-      { expiresIn: "7d" },
-    );
-
-    return res.status(200).json({ success: true, token });
+    const { token, refreshToken } = await createSession(user._id);
+    return res.status(200).json({ success: true, token, refreshToken });
   } catch (error) {
     console.error("Google code exchange error:", error);
     return res.status(500).json({ success: false, message: "Internal server error" });

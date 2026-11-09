@@ -82,6 +82,18 @@ Follow this strict two-part convention across all controllers, services, and mid
 
 ### Authentication Standard
 - **Bearer header only**: the JWT is sent as `Authorization: Bearer <token>`.
+- **Short access token + refresh token**: every login goes through `createSession` (`server/utils/authSession.utils.js`).
+  - The access token lasts 15 minutes and holds only `userid` and `sid`.
+  - The client renews it with `POST /api/auth/refresh`.
+- **Never trust token claims for authorization**: `verifyTokenMiddleware` loads the user and the session from the database. Read the role and email from `req.user`.
+- **Revoke sessions when credentials change**:
+  - after a password change, call `revokeUserSessions(userId, req.user.sessionId)`;
+  - when deleting a user, call `revokeUserSessions(userId)`.
+- **One key per purpose**:
+  - Sign other tokens with `keyFor("<purpose>")` (`server/utils/tokenKeys.utils.js`), never with `JWT_KEY` directly.
+  - Always pass `algorithm: "HS256"` / `algorithms: ["HS256"]`.
+- **User text in a RegExp must go through `escapeRegex`** (`server/utils/validation.utils.js`).
+- **Client CSP**: `client/vercel.json` sets the Content Security Policy. A new external script, API or frame origin must be added there, or the browser blocks it.
 - **Never read the token from a cookie**: browsers attach cookies to requests that other sites start, which enables CSRF.
 - **No `express.urlencoded` parser**: the API accepts JSON, plus multipart for uploads.
 - **Never put a JWT in a URL**: Google login sends a short-lived handoff code in the URL fragment, and the client swaps it for the JWT with `POST /api/googleAuth/token`, proving with its `sessionStorage` verifier that it started the login.

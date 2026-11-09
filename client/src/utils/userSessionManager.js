@@ -72,6 +72,14 @@ export const initializeUserSession = () => {
   }
 };
 
+// Stores the 15-minute access token and the refresh token that renews it (see api.js)
+export const saveAuthTokens = ({ token, refreshToken } = {}) => {
+  if (token)
+    localStorage.setItem("authToken", token);
+  if (refreshToken)
+    localStorage.setItem("refreshToken", refreshToken);
+};
+
 // Clear all user data on logout
 export const clearAllUserData = () => {
   localStorage.clear();

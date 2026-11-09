@@ -7,7 +7,11 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { isOptionalString } = require("../utils/validation.utils.js");
+const { isOptionalString, escapeRegex } = require("../utils/validation.utils.js");
+const { revokeUserSessions } = require("../utils/authSession.utils.js");
+
+const USER_ROLE_FILTERS = ["allUsers", "user", "admin", "superAdmin"];
+const MAX_SEARCH_LENGTH = 100;
 
 const getUsers = async (req, res) => {
   try {
@@ -20,6 +24,11 @@ const getUsers = async (req, res) => {
       return res.status(400).json({
         message: "Current page is required!",
       });
+
+    if (typeof searchQuery !== "string" || searchQuery.length > MAX_SEARCH_LENGTH)
+      return res.status(400).json({ message: `Search must be text of at most ${MAX_SEARCH_LENGTH} characters.` });
+    if (!USER_ROLE_FILTERS.includes(role))
+      return res.status(400).json({ message: "Invalid role filter." });
 
     await dbConnect();
     // Check if the requesting user is an admin or superAdmin
@@ -41,8 +50,8 @@ const getUsers = async (req, res) => {
       query.role = role;
     if (searchQuery && searchQuery.length > 0) {
       if (searchQuery.includes("@") || searchQuery.includes("."))
-        // Looks like an email, use regex for email
-        query.email = { $regex: searchQuery, $options: "i" };
+        // Escaped, so the search is plain text and can't be a slow or invalid regex
+        query.email = { $regex: escapeRegex(searchQuery), $options: "i" };
       else
         // Use text search for username/email
         query.$text = { $search: searchQuery };
@@ -55,7 +64,7 @@ const getUsers = async (req, res) => {
     let requiredUsers;
     requiredUsers = await userModel
       .find(query)
-      .select("-password -otp -otpExpiry")
+      .select("-password -otp -otpExpiry -otpAttempts")
       .sort({ createdAt: -1 })
       .skip(startIndex)
       .limit(usersPerPage);
@@ -153,6 +162,7 @@ const deleteUser = async (req, res) => {
       return res
         .status(404)
         .json({ message: "User not found or already deleted." });
+    await revokeUserSessions(userToDelete._id);
 
     const publicId =
       userToDelete.profilePicPublicId ||
@@ -284,6 +294,10 @@ const updateUser = async (req, res) => {
 
     if (!updatedUser)
       return res.status(404).json({ message: "User not found after update." });
+
+    // A new password logs the user out on every other device
+    if (password)
+      await revokeUserSessions(updatedUser._id, req.user?.sessionId);
 
     if (req.file) {
       const oldPublicId =

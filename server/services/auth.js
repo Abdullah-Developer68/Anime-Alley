@@ -5,22 +5,13 @@ const dotenv = require("dotenv");
 const crypto = require("crypto");
 const sendOTP = require("../utils/sendOTP.js");
 const dbConnect = require("../db/dbConnect.js");
-const otpData = require("../utils/otpGenerator.js");
+const { otpData, hashOtp, otpMatches, MAX_OTP_ATTEMPTS } = require("../utils/otpGenerator.js");
 const createTemporaryPasswordHash = require("../utils/tempPasswordHash.js");
 const { isNonEmptyString } = require("../utils/validation.utils.js");
+const { keyFor } = require("../utils/tokenKeys.utils.js");
+const { createSession, refreshSession, revokeSession } = require("../utils/authSession.utils.js");
 
 dotenv.config();
-
-const secretKey = process.env.JWT_KEY;
-const getSecretKey = () => process.env.JWT_KEY || secretKey;
-
-// Bearer header only: a cookie would be attached by the browser to cross-site requests (CSRF)
-const extractToken = (req) => {
-  const authHeader = req.headers?.authorization;
-  if (authHeader && authHeader.startsWith("Bearer "))
-    return authHeader.substring(7);
-  return null;
-};
 
 const sendSignupOtp = async (req, res) => {
   try {
@@ -34,72 +25,39 @@ const sendSignupOtp = async (req, res) => {
 
     await dbConnect();
 
-    let otp;
-    let otpExpiry;
-    let msg = "";
-    let newUser = false;
+    let msg = "OTP sent to your email! Please use that to Sign In!";
+    const { otp, otpExpiry } = otpData();
+    // A new code always starts with a clean attempt count
+    const otpFields = { otp: hashOtp(email, otp), otpExpiry, otpAttempts: 0, isOtpVerified: false };
 
-    let user = await userModel.findOne({ email });
+    const user = await userModel.findOne({ email });
 
-    // create user if not found
     if (!user) {
-      msg = "OTP sent to your email! Please use that to Sign In!";
-      otp = otpData().otp;
-      otpExpiry = otpData().otpExpiry;
-
       // create a temporary password, so until user provides his own and bcrypt
       // encrypts it during that time his account is safe. After signup we will replace it
       const tempPasswordHash = await createTemporaryPasswordHash();
 
-      // Create new user with verifying status and required fields
-      user = await userModel.create({
+      await userModel.create({
         email,
-        otp,
-        otpExpiry,
+        ...otpFields,
         accountStatus: "verifying",
-        isOtpVerified: false,
         username: "temp",
         password: tempPasswordHash,
       });
-
-      newUser = true;
-    }
-
-    if (user.accountStatus === "verifying" && user.otpExpiry > new Date() && !newUser) {
+    } else if (user.accountStatus === "active")
+      return res
+        .status(200)
+        .json({ message: "You already have an account, so please Sign In" });
+    else if (user.otpExpiry > new Date()) {
+      // No new code until the current one expires, including after it was locked by wrong guesses
       user.isOtpVerified = false;
       await user.save();
       return res
         .status(200)
         .json({ message: "OTP already sent! Please use that to Sign In!" });
-    } else if (
-      user.accountStatus === "verifying" &&
-      user.otpExpiry < new Date()
-    ) {
+    } else {
       msg = "OTP expired! Generating new OTP and sending it to your email!";
-
-      // generates a new otp
-      otp = otpData().otp;
-      otpExpiry = otpData().otpExpiry;
-
-      // updates the existing user with the new otp and expiry
-      user.otp = otp;
-      user.otpExpiry = otpExpiry;
-      user.isOtpVerified = false;
-      await user.save();
-    } else if (user.accountStatus === "active")
-      return res
-        .status(200)
-        .json({ message: "You already have an account, so please Sign In" });
-    else {
-      // if the user is signing up for the first time this runs
-      msg = "OTP sent to your email! Please use that to Sign In!";
-      // generates a new otp
-      otp = otpData().otp;
-      otpExpiry = otpData().otpExpiry;
-      user.otp = otp;
-      user.otpExpiry = otpExpiry;
-      user.isOtpVerified = false;
-      user.accountStatus = "verifying";
+      Object.assign(user, otpFields);
       await user.save();
     }
     await sendOTP(email, otp);
@@ -124,13 +82,29 @@ const verifyOTP = async (req, res) => {
 
     await dbConnect();
 
-    const user = await userModel.findOne({ email, accountStatus: "verifying" });
-    if (
-      !user ||
-      !user.otp ||
-      user.otp.toString() !== otp.toString() ||
-      user.otpExpiry < new Date()
-    )
+    // Count the attempt before checking the code, so parallel guesses can't slip past the limit.
+    // `$not` also matches accounts created before otpAttempts existed.
+    const user = await userModel.findOneAndUpdate(
+      { email, accountStatus: "verifying", otpAttempts: { $not: { $gte: MAX_OTP_ATTEMPTS } } },
+      { $inc: { otpAttempts: 1 } },
+      { new: true },
+    );
+
+    if (!user) {
+      const locked = await userModel.exists({
+        email,
+        accountStatus: "verifying",
+        otpAttempts: { $gte: MAX_OTP_ATTEMPTS },
+        otpExpiry: { $gt: new Date() },
+      });
+      if (locked)
+        return res.status(429).json({
+          success: false,
+          message: "Too many incorrect codes. Request a new code after 5 minutes.",
+        });
+    }
+
+    if (!user || user.otpExpiry < new Date() || !otpMatches(user.email, otp, user.otp))
       return res
         .status(400)
         .json({ success: false, message: "Invalid or expired OTP" });
@@ -139,11 +113,11 @@ const verifyOTP = async (req, res) => {
     user.isOtpVerified = true;
     await user.save();
 
-    // Generate signed verification token valid for 15 minutes
+    // Signed with its own key, so it can't be used as a login token
     const verificationToken = jwt.sign(
       { email: user.email, purpose: "otp_verification" },
-      getSecretKey(),
-      { expiresIn: "15m" },
+      keyFor("signup-verification"),
+      { algorithm: "HS256", expiresIn: "15m" },
     );
 
     res.status(200).json({
@@ -180,7 +154,9 @@ const signUp = async (req, res) => {
 
     // Verify token signature and purpose
     try {
-      const decoded = jwt.verify(verificationToken, getSecretKey());
+      const decoded = jwt.verify(verificationToken, keyFor("signup-verification"), {
+        algorithms: ["HS256"],
+      });
       if (decoded.email !== email || decoded.purpose !== "otp_verification")
         return res.status(400).json({
           success: false,
@@ -218,27 +194,16 @@ const signUp = async (req, res) => {
     user.role = "user";
     user.otp = undefined;
     user.otpExpiry = undefined;
+    user.otpAttempts = undefined;
     user.isOtpVerified = false;
     user.accountStatus = "active";
     await user.save();
-    // Create token and sign in
-    const token = jwt.sign(
-      {
-        userid: user._id,
-        email: user.email,
-        username: user.username,
-        profilePic: user.profilePic,
-        role: user.role,
-        isDemo: false,
-      },
-      getSecretKey(),
-      { expiresIn: "7d" },
-    );
+    const { token, refreshToken } = await createSession(user._id);
 
-    // Send token in response body for localStorage storage
     res.status(201).json({
       success: true,
-      token, // Include token in response for localStorage
+      token,
+      refreshToken,
       user: {
         id: user._id,
         username: user.username,
@@ -307,19 +272,8 @@ const login = async (req, res) => {
         message: "Either email or password is incorrect!",
       });
 
-    // Create token; the client stores it and sends it as a Bearer header
-    const token = jwt.sign(
-      {
-        userid: userExist._id,
-        email: userExist.email,
-        username: userExist.username,
-        profilePic: userExist.profilePic,
-        role: userExist.role,
-        isDemo: userExist.isDemo || false,
-      },
-      getSecretKey(),
-      { expiresIn: "7d" },
-    );
+    // The client sends the access token as a Bearer header and renews it with the refresh token
+    const { token, refreshToken } = await createSession(userExist._id);
 
     const user = {
       id: userExist._id,
@@ -330,10 +284,10 @@ const login = async (req, res) => {
       isDemo: userExist.isDemo || false,
     };
 
-    // Send login success response with token for localStorage
     res.status(200).json({
       success: true,
-      token, // Include token in response for localStorage
+      token,
+      refreshToken,
       user,
       message: "You have been logged in!",
     });
@@ -343,9 +297,16 @@ const login = async (req, res) => {
   }
 };
 
+// POST /auth/logout { refreshToken }: deletes this device's session, which also kills its access token
 const logout = async (req, res) => {
+  const refreshToken = req.body?.refreshToken;
+  // Nothing to revoke; logging out is idempotent
+  if (!isNonEmptyString(refreshToken))
+    return res.status(200).json({ success: true, message: "Logged out successfully" });
+
   try {
-    // JWTs are stateless: the client logs out by deleting its stored token
+    await dbConnect();
+    await revokeSession(refreshToken);
     res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout Error:", error.message);
@@ -356,49 +317,37 @@ const logout = async (req, res) => {
   }
 };
 
-//  helps to stay logged in even after refreshing the page
-const verifyToken = async (req, res) => {
+// POST /auth/refresh { refreshToken }: issues a new 15-minute access token
+const refreshAccessToken = async (req, res) => {
+  const refreshToken = req.body?.refreshToken;
+  if (!isNonEmptyString(refreshToken))
+    return res.status(400).json({ success: false, message: "Refresh token is required" });
+
   try {
-    // Token comes only from the Authorization header
-    const token = extractToken(req);
-    if (!token)
-      return res
-        .status(401)
-        .json({ success: false, message: "No authentication token found" });
+    await dbConnect();
+    const refreshed = await refreshSession(refreshToken);
+    const userActive =
+      refreshed && (await userModel.exists({ _id: refreshed.userId, accountStatus: "active" }));
+    if (!userActive) {
+      if (refreshed)
+        await revokeSession(refreshToken);
+      return res.status(401).json({ success: false, message: "Session expired. Please log in again." });
+    }
 
-    const decoded = jwt.verify(token, getSecretKey());
-
-    res.json({
-      success: true,
-      user: {
-        id: decoded.userid,
-        username: decoded.username,
-        email: decoded.email,
-        profilePic: decoded.profilePic,
-        role: decoded.role,
-        isDemo: decoded.isDemo || false,
-      },
-    });
+    res.status(200).json({ success: true, token: refreshed.token });
   } catch (error) {
-    console.error("Token verification error:", error);
-
-    // Handle specific JWT errors
-    if (error.name === "JsonWebTokenError")
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authentication token.",
-      });
-
-    if (error.name === "TokenExpiredError")
-      return res.status(401).json({
-        success: false,
-        message: "Authentication token expired.",
-      });
-
-    res
-      .status(401)
-      .json({ success: false, message: "Token verification failed" });
+    console.error("Token refresh error:", error.message);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
+};
+
+// GET /auth/me: runs after verifyTokenMiddleware, so req.user is fresh from the database
+const getCurrentUser = (req, res) => {
+  const { id, username, email, profilePic, role, isDemo } = req.user || {};
+  res.status(200).json({
+    success: true,
+    user: { id, username, email, profilePic, role, isDemo },
+  });
 };
 
 const demoLogin = async (req, res) => {
@@ -483,19 +432,7 @@ const demoLogin = async (req, res) => {
           "Failed to allocate unique demo account sequence after multiple attempts.",
       });
 
-    // Create JWT token
-    const token = jwt.sign(
-      {
-        userid: user._id,
-        email: user.email,
-        username: user.username,
-        profilePic: user.profilePic || "",
-        role: user.role,
-        isDemo: true,
-      },
-      getSecretKey(),
-      { expiresIn: "7d" },
-    );
+    const { token, refreshToken } = await createSession(user._id);
 
     const userData = {
       id: user._id,
@@ -509,6 +446,7 @@ const demoLogin = async (req, res) => {
     return res.status(201).json({
       success: true,
       token,
+      refreshToken,
       user: userData,
       message: `Demo ${requestedRole === "admin" ? "Admin" : "User"} account created!`,
     });
@@ -528,6 +466,7 @@ module.exports = {
   signUp,
   login,
   logout,
-  verifyToken,
+  refreshAccessToken,
+  getCurrentUser,
   demoLogin,
 };

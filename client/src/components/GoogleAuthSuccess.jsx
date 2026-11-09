@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
 import { toast } from "react-toastify";
 import api from "../api/api";
-import { checkAndHandleUserChange } from "../utils/userSessionManager";
+import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
 
 const GoogleAuthSuccess = () => {
   const navigate = useNavigate();
@@ -28,12 +28,10 @@ const GoogleAuthSuccess = () => {
           throw new Error("Google login was not started from this tab");
 
         const { data } = await api.exchangeGoogleCode(code, verifier);
-        const token = data?.token;
-        if (!token)
+        if (!data?.token || !data?.refreshToken)
           throw new Error("No token returned from Google login");
 
-        // Store token in localStorage
-        localStorage.setItem("authToken", token);
+        saveAuthTokens(data);
 
         // Verify the token and get user data
         const res = await api.verifyAuth();
@@ -46,8 +44,8 @@ const GoogleAuthSuccess = () => {
             localStorage.clear();
           }
 
-          // Store token and user info
-          localStorage.setItem("authToken", token);
+          // Store tokens and user info again after the clear above
+          saveAuthTokens(data);
           localStorage.setItem("userInfo", JSON.stringify(res.data.user));
 
           setUser(res.data.user);

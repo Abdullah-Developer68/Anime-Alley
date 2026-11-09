@@ -380,9 +380,13 @@ const validatePagination = (query) => {
 const isNonEmptyString = (value) => typeof value === "string" && value.trim() !== "";
 const isOptionalString = (value) => value === undefined || value === null || typeof value === "string";
 
+// Makes user text match literally inside a RegExp, so it can't be a slow or invalid pattern
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 module.exports = {
   isNonEmptyString,
   isOptionalString,
+  escapeRegex,
   validateProductData,
   validateCouponFields,
   validateOrderData,

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
 import { useState } from "react";
 import { toast } from "react-toastify";
-import { checkAndHandleUserChange } from "../utils/userSessionManager";
+import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
 
 const Signup = () => {
   const { setUser } = useAuth();
@@ -31,9 +31,8 @@ const Signup = () => {
           localStorage.clear();
         }
 
-        if (res.data.token) {
-          localStorage.setItem("authToken", res.data.token);
-        }
+        // Access token for the Authorization header, refresh token to renew it
+        saveAuthTokens(res.data);
 
         setUser(res.data.user);
         localStorage.setItem("userInfo", JSON.stringify(res.data.user));
@@ -137,10 +136,8 @@ const Signup = () => {
           localStorage.clear();
         }
 
-        // Store token in localStorage for Authorization header
-        if (res.data.token) {
-          localStorage.setItem("authToken", res.data.token);
-        }
+        // Access token for the Authorization header, refresh token to renew it
+        saveAuthTokens(res.data);
 
         // Store user info
         setUser(res.data.user);
