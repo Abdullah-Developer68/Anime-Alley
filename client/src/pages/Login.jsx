@@ -1,8 +1,11 @@
+import { useLayoutEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useDispatch } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Lock, Mail } from "lucide-react";
 import useAuth from "../Hooks/UseAuth";
+import { setAuthLoading, setAuthMode } from "../redux/Slice/authSlice";
 import api from "../api/api";
 import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
 import AuthLayout from "../components/Auth/AuthLayout";
@@ -13,14 +16,21 @@ import { GoogleSignIn, SubmitButton } from "../components/Auth/AuthButtons";
 const Login = () => {
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm();
 
+  // Before paint, so the layout never shows the signup text
+  useLayoutEffect(() => {
+    dispatch(setAuthMode("login"));
+  }, [dispatch]);
+
   const localLogin = async (data) => {
+    dispatch(setAuthLoading(true));
     try {
       const res = await api.login(data);
 
@@ -42,16 +52,13 @@ const Login = () => {
         message: error.response?.data?.message,
         status: error.response?.status,
       });
+    } finally {
+      dispatch(setAuthLoading(false));
     }
   };
 
   return (
-    <AuthLayout
-      title="Welcome back"
-      subtitle="Log in to check out faster and track your orders."
-      brandTitle="Your anime gear, all in one place."
-      brandText="Comics, figures, apparel and sneakers from the series you love, shipped to your door."
-    >
+    <AuthLayout>
       <GoogleSignIn />
 
       <form onSubmit={handleSubmit(localLogin)} className="space-y-5" noValidate>
@@ -75,9 +82,7 @@ const Login = () => {
           error={errors.password?.message}
           {...register("password", { required: "Password is required" })}
         />
-        <SubmitButton loading={isSubmitting} loadingText="Logging in...">
-          Log in
-        </SubmitButton>
+        <SubmitButton />
       </form>
 
       <p className="mt-6 text-center text-sm text-slate-400">
