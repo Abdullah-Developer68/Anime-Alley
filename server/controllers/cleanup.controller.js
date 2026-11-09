@@ -21,7 +21,6 @@ const cleanupUnverifiedUsersController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to cleanup unverified users",
-      error: err.message,
     });
   }
 };
@@ -45,7 +44,6 @@ const cleanupReservationsController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to cleanup expired reservations",
-      error: error.message,
     });
   }
 };

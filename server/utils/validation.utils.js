@@ -380,9 +380,29 @@ const validatePagination = (query) => {
 const isNonEmptyString = (value) => typeof value === "string" && value.trim() !== "";
 const isOptionalString = (value) => value === undefined || value === null || typeof value === "string";
 
+const PASSWORD_MIN_LENGTH = 8;
+// bcrypt ignores everything after 72 bytes, so a longer password would be silently cut short
+const PASSWORD_MAX_BYTES = 72;
+
+// Returns why a new password is not allowed, or null if it is fine
+const passwordProblem = (password) => {
+  if (typeof password !== "string")
+    return "Password must be text.";
+  if (password.length < PASSWORD_MIN_LENGTH)
+    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+  if (Buffer.byteLength(password, "utf8") > PASSWORD_MAX_BYTES)
+    return `Password must be at most ${PASSWORD_MAX_BYTES} characters.`;
+  return null;
+};
+
+// Makes user text match literally inside a RegExp, so it can't be a slow or invalid pattern
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 module.exports = {
   isNonEmptyString,
   isOptionalString,
+  escapeRegex,
+  passwordProblem,
   validateProductData,
   validateCouponFields,
   validateOrderData,

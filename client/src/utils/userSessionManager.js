@@ -53,7 +53,6 @@ export const checkAndHandleUserChange = (newUserInfo) => {
   }
 
   // Email has changed - clear user data and update email
-  console.log(`User email changed from ${currentStoredEmail} to ${newEmail}`);
   clearUserData();
   setCurrentUserEmail(newEmail);
 
@@ -70,6 +69,14 @@ export const initializeUserSession = () => {
   } catch (error) {
     console.error("Error initializing user session:", error);
   }
+};
+
+// Stores the 15-minute access token and the refresh token that renews it (see api.js)
+export const saveAuthTokens = ({ token, refreshToken } = {}) => {
+  if (token)
+    localStorage.setItem("authToken", token);
+  if (refreshToken)
+    localStorage.setItem("refreshToken", refreshToken);
 };
 
 // Clear all user data on logout

@@ -27,15 +27,48 @@ api.interceptors.request.use(
   },
 );
 
-// Add response interceptor to handle token expiration
+// One refresh at a time: requests that fail together all wait for the same new token.
+// Plain axios, so a failed refresh doesn't go through the interceptor below and loop.
+let refreshPromise = null;
+const refreshAccessToken = () => {
+  if (!refreshPromise)
+    refreshPromise = axios
+      .post(`${serverURL}/api/auth/refresh`, {
+        refreshToken: localStorage.getItem("refreshToken"),
+      })
+      .then((res) => {
+        localStorage.setItem("authToken", res.data.token);
+        return res.data.token;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  return refreshPromise;
+};
+
+// Access tokens last 15 minutes. On a 401, renew once with the refresh token and retry the request.
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    // If we get a 401 error, the token might be expired or invalid
+  (response) => response,
+  async (error) => {
+    const original = error.config;
+    const canRefresh =
+      error.response?.status === 401 &&
+      original?.headers?.Authorization &&
+      !original._retried &&
+      localStorage.getItem("refreshToken");
+
+    if (canRefresh) {
+      original._retried = true;
+      try {
+        await refreshAccessToken();
+        // The request interceptor adds the new token
+        return api(original);
+      } catch {
+        // The session was logged out, revoked or expired, so the user has to log in again
+      }
+    }
+
     if (error.response?.status === 401)
-      // Clear all user data from localStorage
       clearAllUserData();
     return Promise.reject(error);
   },
@@ -43,9 +76,23 @@ api.interceptors.response.use(
 
 // --- AUTH API'S ---
 
-// Google OAuth is a full-page redirect, not an XHR call
-api.googleLogin = () => {
-  window.location.href = `${serverURL}/api/googleAuth/login`;
+const toBase64Url = (bytes) =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+// Google OAuth is a full-page redirect, not an XHR call. Only this tab keeps the verifier;
+// the server sees its hash, so a login code sent to another browser can't be redeemed there.
+api.googleLogin = async () => {
+  const verifier = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  sessionStorage.setItem("googleAuthVerifier", verifier);
+  const challenge = toBase64Url(new Uint8Array(digest));
+  window.location.href = `${serverURL}/api/googleAuth/login?challenge=${challenge}`;
+};
+api.exchangeGoogleCode = (code, verifier) => {
+  return api.post("/googleAuth/token", { code, verifier });
 };
 api.sendSignupOtp = (email) => {
   return api.post("/auth/otp", { email });
@@ -63,8 +110,9 @@ api.login = (loginData) => {
 api.verifyAuth = () => {
   return api.get("/auth/me");
 };
+// Revokes this device's session on the server; the access token stops working immediately
 api.logout = () => {
-  return api.post("/auth/logout");
+  return api.post("/auth/logout", { refreshToken: localStorage.getItem("refreshToken") });
 };
 api.demoLogin = (role) => {
   return api.post("/auth/demo-login", { role });

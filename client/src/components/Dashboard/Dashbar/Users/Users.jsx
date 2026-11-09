@@ -69,7 +69,6 @@ const Users = () => {
       toast.error("You do not have the authority to edit users.");
       return;
     }
-    console.log("Editor:", user, "Target:", targetUser);
     if (!canEditUser(targetUser)) {
       toast.error("You do not have the authority to edit this user.");
       return;

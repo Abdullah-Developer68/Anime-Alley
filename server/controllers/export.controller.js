@@ -36,7 +36,7 @@ const exportData = async (req, res) => {
     console.error(`Error exporting ${dataType}:`, error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error during export.",
+      message: "Internal server error during export.",
     });
   }
 };

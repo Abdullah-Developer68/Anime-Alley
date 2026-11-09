@@ -68,7 +68,6 @@ const cartSlice = createSlice({
     // Keep existing coupon actions unchanged
     applyCoupon: (state, action) => {
       const { couponCode, finalCost } = action.payload;
-      console.log("REDUX STORE COUPON DATA:", action.payload);
       state.couponApplied = true;
       state.couponCode = couponCode;
       state.finalTotal = finalCost; // Use finalTotal instead of finalCost

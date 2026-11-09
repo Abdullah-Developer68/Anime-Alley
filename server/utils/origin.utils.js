@@ -31,15 +31,11 @@ const isTrustedOrigin = (origin) => {
   if (configuredClientUrls.includes(origin)) return true;
   if (isOwnVercelOrigin(origin)) return true;
 
-  // Localhost development support
-  if (
-    origin === "http://localhost:5173" ||
-    origin === "http://localhost:3000" ||
-    origin === "https://localhost:3000"
-  )
-    return true;
-
-  return false;
+  // Local dev servers, only outside production: in production any page on a visitor's localhost could match
+  return (
+    process.env.NODE_ENV !== "production" &&
+    ["http://localhost:5173", "http://localhost:3000", "https://localhost:3000"].includes(origin)
+  );
 };
 
 // Extracts and validates incoming request origin for safe redirect construction

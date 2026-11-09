@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    // sent for verification of email via normal signup
+    // HMAC of the code emailed for signup verification (see utils/otpGenerator.js), never the code itself
     otp: {
       type: String,
       required: function () {
@@ -40,6 +40,8 @@ const userSchema = new mongoose.Schema(
         return !this.googleId && this.accountStatus === "verifying";
       },
     },
+    // Wrong guesses against the current OTP; at 5 it stops working until a new one is issued
+    otpAttempts: { type: Number, default: 0 },
     password: {
       type: String,
       required: function () {

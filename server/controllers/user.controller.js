@@ -7,7 +7,12 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { isOptionalString } = require("../utils/validation.utils.js");
+const { isOptionalString, escapeRegex, passwordProblem } = require("../utils/validation.utils.js");
+const { revokeUserSessions } = require("../utils/authSession.utils.js");
+const { clientError } = require("../utils/errors.utils.js");
+
+const USER_ROLE_FILTERS = ["allUsers", "user", "admin", "superAdmin"];
+const MAX_SEARCH_LENGTH = 100;
 
 const getUsers = async (req, res) => {
   try {
@@ -20,6 +25,11 @@ const getUsers = async (req, res) => {
       return res.status(400).json({
         message: "Current page is required!",
       });
+
+    if (typeof searchQuery !== "string" || searchQuery.length > MAX_SEARCH_LENGTH)
+      return res.status(400).json({ message: `Search must be text of at most ${MAX_SEARCH_LENGTH} characters.` });
+    if (!USER_ROLE_FILTERS.includes(role))
+      return res.status(400).json({ message: "Invalid role filter." });
 
     await dbConnect();
     // Check if the requesting user is an admin or superAdmin
@@ -41,8 +51,8 @@ const getUsers = async (req, res) => {
       query.role = role;
     if (searchQuery && searchQuery.length > 0) {
       if (searchQuery.includes("@") || searchQuery.includes("."))
-        // Looks like an email, use regex for email
-        query.email = { $regex: searchQuery, $options: "i" };
+        // Escaped, so the search is plain text and can't be a slow or invalid regex
+        query.email = { $regex: escapeRegex(searchQuery), $options: "i" };
       else
         // Use text search for username/email
         query.$text = { $search: searchQuery };
@@ -55,7 +65,7 @@ const getUsers = async (req, res) => {
     let requiredUsers;
     requiredUsers = await userModel
       .find(query)
-      .select("-password -otp -otpExpiry")
+      .select("-password -otp -otpExpiry -otpAttempts")
       .sort({ createdAt: -1 })
       .skip(startIndex)
       .limit(usersPerPage);
@@ -85,7 +95,7 @@ const getUsers = async (req, res) => {
     console.error("Error fetching all users:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 };
@@ -108,7 +118,6 @@ const deleteUser = async (req, res) => {
     // Get editor info from verified token
     const editorEmail = req.user?.email;
     const editorId = req.user?.id;
-    console.log(editorId);
 
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
@@ -148,11 +157,11 @@ const deleteUser = async (req, res) => {
     }
     // Proceed to delete the user (This returns the deleted document)
     const isDeleted = await userModel.findByIdAndDelete(userId);
-    console.log("isDeleted:", isDeleted);
     if (!isDeleted)
       return res
         .status(404)
         .json({ message: "User not found or already deleted." });
+    await revokeUserSessions(userToDelete._id);
 
     const publicId =
       userToDelete.profilePicPublicId ||
@@ -168,9 +177,7 @@ const deleteUser = async (req, res) => {
     console.error("Error deleting user:", error);
     res.status(500).json({
       success: false,
-      message:
-        `This is coming from the catch: ${error.message}` ||
-        "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };
@@ -190,6 +197,11 @@ const updateUser = async (req, res) => {
     const { username, email, role, password } = req.body || {};
     if (![username, email, role, password].every(isOptionalString))
       return res.status(400).json({ message: "Username, email, role and password must be strings." });
+
+    // An empty password means "keep the current one"; a new one must meet the same rules as signup
+    const invalidPassword = password ? passwordProblem(password) : null;
+    if (invalidPassword)
+      return res.status(400).json({ message: invalidPassword });
 
     await dbConnect();
     // This is the email of the editor (admin making the change) from the token
@@ -285,6 +297,10 @@ const updateUser = async (req, res) => {
     if (!updatedUser)
       return res.status(404).json({ message: "User not found after update." });
 
+    // A new password logs the user out on every other device
+    if (password)
+      await revokeUserSessions(updatedUser._id, req.user?.sessionId);
+
     if (req.file) {
       const oldPublicId =
         userToUpdate.profilePicPublicId ||
@@ -301,10 +317,15 @@ const updateUser = async (req, res) => {
       user: updatedUser,
     });
   } catch (error) {
+    // Duplicate or invalid data gets a safe 409/400 instead of the raw database error
+    const known = clientError(error);
+    if (known)
+      return res.status(known.status).json({ success: false, message: known.message });
+
     console.error("Error updating user:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };

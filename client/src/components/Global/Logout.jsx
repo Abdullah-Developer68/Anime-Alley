@@ -9,15 +9,16 @@ const Logout = () => {
 
   const handleLogout = async () => {
     try {
-      // Same for local and Google logins: the session is the token stored in localStorage
+      // Revokes this device's session on the server (same for local and Google logins)
       await api.logout();
-      localStorage.clear(); // Clear all local storage data
-      setUser(null); // Clear user state for making routes protected again
-      navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
-      toast.error("Failed to logout. Please try again.");
+      toast.error("Could not reach the server; you are logged out on this device only.");
     }
+    // Always clear locally, so a server error never leaves the user logged in
+    localStorage.clear();
+    setUser(null);
+    navigate("/login");
   };
 
   return (

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
 import { useState } from "react";
 import { toast } from "react-toastify";
-import { checkAndHandleUserChange } from "../utils/userSessionManager";
+import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
 
 const Signup = () => {
   const { setUser } = useAuth();
@@ -31,9 +31,8 @@ const Signup = () => {
           localStorage.clear();
         }
 
-        if (res.data.token) {
-          localStorage.setItem("authToken", res.data.token);
-        }
+        // Access token for the Authorization header, refresh token to renew it
+        saveAuthTokens(res.data);
 
         setUser(res.data.user);
         localStorage.setItem("userInfo", JSON.stringify(res.data.user));
@@ -137,10 +136,8 @@ const Signup = () => {
           localStorage.clear();
         }
 
-        // Store token in localStorage for Authorization header
-        if (res.data.token) {
-          localStorage.setItem("authToken", res.data.token);
-        }
+        // Access token for the Authorization header, refresh token to renew it
+        saveAuthTokens(res.data);
 
         // Store user info
         setUser(res.data.user);
@@ -313,6 +310,13 @@ const Signup = () => {
                         {otpErrors.otp.message}
                       </span>
                     )}
+                    {/* The server answers the same for registered emails (no account enumeration), so say it here */}
+                    <p className="mt-1.5 text-xs text-white/50">
+                      No code? If this email already has an account, no code is sent.{" "}
+                      <a href="/login" className="text-pink-500 hover:text-pink-400">
+                        Log in instead
+                      </a>
+                    </p>
                   </div>
                   {error && (
                     <div className="text-sm text-pink-500">{error}</div>
@@ -388,6 +392,11 @@ const Signup = () => {
                         minLength: {
                           value: 8,
                           message: "Password must be at least 8 characters.",
+                        },
+                        // bcrypt on the server ignores anything past 72 bytes
+                        maxLength: {
+                          value: 72,
+                          message: "Password must be at most 72 characters.",
                         },
                       })}
                       disabled={loading}

@@ -107,7 +107,6 @@ const ProductForm = () => {
   // @param {Event} e - File input change event
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    console.log("Selected file:", file);
 
     if (file) {
       setSelectedFile(file);

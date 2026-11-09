@@ -2,10 +2,11 @@ const rateLimit = require("express-rate-limit");
 
 const otpSendLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 3, // limit each IP to 3 requests per windowMs
+  max: 5, // limit each IP to 5 requests per windowMs
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  skipSuccessfulRequests: true, // Tells the rate limiter to ignore (not count) requests that result in a successful response (usually HTTP status codes 2xx).
+  // Successful requests count too: every one sends an email, and all of them look the same (see sendSignupOtp)
+  skipSuccessfulRequests: false,
   validate: { forwardedHeader: false },
   handler: (req, res) => {
     res.status(429).json({

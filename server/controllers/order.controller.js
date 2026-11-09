@@ -225,7 +225,7 @@ const placeOrder = async (req, res) => {
     if (!res.headersSent)
       res.status(500).json({
         success: false,
-        message: error.message || "Internal server error",
+        message: "Internal server error",
       });
   } finally {
     // Always clean up session and abort if still in transaction
@@ -313,7 +313,7 @@ const getOrderHistory = async (req, res) => {
     console.error("Error fetching order:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 };
@@ -367,7 +367,7 @@ const allOrdersList = async (req, res) => {
     console.error("Error fetching all orders:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 };
@@ -397,7 +397,7 @@ const deleteOrder = async (req, res) => {
     console.error("Error deleting order:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };
@@ -436,7 +436,7 @@ const updateOrder = async (req, res) => {
     console.error("Error updating order:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };
@@ -454,7 +454,7 @@ const getOrderStats = async (req, res) => {
     });
     res.json({ success: true, stats: result });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -481,7 +481,7 @@ const verifyOrder = async (req, res) => {
     console.error("Error verifying order:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 };

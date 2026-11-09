@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
 import api from "../api/api";
 import { toast } from "react-toastify";
-import { checkAndHandleUserChange } from "../utils/userSessionManager";
+import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
 
 const Login = () => {
   // using custom hook for auth
@@ -33,10 +33,8 @@ const Login = () => {
           localStorage.clear();
         }
 
-        // Store token in localStorage for Authorization header
-        if (res.data.token) {
-          localStorage.setItem("authToken", res.data.token);
-        }
+        // Access token for the Authorization header, refresh token to renew it
+        saveAuthTokens(res.data);
 
         // Store user info
         setUser(res.data.user);
@@ -60,7 +58,6 @@ const Login = () => {
   };
 
   const localLogin = async (data) => {
-    console.log(data);
     try {
       const res = await api.login(data);
 
@@ -72,10 +69,8 @@ const Login = () => {
           localStorage.clear();
         }
 
-        // Store token in localStorage for Authorization header
-        if (res.data.token) {
-          localStorage.setItem("authToken", res.data.token);
-        }
+        // Access token for the Authorization header, refresh token to renew it
+        saveAuthTokens(res.data);
 
         // Store user info
         setUser(res.data.user);

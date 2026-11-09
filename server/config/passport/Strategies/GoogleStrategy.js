@@ -1,6 +1,7 @@
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const User = require("../../../db/models/user.model.js");
 const dotenv = require("dotenv");
+const { signLoginState, readLoginState } = require("../../../utils/googleHandoff.utils.js");
 dotenv.config();
 
 const findOrCreateUser = async (profile) => {
@@ -34,6 +35,21 @@ const findOrCreateUser = async (profile) => {
   }
 };
 
+// Stateless replacement for passport's session-based `state: true` (the app has no sessions).
+// initiateGoogleAuth has already checked the challenge before this runs.
+const googleStateStore = {
+  store(req, meta, callback) {
+    callback(null, signLoginState(req.query?.challenge));
+  },
+  verify(req, state, callback) {
+    const payload = readLoginState(state);
+    if (!payload)
+      return callback(null, false, { message: "Invalid OAuth state" });
+    req.googleLoginChallenge = payload.challenge;
+    callback(null, true);
+  },
+};
+
 const callbackURL =
   process.env.NODE_ENV === "production"
     ? process.env.GOOGLE_CALLBACK_URL
@@ -44,6 +60,7 @@ const GoogleProvider = new GoogleStrategy(
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL,
+    store: googleStateStore,
   },
   async (accessToken, refershToken, profile, done) => {
     try {

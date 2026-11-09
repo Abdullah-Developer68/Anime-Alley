@@ -6,6 +6,7 @@ const {
   validateCouponForUser,
 } = require("../utils/coupon.utils.js");
 const { isNonEmptyString } = require("../utils/validation.utils.js");
+const { clientError } = require("../utils/errors.utils.js");
 
 const checkCoupon = async (req, res) => {
   try {
@@ -100,7 +101,7 @@ const getAllCoupons = async (req, res) => {
     console.error("Error fetching all coupons:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 };
@@ -127,7 +128,7 @@ const deleteCoupon = async (req, res) => {
     console.error("Error deleting coupon:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };
@@ -164,10 +165,15 @@ const updateCoupon = async (req, res) => {
       coupon: updatedCoupon,
     });
   } catch (error) {
+    // Duplicate or invalid data gets a safe 409/400 instead of the raw database error
+    const known = clientError(error);
+    if (known)
+      return res.status(known.status).json({ success: false, message: known.message });
+
     console.error("Error updating coupon:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };
@@ -224,10 +230,15 @@ const createCoupon = async (req, res) => {
       coupon: newCoupon,
     });
   } catch (error) {
+    // Duplicate or invalid data gets a safe 409/400 instead of the raw database error
+    const known = clientError(error);
+    if (known)
+      return res.status(known.status).json({ success: false, message: known.message });
+
     console.error("Error creating coupon:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };
@@ -271,7 +282,7 @@ const getCouponStats = async (req, res) => {
     console.error("Error getting coupon stats:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 };
