@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
 import { toast } from "react-toastify";
 import api from "../api/api";
@@ -7,7 +7,6 @@ import { checkAndHandleUserChange } from "../utils/userSessionManager";
 
 const GoogleAuthSuccess = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { setUser } = useAuth();
   const hasProcessed = useRef(false);
 
@@ -18,42 +17,44 @@ const GoogleAuthSuccess = () => {
       try {
         hasProcessed.current = true; // Mark as processed
 
-        // Get token from URL query parameter
-        const token = searchParams.get("token");
+        // The server sends a one-time code in the URL fragment, never the JWT itself
+        const code = new URLSearchParams(window.location.hash.slice(1)).get("code");
+        // Remove the code from the address bar and browser history straight away
+        window.history.replaceState(window.history.state, "", window.location.pathname);
 
-        if (token) {
-          console.log(
-            "Processing token from URL:",
-            token.substring(0, 20) + "...",
-          );
-          // Store token in localStorage
-          localStorage.setItem("authToken", token);
+        const verifier = sessionStorage.getItem("googleAuthVerifier");
+        sessionStorage.removeItem("googleAuthVerifier");
+        if (!code || !verifier)
+          throw new Error("Google login was not started from this tab");
 
-          // Verify the token and get user data
-          const res = await api.verifyAuth();
-
-          if (res.data.success) {
-            // Check if user email has changed and clear localStorage if needed
-            const wasCleared = checkAndHandleUserChange(res.data.user);
-            if (!wasCleared) {
-              // Only clear if user didn't change (to avoid double clearing)
-              localStorage.clear();
-            }
-
-            // Store token and user info
-            localStorage.setItem("authToken", token);
-            localStorage.setItem("userInfo", JSON.stringify(res.data.user));
-
-            setUser(res.data.user);
-            toast.success("Successfully logged in with Google!");
-            navigate("/");
-            return; // Ensure we don't continue to the fallback
-          } else {
-            throw new Error("Failed to verify token");
-          }
-        } else
-          // The server always returns the token in the URL; without it the login failed
+        const { data } = await api.exchangeGoogleCode(code, verifier);
+        const token = data?.token;
+        if (!token)
           throw new Error("No token returned from Google login");
+
+        // Store token in localStorage
+        localStorage.setItem("authToken", token);
+
+        // Verify the token and get user data
+        const res = await api.verifyAuth();
+
+        if (res.data.success) {
+          // Check if user email has changed and clear localStorage if needed
+          const wasCleared = checkAndHandleUserChange(res.data.user);
+          if (!wasCleared) {
+            // Only clear if user didn't change (to avoid double clearing)
+            localStorage.clear();
+          }
+
+          // Store token and user info
+          localStorage.setItem("authToken", token);
+          localStorage.setItem("userInfo", JSON.stringify(res.data.user));
+
+          setUser(res.data.user);
+          toast.success("Successfully logged in with Google!");
+          navigate("/");
+        } else
+          throw new Error("Failed to verify token");
       } catch (error) {
         console.error("Google auth success error:", error);
         toast.error("Google authentication failed. Please try again.");
@@ -62,7 +63,7 @@ const GoogleAuthSuccess = () => {
     };
 
     handleGoogleAuthSuccess();
-  }, [searchParams, setUser, navigate]);
+  }, [setUser, navigate]);
 
   return (
     <div className="flex items-center justify-center w-full h-screen bg-transparent">

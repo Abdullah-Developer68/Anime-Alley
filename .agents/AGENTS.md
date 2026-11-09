@@ -84,6 +84,7 @@ Follow this strict two-part convention across all controllers, services, and mid
 - **Bearer header only**: the JWT is sent as `Authorization: Bearer <token>`.
 - **Never read the token from a cookie**: browsers attach cookies to requests that other sites start, which enables CSRF.
 - **No `express.urlencoded` parser**: the API accepts JSON, plus multipart for uploads.
+- **Never put a JWT in a URL**: Google login sends a short-lived handoff code in the URL fragment, and the client swaps it for the JWT with `POST /api/googleAuth/token`, proving with its `sessionStorage` verifier that it started the login.
 
 ### No Prop Drilling Standard
 - **No Prop Drilling**: Prop drilling (passing state, configuration, layout flags, or handlers down component trees) is strictly forbidden across the codebase.

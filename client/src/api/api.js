@@ -43,9 +43,23 @@ api.interceptors.response.use(
 
 // --- AUTH API'S ---
 
-// Google OAuth is a full-page redirect, not an XHR call
-api.googleLogin = () => {
-  window.location.href = `${serverURL}/api/googleAuth/login`;
+const toBase64Url = (bytes) =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+// Google OAuth is a full-page redirect, not an XHR call. Only this tab keeps the verifier;
+// the server sees its hash, so a login code sent to another browser can't be redeemed there.
+api.googleLogin = async () => {
+  const verifier = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  sessionStorage.setItem("googleAuthVerifier", verifier);
+  const challenge = toBase64Url(new Uint8Array(digest));
+  window.location.href = `${serverURL}/api/googleAuth/login?challenge=${challenge}`;
+};
+api.exchangeGoogleCode = (code, verifier) => {
+  return api.post("/googleAuth/token", { code, verifier });
 };
 api.sendSignupOtp = (email) => {
   return api.post("/auth/otp", { email });
