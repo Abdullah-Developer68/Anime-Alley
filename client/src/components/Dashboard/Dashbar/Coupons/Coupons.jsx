@@ -14,6 +14,7 @@ import EditCoupon from "./EditCoupon";
 import DeleteCoupon from "./DeleteCoupon";
 import CreateCoupon from "./CreateCoupon";
 import { Download, RefreshCw, Plus } from "lucide-react";
+import DashboardPagination from "../../DashboardPagination";
 
 const Coupons = () => {
   const { user } = useAuth();
@@ -128,8 +129,8 @@ const Coupons = () => {
       <DeleteCoupon />
       <CreateCoupon />
       {/* Header Section */}
-      <div className="flex max-[565px]:flex-col flex-row justify-between max-[565px]:justify-center max-[565px]:items-end gap-4">
-        <h1 className="ml-20 text-2xl font-bold text-white">Coupons</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Coupons</h1>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -306,45 +307,15 @@ const Coupons = () => {
         </div>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4">
-        <p className="text-sm text-gray-400">
-          {coupons.length > 0
-            ? `Showing ${(currPage - 1) * 20 + 1} to ${
-                (currPage - 1) * 20 + coupons.length
-              } of ${totalCoupons} coupons`
-            : "No coupons found"}
-        </p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handlePg("prev")}
-            disabled={currPage === 1}
-            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          {[...Array(totalPages)].map((_, index) => (
-            <button
-              key={index}
-              onClick={() => handlePg(index + 1)}
-              className={`px-3 py-1 rounded-lg ${
-                currPage === index + 1
-                  ? "text-black bg-white"
-                  : "text-white bg-gray-600 hover:bg-gray-500"
-              } transition-colors`}
-            >
-              {index + 1}
-            </button>
-          ))}
-          <button
-            onClick={() => handlePg("next")}
-            disabled={currPage === totalPages}
-            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <DashboardPagination
+        currPage={currPage}
+        totalPages={totalPages}
+        totalItems={totalCoupons}
+        itemCount={coupons.length}
+        pageSize={20}
+        label="coupons"
+        onPageChange={handlePg}
+      />
     </div>
   );
 };

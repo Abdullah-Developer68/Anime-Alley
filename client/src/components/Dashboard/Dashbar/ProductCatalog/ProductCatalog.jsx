@@ -12,6 +12,10 @@ import ProductForm from "./ProductForm";
 import DeleteProduct from "./DeleteProduct";
 import { formatPrice } from "../../../../utils/formatPrice";
 import { Plus, Download } from "lucide-react";
+import DashboardPagination from "../../DashboardPagination";
+
+// The API returns 24 products per page unless a limit is sent
+const PRODUCTS_PER_PAGE = 24;
 
 const ProductCatalog = () => {
   // states
@@ -114,30 +118,33 @@ const ProductCatalog = () => {
   };
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
       {productFormState.isOpen && <ProductForm />}
 
-      <div className="flex items-center justify-end gap-2 pb-1">
-        <button
-          type="button"
-          onClick={() => dispatch(openExportModal("products"))}
-          title="Export Products"
-          className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-        >
-          <Download className="w-5 h-5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => openForm()}
-          title="Add New Product"
-          className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
-        >
-          <Plus className="w-5 h-5" />
-        </button>
+      <div className="flex items-center justify-between gap-4 max-[1120px]:pl-14">
+        <h1 className="text-2xl font-bold text-white">Products</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => dispatch(openExportModal("products"))}
+            title="Export Products"
+            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => openForm()}
+            title="Add New Product"
+            className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <div className="border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-auto h-[620px] max-h-[calc(100vh-220px)] min-h-[500px]">
+        <div className="relative overflow-auto max-h-[calc(100vh-15rem)]">
           <table className="w-full min-w-[800px]">
             <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
               <tr className="border-b border-white/10">
@@ -257,7 +264,7 @@ const ProductCatalog = () => {
                     </td>
 
                     <td className="px-6 py-4">
-                      <div className="max-h-[56px] overflow-y-auto flex flex-col gap-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                      <div className="flex max-h-[60px] flex-wrap items-start gap-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                         {Array.isArray(product.variants) &&
                         product.variants.length === 1 &&
                         product.variants[0].label === "Default" ? (
@@ -276,7 +283,7 @@ const ProductCatalog = () => {
                           (product.variants || []).map((v) => (
                             <span
                               key={v.label}
-                              className={`px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap ${
+                              className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap tabular-nums ${
                                 v.stock > 0
                                   ? "bg-green-500/20 text-green-500"
                                   : "bg-red-500/20 text-red-500"
@@ -300,53 +307,15 @@ const ProductCatalog = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-400">
-          {products.length > 0
-            ? `Showing ${(currPage - 1) * 20 + 1} to ${
-                (currPage - 1) * 20 + products.length
-              } of ${totalProducts} products`
-            : "No products found"}
-        </p>
-        <div className="flex gap-2">
-          <button
-            className={`cursor-pointer px-3 py-1 rounded-lg ${
-              currPage === 1
-                ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : "bg-white/5 text-white hover:bg-white/10"
-            } transition-colors`}
-            onClick={() => handlePg("prev")}
-            disabled={currPage === 1}
-          >
-            Previous
-          </button>
-          {totalPages > 0 &&
-            [...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                className={`px-3 py-1 rounded-lg ${
-                  currPage === index + 1
-                    ? "text-black bg-white"
-                    : "text-white bg-gray-600 hover:bg-gray-500"
-                } transition-colors`}
-                onClick={() => handlePg(index + 1)}
-              >
-                {index + 1}
-              </button>
-            ))}
-          <button
-            className={`cursor-pointer px-3 py-1 rounded-lg ${
-              currPage === totalPages
-                ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : "bg-white/5 text-white hover:bg-white/10"
-            } transition-colors`}
-            onClick={() => handlePg("next")}
-            disabled={currPage === totalPages}
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <DashboardPagination
+        currPage={currPage}
+        totalPages={totalPages}
+        totalItems={totalProducts}
+        itemCount={products.length}
+        pageSize={PRODUCTS_PER_PAGE}
+        label="products"
+        onPageChange={handlePg}
+      />
     </div>
   );
 };
