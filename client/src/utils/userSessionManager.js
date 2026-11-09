@@ -53,7 +53,6 @@ export const checkAndHandleUserChange = (newUserInfo) => {
   }
 
   // Email has changed - clear user data and update email
-  console.log(`User email changed from ${currentStoredEmail} to ${newEmail}`);
   clearUserData();
   setCurrentUserEmail(newEmail);
 

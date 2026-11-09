@@ -310,6 +310,13 @@ const Signup = () => {
                         {otpErrors.otp.message}
                       </span>
                     )}
+                    {/* The server answers the same for registered emails (no account enumeration), so say it here */}
+                    <p className="mt-1.5 text-xs text-white/50">
+                      No code? If this email already has an account, no code is sent.{" "}
+                      <a href="/login" className="text-pink-500 hover:text-pink-400">
+                        Log in instead
+                      </a>
+                    </p>
                   </div>
                   {error && (
                     <div className="text-sm text-pink-500">{error}</div>
@@ -385,6 +392,11 @@ const Signup = () => {
                         minLength: {
                           value: 8,
                           message: "Password must be at least 8 characters.",
+                        },
+                        // bcrypt on the server ignores anything past 72 bytes
+                        maxLength: {
+                          value: 72,
+                          message: "Password must be at most 72 characters.",
                         },
                       })}
                       disabled={loading}

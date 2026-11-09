@@ -58,7 +58,6 @@ const Login = () => {
   };
 
   const localLogin = async (data) => {
-    console.log(data);
     try {
       const res = await api.login(data);
 

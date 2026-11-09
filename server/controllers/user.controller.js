@@ -7,8 +7,9 @@ const {
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { isOptionalString, escapeRegex } = require("../utils/validation.utils.js");
+const { isOptionalString, escapeRegex, passwordProblem } = require("../utils/validation.utils.js");
 const { revokeUserSessions } = require("../utils/authSession.utils.js");
+const { clientError } = require("../utils/errors.utils.js");
 
 const USER_ROLE_FILTERS = ["allUsers", "user", "admin", "superAdmin"];
 const MAX_SEARCH_LENGTH = 100;
@@ -94,7 +95,7 @@ const getUsers = async (req, res) => {
     console.error("Error fetching all users:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 };
@@ -117,7 +118,6 @@ const deleteUser = async (req, res) => {
     // Get editor info from verified token
     const editorEmail = req.user?.email;
     const editorId = req.user?.id;
-    console.log(editorId);
 
     // Find the editor (admin making the change)
     const editor = await userModel.findOne({ email: editorEmail });
@@ -157,7 +157,6 @@ const deleteUser = async (req, res) => {
     }
     // Proceed to delete the user (This returns the deleted document)
     const isDeleted = await userModel.findByIdAndDelete(userId);
-    console.log("isDeleted:", isDeleted);
     if (!isDeleted)
       return res
         .status(404)
@@ -178,9 +177,7 @@ const deleteUser = async (req, res) => {
     console.error("Error deleting user:", error);
     res.status(500).json({
       success: false,
-      message:
-        `This is coming from the catch: ${error.message}` ||
-        "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };
@@ -200,6 +197,11 @@ const updateUser = async (req, res) => {
     const { username, email, role, password } = req.body || {};
     if (![username, email, role, password].every(isOptionalString))
       return res.status(400).json({ message: "Username, email, role and password must be strings." });
+
+    // An empty password means "keep the current one"; a new one must meet the same rules as signup
+    const invalidPassword = password ? passwordProblem(password) : null;
+    if (invalidPassword)
+      return res.status(400).json({ message: invalidPassword });
 
     await dbConnect();
     // This is the email of the editor (admin making the change) from the token
@@ -315,10 +317,15 @@ const updateUser = async (req, res) => {
       user: updatedUser,
     });
   } catch (error) {
+    // Duplicate or invalid data gets a safe 409/400 instead of the raw database error
+    const known = clientError(error);
+    if (known)
+      return res.status(known.status).json({ success: false, message: known.message });
+
     console.error("Error updating user:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: "Internal server error.",
     });
   }
 };

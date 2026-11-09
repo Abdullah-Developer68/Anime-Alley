@@ -287,11 +287,20 @@ const EditUser = () => {
             </label>
             <input
               type="password"
-              {...register("password")}
+              {...register("password", {
+                // Same rules as the server (validation.utils.js); blank means unchanged
+                validate: (value) =>
+                  !value ||
+                  (value.length >= 8 && value.length <= 72) ||
+                  "Password must be 8 to 72 characters.",
+              })}
               className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
               autoComplete="new-password"
               disabled={allControlsDisabled}
             />
+            {errors.password && (
+              <span className="text-xs text-red-400">{errors.password.message}</span>
+            )}
           </div>
           {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
           <div className="flex justify-end gap-4 mt-6">

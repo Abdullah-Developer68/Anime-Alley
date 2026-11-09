@@ -202,7 +202,7 @@ const reserveStock = async (req, res) => {
     });
     return res
       .status(500)
-      .json({ success: false, message: "Server error: " + err.message });
+      .json({ success: false, message: "Internal server error" });
   } finally {
     // End the session
     if (mongoSession) {

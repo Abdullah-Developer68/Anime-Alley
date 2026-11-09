@@ -61,9 +61,10 @@ app.use((err, req, res, next) => {
   if (res.headersSent)
     return next(err);
   const statusCode = err.statusCode || err.status || 500;
+  // `expose` is set by Express/body-parser on safe 4xx errors (bad JSON, body too large); never show 5xx details
   res.status(statusCode).json({
     success: false,
-    message: err.message || "Internal server error",
+    message: statusCode < 500 && err.expose ? err.message : "Internal server error",
   });
 });
 

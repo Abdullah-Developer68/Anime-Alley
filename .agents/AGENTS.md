@@ -93,6 +93,13 @@ Follow this strict two-part convention across all controllers, services, and mid
   - Sign other tokens with `keyFor("<purpose>")` (`server/utils/tokenKeys.utils.js`), never with `JWT_KEY` directly.
   - Always pass `algorithm: "HS256"` / `algorithms: ["HS256"]`.
 - **User text in a RegExp must go through `escapeRegex`** (`server/utils/validation.utils.js`).
+- **Never send `error.message` to the client**:
+  - 500 responses use a fixed message, and the real error goes to `console.error`;
+  - for duplicate or invalid data, use `clientError(error)` (`server/utils/errors.utils.js`), which returns a safe 409/400.
+- **No account enumeration**: login failures share one message, and `/auth/otp` replies the same for every email. Don't add messages that show whether an account exists.
+- **New passwords go through `passwordProblem()`**: 8 characters to 72 bytes. Not at login, so existing passwords keep working.
+- **CORS uses only the allow-list in `server/utils/origin.utils.js`**: no "allow all" fallback in any environment. Localhost is trusted only outside production.
+- **No debug `console.log`** of request bodies, user documents, tokens or passwords, on the server or the client.
 - **Client CSP**: `client/vercel.json` sets the Content Security Policy. A new external script, API or frame origin must be added there, or the browser blocks it.
 - **Never read the token from a cookie**: browsers attach cookies to requests that other sites start, which enables CSRF.
 - **No `express.urlencoded` parser**: the API accepts JSON, plus multipart for uploads.

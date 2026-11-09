@@ -7,6 +7,7 @@ const {
 } = require("../utils/cloudinary.utils.js");
 const { validateProductData, isOptionalString, escapeRegex } = require("../utils/validation.utils.js");
 const { hasOperatorKey } = require("../middlewares/custom/rejectOperators.middleware.js");
+const { INTERNAL_ERROR, clientError } = require("../utils/errors.utils.js");
 const {
   ALLOWED_GENRES,
   CLOTHES_TYPES,
@@ -220,10 +221,7 @@ const getProducts = async (req, res) => {
       .json({ success: true, currPageProducts, totalPages, totalProducts });
   } catch (error) {
     console.error("Error while fetching products:", error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    res.status(500).json({ success: false, message: INTERNAL_ERROR });
   }
 };
 
@@ -273,22 +271,14 @@ const createProduct = async (req, res) => {
       product: newProduct,
     });
   } catch (error) {
-    // Return early 400 response for client-side input and casting errors
-    if (
-      error.name === "ValidationError" ||
-      error.name === "CastError" ||
-      error.message?.startsWith("Invalid category")
-    )
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
+    // Bad input gets a safe 400/409; our own "Invalid category" message is safe to show
+    const known = clientError(error) ||
+      (error.message?.startsWith("Invalid category") && { status: 400, message: error.message });
+    if (known)
+      return res.status(known.status).json({ success: false, message: known.message });
 
     console.error("Error creating product:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error",
-    });
+    res.status(500).json({ success: false, message: INTERNAL_ERROR });
   }
 };
 
@@ -377,22 +367,14 @@ const updateProduct = async (req, res) => {
       product: updatedProduct,
     });
   } catch (error) {
-    // Return early 400 response for client-side input and casting errors
-    if (
-      error.name === "ValidationError" ||
-      error.name === "CastError" ||
-      error.message?.startsWith("Invalid category")
-    )
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
+    // Bad input gets a safe 400/409; our own "Invalid category" message is safe to show
+    const known = clientError(error) ||
+      (error.message?.startsWith("Invalid category") && { status: 400, message: error.message });
+    if (known)
+      return res.status(known.status).json({ success: false, message: known.message });
 
     console.error("Error updating product:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error",
-    });
+    res.status(500).json({ success: false, message: INTERNAL_ERROR });
   }
 };
 
@@ -429,7 +411,7 @@ const deleteProduct = async (req, res) => {
     console.error("Error deleting product:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Internal server error",
+      message: INTERNAL_ERROR,
     });
   }
 };

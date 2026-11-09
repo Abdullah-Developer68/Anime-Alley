@@ -1,20 +1,16 @@
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { isTrustedOrigin, isOwnVercelOrigin } = require("../../utils/origin.utils.js");
+const { isTrustedOrigin } = require("../../utils/origin.utils.js");
 dotenv.config();
 
-// Enhanced CORS middleware for cross-domain production
+// Only the allow-list in origin.utils.js, in every environment. There is no "allow everything
+// outside production" fallback, so a deploy with a missing NODE_ENV stays locked down.
 const corsMiddleware = cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, server-to-server, etc.)
+    // Requests with no Origin header (Postman, server-to-server) aren't from a browser page
     if (!origin) return callback(null, true);
 
-    if (isTrustedOrigin(origin)) return callback(null, true);
-
-    // In development, be more permissive
-    if (process.env.NODE_ENV !== "production") return callback(null, true);
-
-    return callback(null, false);
+    return callback(null, isTrustedOrigin(origin));
   },
   // Auth uses the Authorization header, never cookies, so credentialed (cookie) requests are not allowed
   credentials: false,

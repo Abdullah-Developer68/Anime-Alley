@@ -7,11 +7,20 @@ const sendOTP = require("../utils/sendOTP.js");
 const dbConnect = require("../db/dbConnect.js");
 const { otpData, hashOtp, otpMatches, MAX_OTP_ATTEMPTS } = require("../utils/otpGenerator.js");
 const createTemporaryPasswordHash = require("../utils/tempPasswordHash.js");
-const { isNonEmptyString } = require("../utils/validation.utils.js");
+const { isNonEmptyString, passwordProblem } = require("../utils/validation.utils.js");
 const { keyFor } = require("../utils/tokenKeys.utils.js");
 const { createSession, refreshSession, revokeSession } = require("../utils/authSession.utils.js");
 
 dotenv.config();
+
+// Same reply whether the email is new, mid-signup or already registered (no account enumeration)
+const OTP_SENT_MESSAGE =
+  "If this email can be used to sign up, a code is on its way. Already have an account? Log in instead.";
+
+// Compared against when there is no usable password, so failed logins all take as long as a real check
+let dummyPasswordHash;
+const getDummyPasswordHash = async () =>
+  (dummyPasswordHash ??= await bcrypt.hash(crypto.randomBytes(16).toString("hex"), 10));
 
 const sendSignupOtp = async (req, res) => {
   try {
@@ -25,7 +34,6 @@ const sendSignupOtp = async (req, res) => {
 
     await dbConnect();
 
-    let msg = "OTP sent to your email! Please use that to Sign In!";
     const { otp, otpExpiry } = otpData();
     // A new code always starts with a clean attempt count
     const otpFields = { otp: hashOtp(email, otp), otpExpiry, otpAttempts: 0, isOtpVerified: false };
@@ -45,28 +53,23 @@ const sendSignupOtp = async (req, res) => {
         password: tempPasswordHash,
       });
     } else if (user.accountStatus === "active")
-      return res
-        .status(200)
-        .json({ message: "You already have an account, so please Sign In" });
+      return res.status(200).json({ message: OTP_SENT_MESSAGE });
     else if (user.otpExpiry > new Date()) {
       // No new code until the current one expires, including after it was locked by wrong guesses
       user.isOtpVerified = false;
       await user.save();
-      return res
-        .status(200)
-        .json({ message: "OTP already sent! Please use that to Sign In!" });
+      return res.status(200).json({ message: OTP_SENT_MESSAGE });
     } else {
-      msg = "OTP expired! Generating new OTP and sending it to your email!";
       Object.assign(user, otpFields);
       await user.save();
     }
     await sendOTP(email, otp);
-    res.status(200).json({ message: msg });
+    res.status(200).json({ message: OTP_SENT_MESSAGE });
   } catch (err) {
     console.error("OTP Generation Error:", err.message);
     return res.status(500).json({
       success: false,
-      message: err.message || "OTP generation failed",
+      message: "OTP generation failed",
     });
   }
 };
@@ -130,7 +133,7 @@ const verifyOTP = async (req, res) => {
     console.error("OTP Verification Error:", err.message);
     return res.status(500).json({
       success: false,
-      message: err.message || "OTP verification failed",
+      message: "OTP verification failed",
     });
   }
 };
@@ -144,6 +147,10 @@ const signUp = async (req, res) => {
         success: false,
         message: "Email, password, and username are required!",
       });
+
+    const invalidPassword = passwordProblem(password);
+    if (invalidPassword)
+      return res.status(400).json({ success: false, message: invalidPassword });
 
     // Strict check: verificationToken must be present
     if (!isNonEmptyString(verificationToken))
@@ -218,7 +225,6 @@ const signUp = async (req, res) => {
     res.status(500).json({
       status: false,
       message: "Internal Server Error",
-      error: error.message,
     });
   }
 };
@@ -237,39 +243,21 @@ const login = async (req, res) => {
 
     await dbConnect();
 
-    // Check if user exists
     const userExist = await userModel.findOne({ email });
 
-    if (!userExist)
-      return res
-        .status(401)
-        .json({ success: false, status: false, message: "User not found!" });
-
-    if (userExist.accountStatus === "verifying")
-      return res.status(403).json({
-        success: false,
-        status: false,
-        message:
-          "Your account is still verifying. Please complete OTP verification first.",
-      });
-
-    // Check if user was registered through Google (no password but has googleId)
-    if (
-      (!userExist.password || userExist.password === "N/A") &&
-      userExist.googleId
-    )
-      return res.status(400).json({
-        success: false,
-        status: false,
-        message:
-          "You are registered through Google. Please use Google login to sign in.",
-      });
-
-    const passwordMatch = await bcrypt.compare(password, userExist.password);
-    if (!passwordMatch)
+    // One answer for every failure (no account, signup not finished, Google-only, wrong password),
+    // and bcrypt always runs, so neither the message nor the timing shows whether the email exists
+    const canUsePassword =
+      userExist?.accountStatus === "active" && !!userExist.password && userExist.password !== "N/A";
+    const passwordMatch = await bcrypt.compare(
+      password,
+      canUsePassword ? userExist.password : await getDummyPasswordHash(),
+    );
+    if (!canUsePassword || !passwordMatch)
       return res.status(401).json({
+        success: false,
         status: false,
-        message: "Either email or password is incorrect!",
+        message: "Invalid email or password. If you signed up with Google, use the Google button.",
       });
 
     // The client sends the access token as a Bearer header and renews it with the refresh token
@@ -455,7 +443,6 @@ const demoLogin = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error while creating demo account.",
-      error: error.message,
     });
   }
 };
