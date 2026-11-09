@@ -1,11 +1,50 @@
-import { useForm } from "react-hook-form";
-import assests from "../assets/asset";
-import api from "../api/api";
-import { useNavigate } from "react-router-dom";
-import useAuth from "../Hooks/UseAuth";
 import { useState } from "react";
-import { toast } from "react-toastify";
+import { useForm } from "react-hook-form";
+import { Link, useNavigate } from "react-router-dom";
+import { Check, KeyRound, Lock, Mail, User } from "lucide-react";
+import api from "../api/api";
+import useAuth from "../Hooks/UseAuth";
 import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
+import AuthLayout from "../components/Auth/AuthLayout";
+import AuthField from "../components/Auth/AuthField";
+import DemoAccess from "../components/Auth/DemoAccess";
+import { FormAlert, GoogleSignIn, SubmitButton } from "../components/Auth/AuthButtons";
+
+const STEPS = ["Email", "Verify", "Profile"];
+
+// eslint-disable-next-line react/prop-types
+const StepIndicator = ({ step }) => (
+  <ol className="mb-8 flex items-center gap-2" aria-label="Signup progress">
+    {STEPS.map((name, index) => {
+      const number = index + 1;
+      const done = number < step;
+      const current = number === step;
+      return (
+        <li key={name} className="flex flex-1 items-center gap-2" aria-current={current ? "step" : undefined}>
+          <span
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition ${
+              done
+                ? "bg-pink-500 text-slate-950"
+                : current
+                  ? "border border-pink-400 bg-pink-500/15 text-pink-200"
+                  : "border border-white/15 text-slate-500"
+            }`}
+          >
+            {done ? <Check aria-hidden="true" className="h-3.5 w-3.5" /> : number}
+          </span>
+          <span className={`text-xs font-medium ${current || done ? "text-slate-200" : "text-slate-500"}`}>{name}</span>
+          {number < STEPS.length && <span className={`h-px flex-1 ${done ? "bg-pink-500/60" : "bg-white/10"}`} />}
+        </li>
+      );
+    })}
+  </ol>
+);
+
+const SUBTITLES = {
+  1: "Start with your email and we'll send you a 6-digit code.",
+  2: "Enter the code we just emailed you.",
+  3: "Almost done. Pick a username and password.",
+};
 
 const Signup = () => {
   const { setUser } = useAuth();
@@ -16,59 +55,21 @@ const Signup = () => {
   const [email, setEmail] = useState("");
   const [verificationToken, setVerificationToken] = useState("");
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(null);
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  const handleDemoLogin = async (role) => {
-    setDemoLoading(role);
-    try {
-      const res = await api.demoLogin(role);
-
-      if (res.data.success) {
-        const wasCleared = checkAndHandleUserChange(res.data.user);
-        if (!wasCleared) {
-          localStorage.clear();
-        }
-
-        // Access token for the Authorization header, refresh token to renew it
-        saveAuthTokens(res.data);
-
-        setUser(res.data.user);
-        localStorage.setItem("userInfo", JSON.stringify(res.data.user));
-        toast.success(
-          `Logged in as ${res.data.user.username} (${res.data.user.role})!`,
-        );
-        navigate("/");
-      } else {
-        toast.error(res.data.message || "Failed to create demo account");
-      }
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message ||
-          "Failed to create demo account. Please try again.",
-      );
-      console.error("Demo login error:", err);
-    } finally {
-      setDemoLoading(null);
-    }
-  };
-
-  // Step 1: Email form
   const {
     register: registerEmail,
     handleSubmit: handleSubmitEmail,
     formState: { errors: emailErrors },
   } = useForm();
 
-  // Step 2: OTP form
   const {
     register: registerOtp,
     handleSubmit: handleSubmitOtp,
     formState: { errors: otpErrors },
   } = useForm();
 
-  // Step 3: Username/password form
   const {
     register: registerSignup,
     handleSubmit: handleSubmitSignup,
@@ -83,8 +84,7 @@ const Signup = () => {
       await api.sendSignupOtp(data.email || email);
       setEmail(data.email || email);
       setStep(2);
-      setResendCooldown(30); // 30s cooldown
-      // Start cooldown timer
+      setResendCooldown(30);
       const interval = setInterval(() => {
         setResendCooldown((prev) => {
           if (prev <= 1) {
@@ -107,9 +107,8 @@ const Signup = () => {
     setError("");
     try {
       const res = await api.verifySignupOtp(email, data.otp);
-      if (res.data.verificationToken) {
+      if (res.data.verificationToken)
         setVerificationToken(res.data.verificationToken);
-      }
       setStep(3);
     } catch (err) {
       setError(err.response?.data?.message || "Invalid or expired OTP");
@@ -123,29 +122,20 @@ const Signup = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.signUp({
-        email,
-        verificationToken,
-        ...data,
-      });
+      const res = await api.signUp({ email, verificationToken, ...data });
       if (res.data.success) {
-        // Check if user email has changed and clear localStorage if needed
-        const wasCleared = checkAndHandleUserChange(res.data.user);
-        if (!wasCleared) {
-          // Only clear if user didn't change (to avoid double clearing)
+        // Only clear if the user didn't change, to avoid clearing twice
+        if (!checkAndHandleUserChange(res.data.user))
           localStorage.clear();
-        }
 
         // Access token for the Authorization header, refresh token to renew it
         saveAuthTokens(res.data);
 
-        // Store user info
         setUser(res.data.user);
         localStorage.setItem("userInfo", JSON.stringify(res.data.user));
         navigate("/");
-      } else {
+      } else
         setError(res.data.message || "Signup failed");
-      }
     } catch (err) {
       setError(err.response?.data?.message || "Signup failed");
     } finally {
@@ -153,306 +143,142 @@ const Signup = () => {
     }
   };
 
-  const handleGoogleLogin = () => {
-    api.googleLogin();
+  const changeEmail = () => {
+    setError("");
+    setStep(1);
   };
 
+  // Shown on steps 2 and 3 instead of a disabled email input
+  const emailSummary = (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2.5">
+      <span className="flex min-w-0 items-center gap-2 text-sm text-slate-300">
+        <Mail aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+        <span className="truncate">{email}</span>
+      </span>
+      <button
+        type="button"
+        onClick={changeEmail}
+        className="shrink-0 cursor-pointer text-xs font-semibold text-pink-400 transition hover:text-pink-300"
+      >
+        Change
+      </button>
+    </div>
+  );
+
   return (
-    <>
-      <div className="flex items-center justify-center min-h-screen px-4 py-6 mt-10">
-        <div className="w-full max-w-6xl p-4 border shadow-xl sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border-white/10">
-          {/* Mobile Header - Only visible on mobile */}
-          <h2 className="mb-6 text-2xl font-bold text-center text-white/90 lg:hidden">
-            Sign Up
-          </h2>
+    <AuthLayout
+      title="Create your account"
+      subtitle={SUBTITLES[step]}
+      brandTitle="Join the alley."
+      brandText="Save your cart, check out with Stripe or cash on delivery, and keep every order in one place."
+    >
+      {step === 1 && <GoogleSignIn label="Sign up with Google" />}
+      <StepIndicator step={step} />
 
-          {/* Main Content Container - Responsive Layout */}
-          <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
-            {/* Left Side - Info Panel (Desktop) / Top (Mobile) */}
-            <div className="mb-6 lg:w-2/5 lg:pr-4 lg:mb-0">
-              {/* Desktop Header - Only visible on desktop */}
-              <h2 className="hidden mb-6 text-3xl font-bold lg:block text-white/90">
-                Sign Up
-              </h2>
+      {step === 1 && (
+        <form onSubmit={handleSubmitEmail(sendOtp)} className="space-y-5" noValidate>
+          <AuthField
+            id="signup-email"
+            label="Email"
+            icon={Mail}
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            defaultValue={email}
+            disabled={loading}
+            error={emailErrors.email?.message}
+            {...registerEmail("email", { required: "Email is required" })}
+          />
+          <FormAlert message={error} />
+          <SubmitButton loading={loading} loadingText="Sending code...">
+            Continue
+          </SubmitButton>
+        </form>
+      )}
 
-              {/* Demo Access Banner */}
-              <div className="p-4 mb-4 border rounded-lg bg-white/5 border-white/10">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-purple-300">
-                    Instant Demo Access
-                  </p>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">
-                    1-Click
-                  </span>
-                </div>
-                <p className="mb-3 text-xs text-white/60">
-                  Generate a fresh demo account instantly. Cleaned up automatically after 7 days.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin("admin")}
-                    disabled={demoLoading !== null}
-                    className="w-full py-2.5 px-3 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-md text-purple-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {demoLoading === "admin" ? (
-                      <span>Loading...</span>
-                    ) : (
-                      <>
-                        <span>👑</span> Demo Admin
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin("user")}
-                    disabled={demoLoading !== null}
-                    className="w-full py-2.5 px-3 bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 rounded-md text-pink-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {demoLoading === "user" ? (
-                      <span>Loading...</span>
-                    ) : (
-                      <>
-                        <span>👤</span> Demo User
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Additional Info Panel for Desktop */}
-              <div className="hidden p-4 border rounded-lg lg:block bg-white/5 border-white/10">
-                <h3 className="mb-3 text-lg font-semibold text-white/90">
-                  Join Our Community!
-                </h3>
-                <p className="mb-4 text-sm text-white/70">
-                  Create your account to start your anime adventure with us.
-                </p>
-                <ul className="space-y-2 text-xs text-white/60">
-                  <li>• Build your personal anime collection</li>
-                  <li>• Discover new anime recommendations</li>
-                  <li>• Connect with fellow anime enthusiasts</li>
-                  <li>• Track your watching progress</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Right Side - Form Panel */}
-            <div className="lg:w-3/5 lg:pl-4">
-              {/* Step 1: Email */}
-              {step === 1 && (
-                <form
-                  onSubmit={handleSubmitEmail(sendOtp)}
-                  className="space-y-4 sm:space-y-6"
-                >
-                  <div>
-                    <label className="block text-white/70 mb-1.5 text-sm">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 transition-colors"
-                      placeholder="Enter your email"
-                      {...registerEmail("email", {
-                        required: "Email is required!",
-                      })}
-                      disabled={loading}
-                    />
-                    {emailErrors.email && (
-                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
-                        {emailErrors.email.message}
-                      </span>
-                    )}
-                  </div>
-                  {error && (
-                    <div className="text-sm text-pink-500">{error}</div>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 sm:py-3 rounded-lg bg-pink-500 text-black text-sm sm:text-base font-medium hover:shadow-lg hover:shadow-pink-500/25 transition-all duration-300 cursor-pointer"
-                    disabled={loading}
-                  >
-                    {loading ? "Sending OTP..." : "Continue"}
-                  </button>
-                </form>
-              )}
-
-              {/* Step 2: OTP */}
-              {step === 2 && (
-                <form
-                  onSubmit={handleSubmitOtp(verifyOtp)}
-                  className="space-y-4 sm:space-y-6"
-                >
-                  <div>
-                    <label className="block text-white/70 mb-1.5 text-sm">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 transition-colors"
-                      value={email}
-                      disabled
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-white/70 mb-1.5 text-sm">
-                      OTP
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 transition-colors"
-                      placeholder="Enter OTP"
-                      {...registerOtp("otp", { required: "OTP is required!" })}
-                      disabled={loading}
-                    />
-                    {otpErrors.otp && (
-                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
-                        {otpErrors.otp.message}
-                      </span>
-                    )}
-                    {/* The server answers the same for registered emails (no account enumeration), so say it here */}
-                    <p className="mt-1.5 text-xs text-white/50">
-                      No code? If this email already has an account, no code is sent.{" "}
-                      <a href="/login" className="text-pink-500 hover:text-pink-400">
-                        Log in instead
-                      </a>
-                    </p>
-                  </div>
-                  {error && (
-                    <div className="text-sm text-pink-500">{error}</div>
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      className="flex-1 py-2.5 sm:py-3 rounded-lg bg-pink-500 text-black text-sm sm:text-base font-medium hover:shadow-lg hover:shadow-pink-500/25 transition-all duration-300 cursor-pointer"
-                      disabled={loading}
-                    >
-                      {loading ? "Verifying..." : "Verify OTP"}
-                    </button>
-                    <button
-                      type="button"
-                      className="flex-1 py-2.5 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base hover:bg-white/20 transition-all duration-300 cursor-pointer"
-                      onClick={() => sendOtp({ email })}
-                      disabled={resendCooldown > 0}
-                    >
-                      {resendCooldown > 0
-                        ? `Resend OTP (${resendCooldown}s)`
-                        : "Resend OTP"}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Step 3: Username/Password */}
-              {step === 3 && (
-                <form
-                  onSubmit={handleSubmitSignup(onSignup)}
-                  className="space-y-4 sm:space-y-6"
-                >
-                  <div>
-                    <label className="block text-white/70 mb-1.5 text-sm">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 transition-colors"
-                      value={email}
-                      disabled
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-white/70 mb-1.5 text-sm">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 transition-colors"
-                      placeholder="Enter your username"
-                      {...registerSignup("username", {
-                        required: "Username is required!",
-                      })}
-                      disabled={loading}
-                    />
-                    {signupErrors.username && (
-                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
-                        {signupErrors.username.message}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-white/70 mb-1.5 text-sm">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 transition-colors"
-                      placeholder="Enter your password"
-                      {...registerSignup("password", {
-                        required: "Password is required!",
-                        minLength: {
-                          value: 8,
-                          message: "Password must be at least 8 characters.",
-                        },
-                        // bcrypt on the server ignores anything past 72 bytes
-                        maxLength: {
-                          value: 72,
-                          message: "Password must be at most 72 characters.",
-                        },
-                      })}
-                      disabled={loading}
-                    />
-                    {signupErrors.password && (
-                      <span className="mt-1 text-xs text-pink-500 sm:text-sm">
-                        {signupErrors.password.message}
-                      </span>
-                    )}
-                  </div>
-                  {error && (
-                    <div className="text-sm text-pink-500">{error}</div>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 sm:py-3 rounded-lg bg-pink-500 text-black text-sm sm:text-base font-medium hover:shadow-lg hover:shadow-pink-500/25 transition-all duration-300 cursor-pointer"
-                    disabled={loading}
-                  >
-                    {loading ? "Signing Up..." : "Sign Up"}
-                  </button>
-                </form>
-              )}
-
-              {/* Divider - Reduced margins */}
-              <div className="relative mt-6 mb-4 sm:mt-8 sm:mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10"></div>
-                </div>
-                <div className="relative flex justify-center text-xs sm:text-sm">
-                  <span className="px-4 text-white/40 bg-[#16161f] rounded-full">
-                    or continue with
-                  </span>
-                </div>
-              </div>
-
-              {/* Google Button */}
+      {step === 2 && (
+        <form onSubmit={handleSubmitOtp(verifyOtp)} className="space-y-5" noValidate>
+          {emailSummary}
+          <AuthField
+            id="signup-otp"
+            label="Verification code"
+            icon={KeyRound}
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            placeholder="6-digit code"
+            inputClassName="tracking-[0.3em] placeholder:tracking-normal"
+            disabled={loading}
+            error={otpErrors.otp?.message}
+            hint="No code? If this email already has an account, no code is sent."
+            trailing={
               <button
-                className="w-full py-2.5 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base hover:bg-white/20 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
-                onClick={handleGoogleLogin}
+                type="button"
+                onClick={() => sendOtp({ email })}
+                disabled={resendCooldown > 0 || loading}
+                className="cursor-pointer text-xs font-semibold text-pink-400 transition hover:text-pink-300 disabled:cursor-not-allowed disabled:text-slate-500"
               >
-                <img src={assests.google} className="w-6" />
-                Sign Up with Google
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
               </button>
+            }
+            {...registerOtp("otp", {
+              required: "Enter the code from your email",
+              pattern: { value: /^\d{6}$/, message: "The code is 6 digits" },
+            })}
+          />
+          <FormAlert message={error} />
+          <SubmitButton loading={loading} loadingText="Verifying...">
+            Verify code
+          </SubmitButton>
+        </form>
+      )}
 
-              {/* Login Link - Reduced margin and text size */}
-              <p className="mt-4 text-xs text-center sm:mt-6 text-white/40 sm:text-sm">
-                Already have an account?{" "}
-                <a href="/login" className="text-pink-500 hover:text-pink-400">
-                  Log In
-                </a>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+      {step === 3 && (
+        <form onSubmit={handleSubmitSignup(onSignup)} className="space-y-5" noValidate>
+          {emailSummary}
+          <AuthField
+            id="signup-username"
+            label="Username"
+            icon={User}
+            autoComplete="username"
+            placeholder="How should we call you?"
+            disabled={loading}
+            error={signupErrors.username?.message}
+            {...registerSignup("username", { required: "Username is required" })}
+          />
+          <AuthField
+            id="signup-password"
+            label="Password"
+            icon={Lock}
+            type="password"
+            autoComplete="new-password"
+            placeholder="Create a password"
+            disabled={loading}
+            hint="8 to 72 characters."
+            error={signupErrors.password?.message}
+            {...registerSignup("password", {
+              required: "Password is required",
+              minLength: { value: 8, message: "Password must be at least 8 characters." },
+              // bcrypt on the server ignores anything past 72 bytes
+              maxLength: { value: 72, message: "Password must be at most 72 characters." },
+            })}
+          />
+          <FormAlert message={error} />
+          <SubmitButton loading={loading} loadingText="Creating account...">
+            Create account
+          </SubmitButton>
+        </form>
+      )}
+
+      <p className="mt-6 text-center text-sm text-slate-400">
+        Already have an account?{" "}
+        <Link to="/login" className="font-semibold text-pink-400 transition hover:text-pink-300">
+          Log in
+        </Link>
+      </p>
+
+      <DemoAccess />
+    </AuthLayout>
   );
 };
 

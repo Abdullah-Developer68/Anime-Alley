@@ -1,86 +1,43 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { Lock, Mail } from "lucide-react";
 import useAuth from "../Hooks/UseAuth";
 import api from "../api/api";
-import { toast } from "react-toastify";
 import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
+import AuthLayout from "../components/Auth/AuthLayout";
+import AuthField from "../components/Auth/AuthField";
+import DemoAccess from "../components/Auth/DemoAccess";
+import { GoogleSignIn, SubmitButton } from "../components/Auth/AuthButtons";
 
 const Login = () => {
-  // using custom hook for auth
   const { setUser } = useAuth();
-  // to navigate
   const navigate = useNavigate();
-  const [demoLoading, setDemoLoading] = useState(null);
 
-  // form setup
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm();
-
-  const handleDemoLogin = async (role) => {
-    setDemoLoading(role);
-    try {
-      const res = await api.demoLogin(role);
-
-      if (res.data.success) {
-        // Check if user email has changed and clear localStorage if needed
-        const wasCleared = checkAndHandleUserChange(res.data.user);
-        if (!wasCleared) {
-          // Only clear if user didn't change (to avoid double clearing)
-          localStorage.clear();
-        }
-
-        // Access token for the Authorization header, refresh token to renew it
-        saveAuthTokens(res.data);
-
-        // Store user info
-        setUser(res.data.user);
-        localStorage.setItem("userInfo", JSON.stringify(res.data.user));
-        toast.success(
-          `Logged in as ${res.data.user.username} (${res.data.user.role})!`,
-        );
-        navigate("/");
-      } else {
-        toast.error(res.data.message || "Failed to create demo account");
-      }
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to create demo account. Please try again.",
-      );
-      console.error("Demo login error:", error);
-    } finally {
-      setDemoLoading(null);
-    }
-  };
 
   const localLogin = async (data) => {
     try {
       const res = await api.login(data);
 
       if (res.data.success) {
-        // Check if user email has changed and clear localStorage if needed
-        const wasCleared = checkAndHandleUserChange(res.data.user);
-        if (!wasCleared) {
-          // Only clear if user didn't change (to avoid double clearing)
+        // Only clear if the user didn't change, to avoid clearing twice
+        if (!checkAndHandleUserChange(res.data.user))
           localStorage.clear();
-        }
 
         // Access token for the Authorization header, refresh token to renew it
         saveAuthTokens(res.data);
 
-        // Store user info
         setUser(res.data.user);
         localStorage.setItem("userInfo", JSON.stringify(res.data.user));
         navigate("/");
       }
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Try again something went wrong!",
-      );
+      toast.error(error.response?.data?.message || "Try again something went wrong!");
       console.error("Login error:", {
         message: error.response?.data?.message,
         status: error.response?.status,
@@ -88,212 +45,50 @@ const Login = () => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    api.googleLogin();
-  };
-
   return (
-    <>
-      <div className="flex items-center justify-center min-h-screen px-4 py-6 mt-10">
-        <div className="w-full max-w-6xl p-4 border shadow-xl sm:p-8 bg-white/5 backdrop-blur-sm rounded-xl border-white/10">
-          {/* Mobile Header - Only visible on mobile */}
-          <h2 className="mb-6 text-2xl font-bold text-center text-white/90 lg:hidden">
-            Log In
-          </h2>
+    <AuthLayout
+      title="Welcome back"
+      subtitle="Log in to check out faster and track your orders."
+      brandTitle="Your anime gear, all in one place."
+      brandText="Comics, figures, apparel and sneakers from the series you love, shipped to your door."
+    >
+      <GoogleSignIn />
 
-          {/* Main Content Container - Responsive Layout */}
-          <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-start">
-            {/* Left Side - Info Panel (Desktop) / Top (Mobile) */}
-            <div className="mb-6 lg:w-2/5 lg:pr-4 lg:mb-0">
-              {/* Desktop Header - Only visible on desktop */}
-              <h2 className="hidden mb-6 text-3xl font-bold lg:block text-white/90">
-                Log In
-              </h2>
+      <form onSubmit={handleSubmit(localLogin)} className="space-y-5" noValidate>
+        <AuthField
+          id="login-email"
+          label="Email"
+          icon={Mail}
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          error={errors.email?.message}
+          {...register("email", { required: "Email is required" })}
+        />
+        <AuthField
+          id="login-password"
+          label="Password"
+          icon={Lock}
+          type="password"
+          autoComplete="current-password"
+          placeholder="Your password"
+          error={errors.password?.message}
+          {...register("password", { required: "Password is required" })}
+        />
+        <SubmitButton loading={isSubmitting} loadingText="Logging in...">
+          Log in
+        </SubmitButton>
+      </form>
 
-              {/* Demo Accounts Banner */}
-              <div className="p-4 mb-4 border rounded-lg bg-white/5 border-white/10">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-semibold text-purple-300">
-                    Instant Demo Access
-                  </p>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">
-                    1-Click
-                  </span>
-                </div>
-                <p className="mb-3 text-xs text-white/60">
-                  Generate a fresh demo account instantly. Cleaned up automatically after 7 days.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin("admin")}
-                    disabled={demoLoading !== null}
-                    className="w-full py-2.5 px-3 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-md text-purple-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {demoLoading === "admin" ? (
-                      <span>Loading...</span>
-                    ) : (
-                      <>
-                        <span>👑</span> Demo Admin
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin("user")}
-                    disabled={demoLoading !== null}
-                    className="w-full py-2.5 px-3 bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 rounded-md text-pink-200 hover:text-white transition-all duration-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    {demoLoading === "user" ? (
-                      <span>Loading...</span>
-                    ) : (
-                      <>
-                        <span>👤</span> Demo User
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+      <p className="mt-6 text-center text-sm text-slate-400">
+        New to Anime Alley?{" "}
+        <Link to="/signup" className="font-semibold text-pink-400 transition hover:text-pink-300">
+          Create an account
+        </Link>
+      </p>
 
-              {/* Additional Info Panel for Desktop */}
-              <div className="hidden p-4 border rounded-lg lg:block bg-white/5 border-white/10">
-                <h3 className="mb-3 text-lg font-semibold text-white/90">
-                  Welcome Back!
-                </h3>
-                <p className="mb-4 text-sm text-white/70">
-                  Sign in to access your account and continue your anime
-                  journey.
-                </p>
-                <ul className="space-y-2 text-xs text-white/60">
-                  <li>• Access your personalized dashboard</li>
-                  <li>• Manage your anime collection</li>
-                  <li>• Connect with the community</li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Right Side - Form Panel */}
-            <div className="lg:w-3/5 lg:pl-4">
-              <form
-                onSubmit={handleSubmit(localLogin)}
-                className="space-y-5 sm:space-y-7"
-              >
-                {/* Email Field */}
-                <div className="space-y-2">
-                  <label className="block mb-2 text-sm font-medium text-white/70">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
-                    placeholder="Enter your email address"
-                    {...register("email", { required: "Email is required!" })}
-                  />
-                  {errors.email && (
-                    <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
-                      {errors.email.message}
-                    </span>
-                  )}
-                </div>
-
-                {/* Password Field */}
-                <div className="space-y-2">
-                  <div className="flex justify-between mb-2">
-                    <label className="text-sm font-medium text-white/70">
-                      Password
-                    </label>
-                    <Link
-                      to="/forgot-password"
-                      className="text-xs text-pink-500 transition-colors sm:text-sm hover:text-pink-400"
-                    >
-                      Forgot Password?
-                    </Link>
-                  </div>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-3 text-sm text-white transition-all duration-300 border rounded-lg sm:px-5 sm:py-4 bg-white/10 border-white/20 sm:text-base placeholder:text-white/40 focus:outline-none focus:border-pink-500/50 focus:bg-white/15"
-                    placeholder="Enter your password"
-                    {...register("password", {
-                      required: "Password is required!",
-                    })}
-                  />
-                  {errors.password && (
-                    <span className="block mt-2 text-xs text-pink-500 sm:text-sm">
-                      {errors.password.message}
-                    </span>
-                  )}
-                </div>
-
-                {/* Login Button */}
-                <button
-                  type="submit"
-                  className="w-full py-3 mt-2 text-sm font-semibold text-black transition-all duration-300 bg-pink-500 rounded-lg cursor-pointer sm:py-4 sm:text-base hover:shadow-lg hover:shadow-pink-500/25 hover:bg-pink-400"
-                >
-                  Login
-                </button>
-              </form>
-
-              {/* Divider */}
-              <div className="relative mt-8 mb-6 sm:mt-10 sm:mb-8">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-white/10"></div>
-                </div>
-                <div className="relative flex justify-center text-xs sm:text-sm">
-                  <span className="px-4 text-white/40 bg-[#16161f] rounded-full">
-                    or continue with
-                  </span>
-                </div>
-              </div>
-
-
-              {/* Google Login Button */}
-              <button
-                onClick={handleGoogleLogin}
-                className="flex items-center justify-center w-full gap-3 py-3 text-sm text-white transition-all duration-300 border rounded-lg cursor-pointer sm:py-4 bg-white/10 border-white/20 sm:text-base hover:bg-white/20"
-              >
-                <svg
-                  className="w-4 h-4 sm:w-5 sm:h-5"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 48 48"
-                >
-                  <path
-                    fill="#EA4335"
-                    d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                  />
-                  <path
-                    fill="#4285F4"
-                    d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.30-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                  />
-                  <path fill="none" d="M0 0h48v48H0z" />
-                </svg>
-                Continue with Google
-              </button>
-
-              {/* Sign Up Link */}
-              <div className="mt-6 space-y-3 text-center sm:mt-8">
-                <p className="text-xs text-white/40 sm:text-sm">
-                  Do not have an account?{" "}
-                  <Link
-                    to="/signup"
-                    className="font-medium text-pink-500 transition-colors hover:text-pink-400"
-                  >
-                    Sign Up
-                  </Link>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+      <DemoAccess />
+    </AuthLayout>
   );
 };
 
