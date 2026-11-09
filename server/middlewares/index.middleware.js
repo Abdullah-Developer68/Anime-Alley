@@ -4,12 +4,14 @@ const corsMiddleware = require("./modules/cors.middleware.js");
 const jsonParserMiddleware = require("./modules/jsonParser.middleware.js");
 const morganMiddleware = require("./modules/morgan.middleware.js");
 const { rejectOperatorKeys } = require("./custom/rejectOperators.middleware.js");
+const { apiLimiter } = require("./custom/rateLimiters.middleware.js");
 
 // Apply all middlewares with app instance
 module.exports = (app) => {
   app.use(helmetMiddleware); // Security headers on every response, including errors
   app.use(corsMiddleware); // CORS
   app.options(/.*/, corsMiddleware); // Handle preflight requests for all routes (RegExp matches / and all subpaths in Express 5)
+  app.use("/api", apiLimiter); // Per-IP baseline for every API route; preflights were answered above
   app.use(jsonParserMiddleware); // JSON only: no urlencoded parser, so plain HTML forms from other sites have no body
   app.use(morganMiddleware); // Logs requests outside production
   app.use(rejectOperatorKeys); // Blocks {"$ne": ...}-style NoSQL injection in JSON bodies and query strings
