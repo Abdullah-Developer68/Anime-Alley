@@ -1,24 +1,25 @@
 // works for addItem and edit
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import api from "../../../../api/api";
 import {
   closeProductForm,
   setReloadData,
 } from "../../../../redux/Slice/DashboardSlice";
 import { useSelector, useDispatch } from "react-redux";
-import assets from "../../../../assets/asset";
 import { toast } from "react-toastify";
 import { formatPrice } from "../../../../utils/formatPrice";
 import { validateComicVolumes } from "../../../../utils/volume";
+import BasicFields from "./ProductFormSections/BasicFields";
+import StockFields from "./ProductFormSections/StockFields";
+import ComicsFields from "./ProductFormSections/ComicsFields";
+import ClothesShoesFields from "./ProductFormSections/ClothesShoesFields";
+import ToysFields from "./ProductFormSections/ToysFields";
+import ProductImageUpload from "./ProductFormSections/ProductImageUpload";
+import { splitList } from "./ProductFormSections/constants";
 
+// Sections read and update the form through useFormContext, so nothing is passed down as props
 const ProductForm = () => {
-  // State for image preview and file handling
-  const [previewImage, setPreviewImage] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [error, setError] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
-
   //redux
   const dispatch = useDispatch();
   const { productFormState } = useSelector((state) => state.dashboard);
@@ -26,14 +27,7 @@ const ProductForm = () => {
   const editProduct = productFormState.selectedProduct;
 
   // Initialize react-hook-form with default values and validation mode
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    clearErrors,
-    watch,
-  } = useForm({
+  const methods = useForm({
     defaultValues: {
       productId: "", // Auto-generated for new products, kept in state
       productName: "",
@@ -42,6 +36,7 @@ const ProductForm = () => {
       stock: "",
       category: "",
       image: "",
+      imageFile: null, // File picked in ProductImageUpload
       genres: "",
       volumes: "",
       availableSizes: [],
@@ -51,6 +46,13 @@ const ProductForm = () => {
     },
     mode: "onChange",
   });
+  const {
+    handleSubmit,
+    formState: { isSubmitting },
+    setValue,
+    clearErrors,
+    watch,
+  } = methods;
 
   // Pre-populate form when editing a product
   useEffect(() => {
@@ -94,75 +96,10 @@ const ProductForm = () => {
           setValue("stock", defVariant ? defVariant.stock : 0);
         }
       }
-      // Always set preview to product image in edit mode
-      if (editProduct.image)
-        setPreviewImage(editProduct.image);
-      setSelectedFile(null); // clear file selection in edit mode
     }
-    // In add mode, do NOT reset previewImage or selectedFile here!
-    // Let the user's selection persist.
   }, [editProduct, setValue]);
 
-  // Handles image file selection and preview
-  // @param {Event} e - File input change event
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-
-    if (file) {
-      setSelectedFile(file);
-      const imgUrl = URL.createObjectURL(file);
-      setPreviewImage(imgUrl);
-    } else {
-      // If no file selected, reset to edit image if in edit mode
-      setSelectedFile(null);
-      if (editProduct && editProduct.image)
-        setPreviewImage(editProduct.image);
-      else
-        setPreviewImage(null);
-    }
-  };
-
-  // Watch form values for conditional rendering and validation
   const selectedCategory = watch("category");
-  const availableSizes = watch("availableSizes") || [];
-  const volumes = watch("volumes") || "";
-
-  // Register availableSizes with category-specific validation requiring at least one size
-  useEffect(() => {
-    register("availableSizes", {
-      validate: (value) => {
-        if (!["clothes", "shoes"].includes(selectedCategory)) return true;
-        return (
-          (Array.isArray(value) && value.length > 0) ||
-          "At least one size is required!"
-        );
-      },
-    });
-  }, [register, selectedCategory]);
-
-  // Capitalize Volumes input as user types and validate format
-  const handleVolumesChange = (e) => {
-    let value = e.target.value;
-
-    // Split by comma and process each volume
-    const volumes = value.split(",").map((v) => v.trim());
-    const processedVolumes = [];
-
-    volumes.forEach((volume) => {
-      if (volume === "") return; // Skip empty entries
-
-      // Check if it matches the pattern (v or V followed by numbers)
-      const match = volume.match(/^(?:[vV])?(\d+)$/);
-      if (match)
-        processedVolumes.push(`V${match[1]}`);
-      else if (volume !== "")
-        // If it doesn't match and isn't empty, keep original to show error
-        processedVolumes.push(volume);
-    });
-
-    const finalValue = processedVolumes.join(", ");
-    setValue("volumes", finalValue, { shouldValidate: true });
-  };
 
   // Track initial category to prevent clearing on first load
   const [initialCategory, setInitialCategory] = useState(null);
@@ -211,12 +148,20 @@ const ProductForm = () => {
       setInitialCategory(selectedCategory);
   }, [selectedCategory, initialCategory, watch, setValue, clearErrors]);
 
+  // The form is unmounted when closed, so its local state resets on its own
+  const handleClose = () => dispatch(closeProductForm());
+
+  // Stock per size/volume label -> [{ label, stock }]
+  const toVariants = (labels, data) =>
+    labels.map((label) => ({
+      label,
+      stock: Number(data[`stock_${label}`]) || 0,
+    }));
+
   // Handles form submission
   // Processes form data based on product category and sends to backend
   const onSubmit = async (data) => {
     try {
-      setError(null);
-      setIsSaving(true);
       const formData = new FormData();
 
       // Basic fields (updates identify the product by its _id in the URL, see api.updateProduct)
@@ -226,16 +171,13 @@ const ProductForm = () => {
       formData.append("category", data.category);
 
       // Handle image - only append if new file selected, otherwise keep existing
-      if (selectedFile)
-        formData.append("image", selectedFile);
+      if (data.imageFile)
+        formData.append("image", data.imageFile);
       else if (editProduct && editProduct.image)
         formData.append("image", editProduct.image);
 
       if (data.category === "comics") {
-        const volumes = data.volumes
-          .split(",")
-          .map((v) => v.trim())
-          .filter((v) => v);
+        const volumes = splitList(data.volumes);
 
         const volumeValidation = validateComicVolumes(volumes);
         if (!volumeValidation.valid) {
@@ -243,65 +185,22 @@ const ProductForm = () => {
           return;
         }
 
-        const genres = data.genres
-          .split(",")
-          .map((g) => g.trim())
-          .filter((g) => g);
+        formData.append("genres", JSON.stringify(splitList(data.genres)));
+        formData.append("variants", JSON.stringify(toVariants(volumes, data)));
+      } else if (data.category === "clothes" || data.category === "shoes") {
+        const sizes = Array.isArray(data.availableSizes) ? data.availableSizes : [];
+        const typeField = data.category === "clothes" ? "clothesType" : "shoeType";
 
-        // Convert volumes array to structured variants array with numeric stock
-        const variants = volumes.map((volume) => ({
-          label: volume,
-          stock: Number(data[`stock_${volume}`]) || 0,
-        }));
-
-        formData.append("genres", JSON.stringify(genres));
-        formData.append("variants", JSON.stringify(variants));
-      } else if (data.category === "clothes") {
-        const sizes = Array.isArray(data.availableSizes)
-          ? data.availableSizes
-          : [];
-
-        // Convert sizes array to structured variants array with numeric stock
-        const variants = sizes.map((size) => ({
-          label: size,
-          stock: Number(data[`stock_${size}`]) || 0,
-        }));
-
-        formData.append("clothesType", data.clothesType.toLowerCase());
-        formData.append("variants", JSON.stringify(variants));
-      } else if (data.category === "shoes") {
-        const sizes = Array.isArray(data.availableSizes)
-          ? data.availableSizes
-          : [];
-
-        // Convert sizes array to structured variants array with numeric stock
-        const variants = sizes.map((size) => ({
-          label: size,
-          stock: Number(data[`stock_${size}`]) || 0,
-        }));
-
-        formData.append("shoeType", data.shoeType.toLowerCase());
-        formData.append("variants", JSON.stringify(variants));
-      } else if (data.category === "toys") {
-        formData.append("toyType", data.toyType.toLowerCase());
-
-        // Toys have a single default variant with stock
-        const variants = [
-          {
-            label: "Default",
-            stock: Number(data.stock) || 0,
-          },
-        ];
-        formData.append("variants", JSON.stringify(variants));
+        formData.append(typeField, data[typeField].toLowerCase());
+        formData.append("variants", JSON.stringify(toVariants(sizes, data)));
       } else {
-        // Fallback for custom categories
-        const variants = [
-          {
-            label: "Default",
-            stock: Number(data.stock) || 0,
-          },
-        ];
-        formData.append("variants", JSON.stringify(variants));
+        // Toys and any custom category have a single default variant
+        if (data.category === "toys")
+          formData.append("toyType", data.toyType.toLowerCase());
+        formData.append(
+          "variants",
+          JSON.stringify([{ label: "Default", stock: Number(data.stock) || 0 }]),
+        );
       }
 
       // API call to create or update product with proper error handling
@@ -331,34 +230,7 @@ const ProductForm = () => {
         err.response?.data?.message ||
           `Failed to ${editProduct ? "update" : "create"} product. Please try again.`,
       );
-    } finally {
-      setIsSaving(false);
     }
-  };
-
-  // Closes modal and resets state
-  const handleClose = () => {
-    dispatch(closeProductForm());
-    setPreviewImage(null);
-    setSelectedFile(null);
-    setError(null);
-  };
-
-  // Handles size checkbox selection for clothes and shoes
-  // @param {string} size - The size being toggled
-  const handleSizeChange = (size) => {
-    const currentSizes = watch("availableSizes") || [];
-    let newSizes;
-
-    if (currentSizes.includes(size)) {
-      newSizes = currentSizes.filter((s) => s !== size);
-      // Clear stock field when size is unchecked
-      setValue(`stock_${size}`, "");
-    } else {
-      newSizes = [...currentSizes, size];
-    }
-
-    setValue("availableSizes", newSizes, { shouldValidate: true });
   };
 
   return (
@@ -377,672 +249,56 @@ const ProductForm = () => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Left Column - Product Details */}
-            <div className="space-y-4 lg:col-span-2">
-              {/* Basic Fields */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-400">
-                    Product Name
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
-                    placeholder="Enter product name"
-                    {...register("productName", {
-                      required: "Product name is required!",
-                    })}
-                  />
-                  {errors.productName && (
-                    <span className="block mt-1 text-xs text-red-500">
-                      {errors.productName.message}
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-400">
-                    Description
-                  </label>
-                  <textarea
-                    rows="3"
-                    className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
-                    placeholder="Enter product description"
-                    {...register("description", {
-                      required: "Description is required!",
-                    })}
-                  />
-                  {errors.description && (
-                    <span className="block mt-1 text-xs text-red-500">
-                      {errors.description.message}
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Price
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      min="0"
-                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
-                      placeholder="Enter price"
-                      {...register("price", {
-                        required: "Price is required!",
-                        validate: (value) =>
-                          (!isNaN(Number(value)) && Number(value) >= 0) ||
-                          "Price must be a valid non-negative number",
-                      })}
-                    />
-                    {errors.price && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.price.message}
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Category
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
-                      {...register("category", {
-                        required: "Category is required!",
-                      })}
-                    >
-                      <option className="text-white bg-black" value="">
-                        Select Category
-                      </option>
-                      <option
-                        className="text-gray-300 bg-gray-800"
-                        value="comics"
-                      >
-                        Comics
-                      </option>
-                      <option
-                        className="text-gray-300 bg-gray-800"
-                        value="clothes"
-                      >
-                        Clothes
-                      </option>
-                      <option
-                        className="text-gray-300 bg-gray-800"
-                        value="shoes"
-                      >
-                        Shoes
-                      </option>
-                      <option className="text-gray-300 bg-gray-800" value="toys">
-                        Toys
-                      </option>
-                    </select>
-                    {errors.category && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.category.message}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Stock - Single Input for Toys */}
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              {/* Left Column - Product Details */}
+              <div className="space-y-4 lg:col-span-2">
                 <div className="space-y-4">
-                  {selectedCategory === "toys" && (
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-400">
-                        Stock
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
-                        placeholder="Enter stock"
-                        {...register("stock", {
-                          required: "Stock is required!",
-                          min: {
-                            value: 0,
-                            message: "Stock cannot be negative",
-                          },
-                          validate: (value) =>
-                            Number.isInteger(Number(value)) ||
-                            "Must be a valid integer",
-                        })}
-                      />
-                      {errors.stock && (
-                        <span className="block mt-1 text-xs text-red-500">
-                          {errors.stock.message}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  <BasicFields />
+                  <StockFields />
                 </div>
 
-                {/* Stock per Size for Clothes and Shoes */}
-                {(selectedCategory === "clothes" ||
-                  selectedCategory === "shoes") && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-400">
-                      Stock per Size
-                    </label>
-                    {availableSizes.length === 0 ? (
-                      <div className="p-3 text-xs text-yellow-400 border rounded-lg bg-yellow-400/10 border-yellow-400/20">
-                        Please select at least one size below under Additional Details to enter stock values.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
-                        {["XS", "S", "M", "L", "XL", "XXL"]
-                          .filter((size) => availableSizes.includes(size))
-                          .map((size) => (
-                            <div key={size} className="flex flex-col">
-                              <div className="flex overflow-hidden transition-colors border rounded-lg border-white/10 bg-white/5 focus-within:border-pink-500">
-                                <span className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white/90 bg-white/10 border-r border-white/10 min-w-[44px]">
-                                  {size}
-                                </span>
-                                <input
-                                  type="number"
-                                  step="1"
-                                  min="0"
-                                  className="w-full px-3 py-2 text-sm text-white bg-transparent placeholder:text-white/40 focus:outline-none sm:text-base"
-                                  placeholder="0"
-                                  {...register(`stock_${size}`, {
-                                    required: `Stock for Size ${size} is required!`,
-                                    min: {
-                                      value: 0,
-                                      message: "Stock cannot be negative",
-                                    },
-                                    validate: (value) =>
-                                      Number.isInteger(Number(value)) ||
-                                      "Must be a valid integer",
-                                  })}
-                                />
-                              </div>
-                              {errors[`stock_${size}`] && (
-                                <span className="block mt-1 text-xs text-red-500">
-                                  {errors[`stock_${size}`].message}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Stock per Volume for Comics */}
-                {selectedCategory === "comics" && (
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-400">
-                      Stock per Volume
-                    </label>
-                    {volumes
-                      .split(",")
-                      .map((v) => v.trim())
-                      .filter((v) => v).length === 0 ? (
-                      <div className="p-3 text-xs text-yellow-400 border rounded-lg bg-yellow-400/10 border-yellow-400/20">
-                        Please enter at least one volume number below under Additional Details to enter stock values.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                        {volumes
-                          .split(",")
-                          .map((v) => v.trim())
-                          .filter((v) => v)
-                          .map((volume) => (
-                            <div key={volume} className="flex flex-col">
-                              <div className="flex overflow-hidden transition-colors border rounded-lg border-white/10 bg-white/5 focus-within:border-pink-500">
-                                <span className="inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white/90 bg-white/10 border-r border-white/10 min-w-[54px]">
-                                  {volume}
-                                </span>
-                                <input
-                                  type="number"
-                                  step="1"
-                                  min="0"
-                                  className="w-full px-3 py-2 text-sm text-white bg-transparent placeholder:text-white/40 focus:outline-none sm:text-base"
-                                  placeholder="0"
-                                  {...register(`stock_${volume}`, {
-                                    required: `Stock for Volume ${volume} is required!`,
-                                    min: {
-                                      value: 0,
-                                      message: "Stock cannot be negative",
-                                    },
-                                    validate: (value) =>
-                                      Number.isInteger(Number(value)) ||
-                                      "Must be a valid integer",
-                                  })}
-                                />
-                              </div>
-                              {errors[`stock_${volume}`] && (
-                                <span className="block mt-1 text-xs text-red-500">
-                                  {errors[`stock_${volume}`].message}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Fallback Single Stock for any other custom category */}
-                {selectedCategory !== "" &&
-                  !["clothes", "shoes", "comics", "toys"].includes(
-                    selectedCategory
-                  ) && (
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-400">
-                        Stock
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
-                        placeholder="Enter stock"
-                        {...register("stock", {
-                          required: "Stock is required!",
-                          min: {
-                            value: 0,
-                            message: "Stock cannot be negative",
-                          },
-                          validate: (value) =>
-                            Number.isInteger(Number(value)) ||
-                            "Must be a valid integer",
-                        })}
-                      />
-                      {errors.stock && (
-                        <span className="block mt-1 text-xs text-red-500">
-                          {errors.stock.message}
-                        </span>
-                      )}
-                    </div>
-                  )}
-              </div>
-
-              {/* Category Specific Fields */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-white">
-                  Additional Details
-                </h3>
-
-                {/* Comics Specific */}
-                <div
-                  className={`space-y-4 comics-fields ${
-                    selectedCategory === "comics" ? "block" : "hidden"
-                  }`}
-                >
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-400">
-                        Genres
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          "Action",
-                          "Adventure",
-                          "Comedy",
-                          "Drama",
-                          "Fantasy",
-                        ].map((genre) => (
-                          <label
-                            key={genre}
-                            className={`inline-flex items-center px-3 py-1 rounded-full border border-white/10 cursor-pointer hover:bg-white hover:text-black transition-colors text-sm ${
-                              watch("genres")
-                                ?.split(",")
-                                .map((g) => g.trim())
-                                .includes(genre)
-                                ? "bg-pink-500 text-black"
-                                : "bg-white/5 text-white"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              value={genre}
-                              className="sr-only"
-                              checked={
-                                watch("genres")
-                                  ?.split(",")
-                                  .map((g) => g.trim())
-                                  .includes(genre) || false
-                              }
-                              onChange={(e) => {
-                                const currentGenres =
-                                  watch("genres")
-                                    ?.split(",")
-                                    .map((g) => g.trim())
-                                    .filter((g) => g) || [];
-                                let newGenres;
-                                if (e.target.checked) {
-                                  newGenres = [...currentGenres, genre];
-                                } else {
-                                  newGenres = currentGenres.filter(
-                                    (g) => g !== genre,
-                                  );
-                                }
-                                setValue("genres", newGenres.join(", "), {
-                                  shouldValidate: true,
-                                });
-                              }}
-                            />
-                            <span>{genre}</span>
-                          </label>
-                        ))}
-                      </div>
-                      {errors.genres && (
-                        <span className="block mt-1 text-xs text-red-500">
-                          {errors.genres.message}
-                        </span>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-400">
-                        Volume Numbers
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500 sm:text-base"
-                        placeholder="V1, V2, V10, ... (e.g. V1, V2, V10)"
-                        {...register("volumes", {
-                          validate: (value) => {
-                            if (selectedCategory !== "comics") return true;
-                            if (value.trim() === "")
-                              return "Volume numbers are required for comics";
-
-                            // Split by comma and validate each volume
-                            const volumes = value
-                              .split(",")
-                              .map((v) => v.trim())
-                              .filter((v) => v !== "");
-
-                            // Check if all volumes match the V+number format
-                            const volumeValidation = validateComicVolumes(volumes);
-                            if (!volumeValidation.valid)
-                              return volumeValidation.message;
-
-                            // Check for duplicates
-                            const uniqueVolumes = [...new Set(volumes.map((v) => v.toUpperCase()))];
-                            if (uniqueVolumes.length !== volumes.length)
-                              return "Duplicate volume numbers are not allowed";
-
-                            return true;
-                          },
-                        })}
-                        onBlur={handleVolumesChange}
-                      />
-                      {errors.volumes && (
-                        <span className="block mt-1 text-xs text-red-500">
-                          {errors.volumes.message}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Clothes & Shoes Specific */}
-                <div
-                  className={`space-y-4 clothes-shoes-fields ${
-                    selectedCategory === "clothes" ||
-                    selectedCategory === "shoes"
-                      ? "block"
-                      : "hidden"
-                  }`}
-                >
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Available Sizes
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {["XS", "S", "M", "L", "XL", "XXL"].map((size) => (
-                        <label
-                          key={size}
-                          className={`inline-flex items-center px-3 py-1 rounded-full border border-white/10 cursor-pointer hover:bg-white hover:text-black transition-colors text-sm ${
-                            availableSizes.includes(size)
-                              ? "bg-pink-500 text-black"
-                              : "bg-white/5 text-white"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            value={size}
-                            className="sr-only"
-                            checked={availableSizes.includes(size)}
-                            onChange={() => handleSizeChange(size)}
-                          />
-                          <span>{size}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {errors.availableSizes && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.availableSizes.message}
-                      </span>
-                    )}
-                  </div>
-                  {selectedCategory === "clothes" && (
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-400">
-                        Clothes Type
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
-                        {...register("clothesType", {
-                          validate: (value) =>
-                            selectedCategory !== "clothes" ||
-                            (typeof value === "string" && value.trim() !== "") ||
-                            "Clothes type is required!",
-                        })}
-                      >
-                        <option className="text-white bg-black" value="">
-                          Select Type
-                        </option>
-                        <option
-                          className="text-gray-300 bg-gray-800"
-                          value="t-shirt"
-                        >
-                          T-Shirt
-                        </option>
-                        <option
-                          className="text-gray-300 bg-gray-800"
-                          value="jacket"
-                        >
-                          Jacket
-                        </option>
-                        <option
-                          className="text-gray-300 bg-gray-800"
-                          value="pants"
-                        >
-                          Pants
-                        </option>
-                      </select>
-                      {errors.clothesType && (
-                        <span className="block mt-1 text-xs text-red-500">
-                          {errors.clothesType.message}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {selectedCategory === "shoes" && (
-                    <div>
-                      <label className="block mb-1 text-sm font-medium text-gray-400">
-                        Shoe Type
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
-                        {...register("shoeType", {
-                          validate: (value) =>
-                            selectedCategory !== "shoes" ||
-                            (typeof value === "string" && value.trim() !== "") ||
-                            "Shoe type is required!",
-                        })}
-                      >
-                        <option className="text-white bg-black" value="">
-                          Select Type
-                        </option>
-                        <option
-                          className="text-gray-300 bg-gray-800"
-                          value="sneakers"
-                        >
-                          Sneakers
-                        </option>
-                        <option
-                          className="text-gray-300 bg-gray-800"
-                          value="boots"
-                        >
-                          Boots
-                        </option>
-                      </select>
-                      {errors.shoeType && (
-                        <span className="block mt-1 text-xs text-red-500">
-                          {errors.shoeType.message}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Toys Specific */}
-                <div
-                  className={`space-y-4 toys-fields ${
-                    selectedCategory === "toys" ? "block" : "hidden"
-                  }`}
-                >
-                  <div>
-                    <label className="block mb-1 text-sm font-medium text-gray-400">
-                      Toy Type
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base"
-                      {...register("toyType", {
-                        validate: (value) =>
-                          selectedCategory !== "toys" ||
-                          (typeof value === "string" && value.trim() !== "") ||
-                          "Toy type is required!",
-                      })}
-                    >
-                      <option className="text-white bg-black" value="">
-                        Select Type
-                      </option>
-                      <option
-                        className="text-gray-300 bg-gray-800"
-                        value="action-figure"
-                      >
-                        Action Figure
-                      </option>
-                      <option className="text-gray-300 bg-gray-800" value="car">
-                        Car
-                      </option>
-                      <option
-                        className="text-gray-300 bg-gray-800"
-                        value="doll"
-                      >
-                        Doll
-                      </option>
-                    </select>
-                    {errors.toyType && (
-                      <span className="block mt-1 text-xs text-red-500">
-                        {errors.toyType.message}
-                      </span>
-                    )}
-                  </div>
+                {/* Category Specific Fields */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-white">
+                    Additional Details
+                  </h3>
+                  <ComicsFields />
+                  <ClothesShoesFields />
+                  <ToysFields />
                 </div>
               </div>
 
-              {/* Error Display */}
-              {error && (
-                <div className="p-4 text-sm text-red-500 border rounded-lg bg-red-500/10 border-red-500/20">
-                  {error}
-                </div>
-              )}
-            </div>
-
-            {/* Right Column - Image Upload */}
-            <div className="lg:col-span-1">
-              <div className="sticky space-y-4 top-24">
-                <h3 className="text-lg font-medium text-white">
-                  Product Image
-                </h3>
-                <div className="p-4 text-center border-2 border-dashed rounded-lg border-white/10 sm:p-6">
-                  <div className="space-y-2">
-                    <img
-                      src={assets.file}
-                      alt="file icon"
-                      className="mx-auto mb-2"
-                    />
-                    <div className="text-sm text-gray-400">
-                      <label
-                        htmlFor="file-upload"
-                        className="relative flex flex-col items-center justify-center text-pink-500 cursor-pointer hover:text-pink-400"
-                      >
-                        <span className="w-full p-2 text-sm text-black transition-colors bg-pink-500 rounded-full sm:w-32 hover:bg-pink-600">
-                          Upload a file
-                        </span>
-                        <input
-                          id="file-upload"
-                          type="file"
-                          className="sr-only"
-                          accept="image/*"
-                          {...register("image", {
-                            required: !editProduct
-                              ? "Image is required!"
-                              : false, // Make optional in edit mode
-                          })}
-                          onChange={handleImageUpload}
-                        />
-                        {errors.image && (
-                          <span className="block mt-2 text-xs text-red-500">
-                            {errors.image.message}
-                          </span>
-                        )}
-                      </label>
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">
-                      PNG, JPG, GIF up to 10MB
-                    </p>
-
-                    {previewImage && (
-                      <div className="mt-4">
-                        <img
-                          src={previewImage}
-                          className="object-contain w-full border rounded-lg max-h-48 border-white/20"
-                          alt="Preview"
-                        />
-                        <p className="mt-2 text-xs text-green-400">
-                          ✓ Image selected
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              {/* Right Column - Image Upload */}
+              <div className="lg:col-span-1">
+                <ProductImageUpload />
               </div>
             </div>
-          </div>
 
-          {/* Form Actions */}
-          <div className="flex flex-col justify-end gap-3 pt-6 mt-6 border-t sm:flex-row sm:gap-4 border-white/10">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="w-full px-4 py-2 text-sm text-black transition-colors bg-gray-300 rounded-lg cursor-pointer sm:w-auto hover:bg-white sm:text-base"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className={`w-full px-4 py-2 text-sm font-medium text-black transition-colors bg-gray-300 rounded-lg sm:w-auto sm:text-base ${
-                isSaving
-                  ? "opacity-60 cursor-not-allowed"
-                  : "cursor-pointer hover:bg-white"
-              }`}
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
+            {/* Form Actions */}
+            <div className="flex flex-col justify-end gap-3 pt-6 mt-6 border-t sm:flex-row sm:gap-4 border-white/10">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="w-full px-4 py-2 text-sm text-black transition-colors bg-gray-300 rounded-lg cursor-pointer sm:w-auto hover:bg-white sm:text-base"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full px-4 py-2 text-sm font-medium text-black transition-colors bg-gray-300 rounded-lg sm:w-auto sm:text-base ${
+                  isSubmitting
+                    ? "opacity-60 cursor-not-allowed"
+                    : "cursor-pointer hover:bg-white"
+                }`}
+              >
+                {isSubmitting ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </FormProvider>
       </div>
     </div>
   );
