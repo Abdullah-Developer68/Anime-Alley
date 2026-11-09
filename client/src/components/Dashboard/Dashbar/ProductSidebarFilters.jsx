@@ -159,7 +159,7 @@ const ProductSidebarFilters = () => {
           value={searchVal}
           onChange={(e) => setSearchVal(e.target.value)}
           placeholder="Search products..."
-          className="w-full px-3.5 py-2 text-xs text-white rounded-lg outline-none bg-white/10 border border-white/20 placeholder:text-white/60 focus:border-pink-500/60 transition-all duration-300"
+          className="w-full h-9 pl-3.5 pr-9 text-xs text-white rounded-lg outline-none bg-white/10 border border-white/20 placeholder:text-white/40 focus:border-pink-500/60 transition-all duration-300"
         />
         <button
           type="submit"
@@ -183,7 +183,7 @@ const ProductSidebarFilters = () => {
         <select
           value={selectedCategory}
           onChange={(e) => handleCategoryChange(e.target.value)}
-          className="w-full p-2 text-xs text-white/90 rounded-lg cursor-pointer bg-white/10 border border-white/20 outline-none focus:border-pink-500/60 transition-all duration-300 hover:bg-white/15"
+          className="w-full h-9 px-2.5 text-xs text-white/90 rounded-lg cursor-pointer bg-white/10 border border-white/20 outline-none focus:border-pink-500/60 transition-all duration-300 hover:bg-white/15"
         >
           <option className="text-black bg-white" value="comics">
             Comics
@@ -211,7 +211,7 @@ const ProductSidebarFilters = () => {
             <button
               type="button"
               onClick={() => setPriceVal(0)}
-              className="font-mono text-[11px] text-pink-400 hover:text-pink-300 transition-colors cursor-pointer"
+              className="text-[11px] font-medium text-pink-400 hover:text-pink-300 transition-colors cursor-pointer"
             >
               Reset
             </button>
@@ -226,9 +226,9 @@ const ProductSidebarFilters = () => {
             value={priceVal}
             onChange={(e) => setPriceVal(Number(e.target.value))}
             style={getBackgroundStyle(priceVal)}
-            className="w-full h-1.5 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-pink-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white"
+            className="w-full h-1.5 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-pink-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-pink-500 [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/40"
           />
-          <div className="flex justify-between mt-1.5 font-mono text-[11px] text-white/70">
+          <div className="flex justify-between mt-2 text-[11px] tabular-nums text-white/60">
             <span>$0</span>
             <span className="font-semibold text-pink-400">
               {priceVal === 0 ? "All Prices" : `Up to $${formatPrice(priceVal)}`}
@@ -281,7 +281,7 @@ const ProductSidebarFilters = () => {
           disabled={!hasUncommittedChanges}
           className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-1.5 ${
             !hasUncommittedChanges
-              ? "bg-zinc-800 text-zinc-500 border border-white/5 opacity-60 cursor-not-allowed select-none"
+              ? "bg-white/5 text-white/35 border border-white/10 cursor-not-allowed select-none"
               : "bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg hover:shadow-pink-500/25 cursor-pointer active:scale-[0.98]"
           }`}
         >

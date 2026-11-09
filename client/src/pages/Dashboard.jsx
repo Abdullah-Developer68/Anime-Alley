@@ -1,54 +1,49 @@
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { PanelLeftOpen } from "lucide-react";
 import Dashbar from "../components/Dashboard/Dashbar";
 import ViewBox from "../components/Dashboard/ViewBox";
 import ExportModal from "../components/Dashboard/ExportModal";
-import { useSelector, useDispatch } from "react-redux";
-import { openSidebar } from "../redux/Slice/DashboardSlice";
-import { useEffect, useState } from "react";
-import assets from "../assets/asset";
+import useDashboardDrawer from "../Hooks/useDashboardDrawer";
+import { closeSidebar, openSidebar } from "../redux/Slice/DashboardSlice";
 
 const Dashboard = () => {
-  const isSidebarOpen = useSelector((state) => state.dashboard.isSidebarOpen);
   const dispatch = useDispatch();
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1120);
+  const isDrawer = useDashboardDrawer();
 
+  // A drawer left open must not reappear later when the window is resized back down
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1120);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    if (!isDrawer)
+      dispatch(closeSidebar());
+  }, [isDrawer, dispatch]);
 
   return (
-    <div className="relative flex min-h-screen mt-16 max-[770px]:mt-12">
-      {/* Sidebar for desktop, and for mobile if open */}
-      {(!isMobile || isSidebarOpen) && (
-        <aside
-          className={`w-[280px] shrink-0 ${
-            isMobile
-              ? "fixed z-50 top-0 left-0 h-full bg-zinc-950"
-              : ""
-          }`}
-        >
-          <Dashbar />
+    // The navbar is fixed: 52px tall below md, 64px from md up
+    <div className="relative mt-[52px] flex min-h-[calc(100vh-52px)] bg-black md:mt-16 md:min-h-[calc(100vh-4rem)]">
+      {isDrawer ? (
+        <Dashbar />
+      ) : (
+        // The column stretches with the page; the panel inside stays pinned under the navbar
+        <aside className="w-[280px] shrink-0 border-r border-white/10 bg-zinc-950">
+          <div className="sticky top-16 h-[calc(100vh-4rem)]">
+            <Dashbar />
+          </div>
         </aside>
       )}
-      {/* Main content */}
-      <main
-        className={"flex-grow transition-all duration-300 max-[1120px]:w-full"}
-      >
+
+      {/* min-w-0 lets wide tables scroll inside the page instead of widening it */}
+      <main className="min-w-0 flex-1">
         <ViewBox />
       </main>
-      {/* Hamburger button for mobile */}
-      {isMobile && !isSidebarOpen && (
+
+      {isDrawer && (
         <button
-          className="absolute z-10 flex items-center justify-center p-3 ml-5 text-white rounded-full shadow-lg top-5 max-[1120px]:block min-[1121px]:hidden"
+          type="button"
           onClick={() => dispatch(openSidebar())}
-          aria-label="Open sidebar"
+          aria-label="Open dashboard menu"
+          className="absolute left-6 top-6 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white transition hover:border-pink-500/40 hover:bg-white/10"
         >
-          {/* Modern SVG hamburger icon */}
-          <img
-            src={assets.dashbar}
-            className="w-6 cursor-pointer hover:scale-120"
-          />
+          <PanelLeftOpen aria-hidden="true" className="h-5 w-5" />
         </button>
       )}
       <ExportModal />

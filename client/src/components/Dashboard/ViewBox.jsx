@@ -7,7 +7,7 @@ import Coupons from "./Dashbar/Coupons/Coupons";
 
 const ViewBox = () => {
   return (
-    <div className="min-h-screen bg-black max-[1120px]:w-full">
+    <div className="min-w-0">
       <Routes>
         <Route path="/" element={<ProductCatalog />} />
         <Route path="/orders" element={<Orders />} />

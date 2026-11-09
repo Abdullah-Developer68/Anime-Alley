@@ -15,6 +15,7 @@ import EditUser from "./EditUser";
 import DeleteUser from "./DeleteUser";
 import { toast } from "react-toastify";
 import { Download, Search } from "lucide-react";
+import DashboardPagination from "../../DashboardPagination";
 
 const Users = () => {
   const { user } = useAuth();
@@ -136,8 +137,8 @@ const Users = () => {
       <DeleteUser />
 
       {/* Header Section */}
-      <div className="flex max-[362px]:flex-col flex-row justify-between max-[362px]:justify-center max-[362px]:items-end gap-4">
-        <h1 className="ml-20 text-2xl font-bold text-white">Users</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Users</h1>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -335,45 +336,15 @@ const Users = () => {
         </div>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4">
-        <p className="text-sm text-gray-400">
-          {users.length > 0
-            ? `Showing ${(currPage - 1) * 20 + 1} to ${
-                (currPage - 1) * 20 + users.length
-              } of ${totalUsers} users`
-            : "No users found"}
-        </p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handlePg("prev")}
-            disabled={currPage === 1}
-            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          {[...Array(totalPages)].map((_, index) => (
-            <button
-              key={index}
-              onClick={() => handlePg(index + 1)}
-              className={`px-3 py-1 rounded-lg ${
-                currPage === index + 1
-                  ? "text-black bg-white"
-                  : "text-white bg-gray-600 hover:bg-gray-500"
-              } transition-colors`}
-            >
-              {index + 1}
-            </button>
-          ))}
-          <button
-            onClick={() => handlePg("next")}
-            disabled={currPage === totalPages}
-            className="px-3 py-1 text-white transition-colors rounded-lg cursor-pointer bg-white/5 hover:bg-white/10 disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <DashboardPagination
+        currPage={currPage}
+        totalPages={totalPages}
+        totalItems={totalUsers}
+        itemCount={users.length}
+        pageSize={20}
+        label="users"
+        onPageChange={handlePg}
+      />
     </div>
   );
 };

@@ -1,16 +1,27 @@
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { closeSidebar } from "../../redux/Slice/DashboardSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardNavDock from "./DashboardNavDock";
 import ProductSidebarFilters from "./Dashbar/ProductSidebarFilters";
+import { X } from "lucide-react";
+import useDashboardDrawer from "../../Hooks/useDashboardDrawer";
 
 const Dashbar = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const isSidebarOpen = useSelector((state) => state.dashboard.isSidebarOpen);
-  const isMobile =
-    typeof window !== "undefined" ? window.innerWidth <= 1120 : false;
+  const isMobile = useDashboardDrawer();
+
+  // Escape closes the drawer, like other dialogs
+  useEffect(() => {
+    if (!isMobile || !isSidebarOpen)
+      return;
+    const onKey = (e) => e.key === "Escape" && dispatch(closeSidebar());
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isMobile, isSidebarOpen, dispatch]);
 
   const isProducts =
     location.pathname === "/dashboard" || location.pathname === "/dashboard/";
@@ -88,31 +99,46 @@ const Dashbar = () => {
     return (
       <AnimatePresence>
         {isSidebarOpen && (
-          <motion.div
-            key="dashbar-mobile"
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            variants={sidebarVariants}
-            className="fixed top-0 left-0 z-50 flex flex-col w-[280px] h-screen p-5 overflow-y-auto text-white bg-zinc-950 border-r border-white/10 shadow-2xl scrollbar-thin scrollbar-thumb-white/10"
-          >
-            <button
-              className="absolute z-50 px-3 py-1 text-2xl text-white bg-black rounded-full top-3 right-3 bg-opacity-40 min-[1121px]:hidden"
+          <>
+            {/* Backdrop: dims the page and closes the drawer when tapped */}
+            <motion.div
+              key="dashbar-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => dispatch(closeSidebar())}
-              aria-label="Close sidebar"
+              className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              key="dashbar-mobile"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Dashboard menu"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={sidebarVariants}
+              className="fixed left-0 top-0 z-[70] flex h-dvh w-[min(300px,85vw)] flex-col overflow-y-auto border-r border-white/10 bg-zinc-950 p-5 text-white shadow-2xl scrollbar-thin scrollbar-thumb-white/10"
             >
-              &times;
-            </button>
-            {navContent}
-          </motion.div>
+              <button
+                type="button"
+                className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white"
+                onClick={() => dispatch(closeSidebar())}
+                aria-label="Close dashboard menu"
+              >
+                <X aria-hidden="true" className="h-5 w-5" />
+              </button>
+              {navContent}
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     );
   }
 
-  // Desktop: normal fixed-width sidebar matching shop FilterBar dimensions
+  // Desktop: fills the sticky column set up in pages/Dashboard.jsx
   return (
-    <div className="relative flex flex-col w-[280px] h-[calc(100vh-4rem)] p-5 text-white bg-zinc-950 border-r border-white/10 shadow-2xl overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+    <div className="flex h-full flex-col overflow-y-auto p-5 text-white scrollbar-thin scrollbar-thumb-white/10">
       {navContent}
     </div>
   );

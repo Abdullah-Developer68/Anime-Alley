@@ -13,6 +13,7 @@ import { useSelector } from "react-redux";
 import EditOrder from "./EditOrder";
 import DeleteOrder from "./DeleteOrder";
 import { Download, RefreshCw } from "lucide-react";
+import DashboardPagination from "../../DashboardPagination";
 
 const Orders = () => {
   const { user } = useAuth();
@@ -124,8 +125,8 @@ const Orders = () => {
       <EditOrder />
       <DeleteOrder />
       {/* Header Section */}
-      <div className="flex max-[362px]:flex-col flex-row justify-between max-[362px]:justify-center max-[362px]:items-end gap-4">
-        <h1 className="ml-20 text-2xl font-bold text-white">Orders</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Orders</h1>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -148,7 +149,7 @@ const Orders = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
         {/* Pending Orders */}
         <div className="p-6 border bg-white/5 rounded-xl border-white/10">
           <div className="flex items-center justify-between">
@@ -213,7 +214,7 @@ const Orders = () => {
       {/* Orders Table */}
       <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
         <div className="relative overflow-x-auto max-h-[400px]">
-          <table className="w-full min-w-[900px]">
+          <table className="w-full min-w-[900px] whitespace-nowrap">
             <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
               <tr className="border-b border-white/10">
                 <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
@@ -372,54 +373,15 @@ const Orders = () => {
         </div>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between mt-4">
-        <p className="text-sm text-gray-400">
-          {orders.length > 0
-            ? `Showing ${(currPage - 1) * 20 + 1} to ${
-                (currPage - 1) * 20 + orders.length
-              } of ${totalOrders} orders`
-            : "No orders found"}
-        </p>
-        <div className="flex gap-2">
-          <button
-            className={`cursor-pointer px-3 py-1 rounded-lg ${
-              currPage === 1
-                ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : "bg-white/5 text-white hover:bg-white/10"
-            } transition-colors`}
-            onClick={() => handlePg("prev")}
-            disabled={currPage === 1}
-          >
-            Previous
-          </button>
-          {totalPages > 0 &&
-            [...Array(totalPages)].map((_, index) => (
-              <button
-                key={index}
-                className={`px-3 py-1 rounded-lg ${
-                  currPage === index + 1
-                    ? "text-black bg-white"
-                    : "text-white bg-gray-600 hover:bg-gray-500"
-                } transition-colors`}
-                onClick={() => handlePg(index + 1)}
-              >
-                {index + 1}
-              </button>
-            ))}
-          <button
-            className={`cursor-pointer px-3 py-1 rounded-lg ${
-              currPage === totalPages
-                ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : "bg-white/5 text-white hover:bg-white/10"
-            } transition-colors`}
-            onClick={() => handlePg("next")}
-            disabled={currPage === totalPages}
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <DashboardPagination
+        currPage={currPage}
+        totalPages={totalPages}
+        totalItems={totalOrders}
+        itemCount={orders.length}
+        pageSize={20}
+        label="orders"
+        onPageChange={handlePg}
+      />
     </div>
   );
 };

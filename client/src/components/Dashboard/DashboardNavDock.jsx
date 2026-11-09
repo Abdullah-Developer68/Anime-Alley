@@ -2,13 +2,13 @@ import { Link, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { closeSidebar } from "../../redux/Slice/DashboardSlice";
 import { Package, ShoppingBag, Users, Ticket } from "lucide-react";
+import useDashboardDrawer from "../../Hooks/useDashboardDrawer";
 
 const DashboardNavDock = () => {
   const location = useLocation();
   const dispatch = useDispatch();
   const isSidebarOpen = useSelector((state) => state.dashboard.isSidebarOpen);
-  const isMobile =
-    typeof window !== "undefined" ? window.innerWidth <= 1120 : false;
+  const isMobile = useDashboardDrawer();
 
   const handleNavClick = () => {
     if (isMobile && isSidebarOpen) {
