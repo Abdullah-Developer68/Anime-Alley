@@ -6,6 +6,7 @@ const {
 } = require("../../middlewares/custom/auth.middleware.js");
 const {
   productSearchLimiter,
+  adminWriteLimiter,
 } = require("../../middlewares/custom/rateLimiters.middleware.js");
 const upload = require("../../middlewares/modules/multerConfig.js");
 // Multipart bodies are parsed after the app-wide check, so they are checked again after multer
@@ -21,8 +22,9 @@ const {
 router.get("/", productSearchLimiter, getProducts);
 
 // Admin-only routes - require authentication and admin role
-router.post("/", verifyTokenMiddleware, requireAdmin, upload.single("image"), rejectOperatorKeys, createProduct);
-router.put("/:productId", verifyTokenMiddleware, requireAdmin, upload.single("image"), rejectOperatorKeys, updateProduct);
-router.delete("/:productId", verifyTokenMiddleware, requireAdmin, deleteProduct);
+// Limited before multer, so a blocked request never uploads its image
+router.post("/", verifyTokenMiddleware, requireAdmin, adminWriteLimiter, upload.single("image"), rejectOperatorKeys, createProduct);
+router.put("/:productId", verifyTokenMiddleware, requireAdmin, adminWriteLimiter, upload.single("image"), rejectOperatorKeys, updateProduct);
+router.delete("/:productId", verifyTokenMiddleware, requireAdmin, adminWriteLimiter, deleteProduct);
 
 module.exports = router;

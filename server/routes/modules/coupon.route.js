@@ -12,18 +12,22 @@ const {
   createCoupon,
   getCouponStats,
 } = require("../../controllers/coupon.controller.js");
+const {
+  couponCheckLimiter,
+  adminWriteLimiter,
+} = require("../../middlewares/custom/rateLimiters.middleware.js");
 
 // Apply authentication to all routes
 router.use(verifyTokenMiddleware);
 
 // Any logged-in user: can this user apply the coupon in ?code=
-router.get("/eligibility", checkCoupon);
+router.get("/eligibility", couponCheckLimiter, checkCoupon);
 
 // Admin-only routes
 router.get("/", requireAdmin, getAllCoupons);
 router.get("/stats", requireAdmin, getCouponStats);
-router.post("/", requireAdmin, createCoupon);
-router.patch("/:couponId", requireAdmin, updateCoupon);
-router.delete("/:couponId", requireAdmin, deleteCoupon);
+router.post("/", requireAdmin, adminWriteLimiter, createCoupon);
+router.patch("/:couponId", requireAdmin, adminWriteLimiter, updateCoupon);
+router.delete("/:couponId", requireAdmin, adminWriteLimiter, deleteCoupon);
 
 module.exports = router;

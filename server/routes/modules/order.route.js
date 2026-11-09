@@ -12,18 +12,22 @@ const {
   updateOrder,
   getOrderStats,
 } = require("../../controllers/order.controller.js");
+const {
+  placeOrderLimiter,
+  adminWriteLimiter,
+} = require("../../middlewares/custom/rateLimiters.middleware.js");
 
 // All order routes require authentication
 router.use(verifyTokenMiddleware);
 
 // Logged-in user's own orders
-router.post("/", placeOrder);
+router.post("/", placeOrderLimiter, placeOrder);
 router.get("/me", getOrderHistory);
 
 // Admin-only routes
 router.get("/", requireAdmin, allOrdersList);
 router.get("/stats", requireAdmin, getOrderStats);
-router.patch("/:orderId", requireAdmin, updateOrder);
-router.delete("/:orderId", requireAdmin, deleteOrder);
+router.patch("/:orderId", requireAdmin, adminWriteLimiter, updateOrder);
+router.delete("/:orderId", requireAdmin, adminWriteLimiter, deleteOrder);
 
 module.exports = router;

@@ -12,12 +12,16 @@ const {
   verifyTokenMiddleware,
   requireAdmin,
 } = require("../../middlewares/custom/auth.middleware.js");
+const {
+  adminWriteLimiter,
+} = require("../../middlewares/custom/rateLimiters.middleware.js");
 
 // All routes below require authentication and admin role
 router.use(verifyTokenMiddleware, requireAdmin);
 
 router.get("/", getUsers);
-router.patch("/:userId", upload.single("profilePic"), rejectOperatorKeys, updateUser);
-router.delete("/:userId", deleteUser);
+// Limited before multer, so a blocked request never uploads its image
+router.patch("/:userId", adminWriteLimiter, upload.single("profilePic"), rejectOperatorKeys, updateUser);
+router.delete("/:userId", adminWriteLimiter, deleteUser);
 
 module.exports = router;
