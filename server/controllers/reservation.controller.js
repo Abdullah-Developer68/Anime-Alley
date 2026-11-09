@@ -281,18 +281,16 @@ const updateCartItem = async (req, res) => {
     if (!userId)
       return res.status(401).json({ success: false, message: "Invalid user session" });
 
-    const { productId, variant, newQuantity } = req.body || {};
+    const productId = req.params?.productId;
+    const { variant, quantity: newQuantity } = req.body || {};
 
-    if (!productId)
-      return res.status(400).json({
-        success: false,
-        message: "productId is required",
-      });
+    if (!mongoose.isValidObjectId(productId))
+      return res.status(400).json({ success: false, message: "Invalid product id" });
 
     if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0)
       return res.status(400).json({
         success: false,
-        message: "newQuantity must be a non-negative integer",
+        message: "quantity must be a non-negative integer",
       });
 
     await dbConnect();

@@ -7,11 +7,9 @@ const {
 const { exportData } = require("../../controllers/export.controller.js");
 
 // All export routes require authentication and admin role
-router.use(verifyTokenMiddleware);
-router.use(requireAdmin);
+router.use(verifyTokenMiddleware, requireAdmin);
 
-// Generic route for exporting data
-// Example: GET /api/export/users?format=excel
+// Example: GET /api/exports/users?format=excel
 router.get("/:dataType", exportData);
 
 module.exports = router;

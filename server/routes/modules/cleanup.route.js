@@ -6,22 +6,11 @@ const {
 } = require("../../controllers/cleanup.controller.js");
 const { verifyCronSecret } = require("../../middlewares/custom/cron.middleware.js");
 
-// Cleanup Routes
-// These endpoints are designed to be called by Vercel Cron Jobs
-
-// Vercel sends a cron secret in the request authorization headers for verification. After verifying execute the cleanup controllers.
+// Called by Vercel Cron Jobs (see vercel.json), which authenticate with Bearer CRON_SECRET.
+// These are GET despite changing data because Vercel Cron can only send GET requests.
 router.use(verifyCronSecret);
 
-// Cleanup unverified users (called by cron job)
-router
-  .route("/users")
-  .get(cleanupUnverifiedUsersController)
-  .post(cleanupUnverifiedUsersController);
-
-// Cleanup expired reservations (called by cron job)
-router
-  .route("/reservations")
-  .get(cleanupReservationsController)
-  .post(cleanupReservationsController);
+router.get("/users", cleanupUnverifiedUsersController);
+router.get("/reservations", cleanupReservationsController);
 
 module.exports = router;

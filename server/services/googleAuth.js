@@ -4,53 +4,6 @@ const dotenv = require("dotenv");
 dotenv.config();
 const dbConnect = require("../db/dbConnect.js");
 
-const clientUrl = process.env.CLIENT_URL;
-
-// Utility function to extract token from Authorization header or cookies
-const extractToken = (req) => {
-  // First, try to get token from Authorization header (Bearer token)
-  const authHeader = req.headers?.authorization;
-  if (authHeader && authHeader.startsWith("Bearer "))
-    return authHeader.substring(7); // Remove 'Bearer ' prefix
-
-  // Fallback to cookie-based token
-  return req.cookies?.token;
-};
-
-// Centralized cookie options - same as auth service
-const getCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === "production";
-
-  return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    path: "/",
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    // ...(isProduction &&
-    //   process.env.COOKIE_DOMAIN && {
-    //     domain: process.env.COOKIE_DOMAIN,
-    //   }),
-  };
-};
-
-// Separate function for clearing cookies to avoid maxAge conflicts
-const getClearCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === "production";
-
-  return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    path: "/",
-    maxAge: 0, // Immediately expire
-    // ...(isProduction &&
-    //   process.env.COOKIE_DOMAIN && {
-    //     domain: process.env.COOKIE_DOMAIN,
-    //   }),
-  };
-};
-
 // Step 1: Initial Authentication
 // Initiates the Google OAuth flow by redirecting to the consent screen.
 //
@@ -115,9 +68,6 @@ const handleGoogleCallback = async (req, res, next) => {
         { expiresIn: "7d" },
       );
 
-      // Set JWT token in cookie as fallback (same as local auth)
-      res.cookie("token", token, getCookieOptions());
-
       // Redirect to client with token as query parameter for localStorage storage
       return res.redirect(
         `${clientUrl}/auth/google/success?token=${encodeURIComponent(token)}`,
@@ -129,86 +79,7 @@ const handleGoogleCallback = async (req, res, next) => {
   })(req, res, next);
 };
 
-// Logout Function
-// Handles the complete logout process.
-//
-// Steps:
-// 1. Clears the user session
-// 2. Destroys session data
-// 3. Removes session cookie
-// 4. Redirects to home page
-const LogoutFromGoogle = async (req, res) => {
-  try {
-    // Pure JWT logout - same as main logout function
-    const clearCookieOptions = getClearCookieOptions();
-    console.log("Clearing cookie with options:", clearCookieOptions);
-    // Clear the JWT cookie
-    res.cookie("token", "", clearCookieOptions);
-
-    // Redirect to client after clearing JWT cookie
-    res.redirect(process.env.CLIENT_URL || clientUrl);
-  } catch (error) {
-    console.error("Google logout error:", error);
-    res.status(500).json({ success: false, message: "Logout failed" });
-  }
-};
-
-// Send User Data
-// Provides authenticated user information to the client.
-//
-// Process:
-// 1. First checks for session-based authentication (req.isAuthenticated())
-// 2. If no session, checks for JWT token in cookies
-// 3. Sends user profile if authenticated via either method
-// 4. Handles error cases appropriately
-const sendUserData = async (req, res) => {
-  try {
-    // Use utility function to extract token from Authorization header or cookies
-    const token = extractToken(req);
-
-    if (!token)
-      return res.status(401).json({
-        success: false,
-        message: "No authentication token found",
-      });
-
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
-
-    res.status(200).json({
-      success: true,
-      user: {
-        id: decoded.userid,
-        username: decoded.username,
-        email: decoded.email,
-        profilePic: decoded.profilePic,
-        role: decoded.role,
-      },
-    });
-  } catch (error) {
-    console.error("Token verification error:", error);
-
-    if (error.name === "JsonWebTokenError")
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authentication token",
-      });
-
-    if (error.name === "TokenExpiredError")
-      return res.status(401).json({
-        success: false,
-        message: "Authentication token expired",
-      });
-
-    return res.status(500).json({
-      success: false,
-      message: "Authentication failed",
-    });
-  }
-};
-
 module.exports = {
   initiateGoogleAuth,
-  LogoutFromGoogle,
   handleGoogleCallback,
-  sendUserData,
 };

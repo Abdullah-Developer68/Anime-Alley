@@ -81,7 +81,7 @@ const Signup = () => {
     setLoading(true);
     setError("");
     try {
-      await api.post("/auth/send-otp", { email: data.email || email });
+      await api.sendSignupOtp(data.email || email);
       setEmail(data.email || email);
       setStep(2);
       setResendCooldown(30); // 30s cooldown
@@ -107,7 +107,7 @@ const Signup = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.post("/auth/verify-otp", { email, otp: data.otp });
+      const res = await api.verifySignupOtp(email, data.otp);
       if (res.data.verificationToken) {
         setVerificationToken(res.data.verificationToken);
       }
@@ -124,7 +124,7 @@ const Signup = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.post("/auth/signup", {
+      const res = await api.signUp({
         email,
         verificationToken,
         ...data,

@@ -16,7 +16,8 @@ const corsMiddleware = cors({
 
     return callback(null, false);
   },
-  credentials: true, // Essential for cross-domain cookies
+  // Auth uses the Authorization header, never cookies, so credentialed (cookie) requests are not allowed
+  credentials: false,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   allowedHeaders: [
     "Content-Type",
@@ -25,7 +26,6 @@ const corsMiddleware = cors({
     "Accept",
     "Origin",
   ],
-  exposedHeaders: ["Set-Cookie"], // Allow client to see Set-Cookie header
   optionsSuccessStatus: 200, // For legacy browser support
   preflightContinue: false,
 });

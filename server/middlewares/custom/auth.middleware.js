@@ -4,15 +4,13 @@ dotenv.config();
 
 const verifyTokenMiddleware = async (req, res, next) => {
   try {
-    // Extract token from Authorization header or cookies
+    // Bearer header only. A cookie fallback would let other sites act as the user (CSRF),
+    // because browsers attach cookies to cross-site requests but never add this header.
     let token = null;
 
     const authHeader = req.headers?.authorization;
     if (authHeader && authHeader.startsWith("Bearer "))
-      // Extracts the String (token) after 7th index which is after "Bearer "
       token = authHeader.substring(7);
-    else if (req.cookies?.token)
-      token = req.cookies.token;
 
     if (!token)
       return res.status(401).json({

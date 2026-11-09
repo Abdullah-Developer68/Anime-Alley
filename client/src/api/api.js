@@ -8,9 +8,9 @@ const serverURL = isDevelopment
   : import.meta.env.VITE_API_BASE_URL;
 
 // axios automatically sets the headers content type for api requests
+// No cookies: auth is the Bearer header below, which other sites can't make the browser send
 const api = axios.create({
   baseURL: `${serverURL}/api`,
-  withCredentials: true, // tells the browser to send cookies, authorization headers or TLS client certificates when making a CORS.
 });
 
 // Add request interceptor to include Authorization header if token exists in localStorage
@@ -43,118 +43,82 @@ api.interceptors.response.use(
 
 // --- AUTH API'S ---
 
-// GOOGLE AUTH
+// Google OAuth is a full-page redirect, not an XHR call
 api.googleLogin = () => {
   window.location.href = `${serverURL}/api/googleAuth/login`;
 };
-api.googleLogout = () => {
-  window.location.href = `${serverURL}/api/googleAuth/logout`;
+api.sendSignupOtp = (email) => {
+  return api.post("/auth/otp", { email });
 };
-// login with email and password credentials
+api.verifySignupOtp = (email, otp) => {
+  return api.post("/auth/otp/verify", { email, otp });
+};
+api.signUp = (signupData) => {
+  return api.post("/auth/signup", signupData);
+};
 api.login = (loginData) => {
   return api.post("/auth/login", loginData);
 };
-// verifies JWT tokens for both local and google auth
+// Returns the user for the stored token (local and Google logins use the same JWT)
 api.verifyAuth = () => {
-  return api.get("/auth/verify");
+  return api.get("/auth/me");
 };
-// used in auth provider to check if user is logged in with google
-api.googleAuthSuccess = () => {
-  return api.get("/googleAuth/success");
-};
-
 api.logout = () => {
-  return api.get("/auth/logout");
+  return api.post("/auth/logout");
 };
-
-// demo account login
 api.demoLogin = (role) => {
   return api.post("/auth/demo-login", { role });
 };
 
 // --- PRODUCT API'S ---
 
-api.createProduct = (productData) => {
-  return api.post("/product/createProduct", productData);
-};
-
 api.getProducts = (productConstraints) => {
-  return api.get("/product/getProducts", {
+  return api.get("/products", {
     params: {
       productConstraints: JSON.stringify(productConstraints),
     },
   });
 };
-api.deleteProduct = (productID) => {
-  return api.post("/product/deleteProduct", { productID });
+api.createProduct = (productData) => {
+  return api.post("/products", productData);
 };
-api.updateProduct = (productData) => {
-  return api.put("/product/updateProduct", productData);
+api.updateProduct = (productId, productData) => {
+  return api.put(`/products/${productId}`, productData);
 };
-
-api.searchProduct = (data) => {
-  return api.get("/search/products", { params: { data } });
+api.deleteProduct = (productId) => {
+  return api.delete(`/products/${productId}`);
 };
 
 // --- ORDER API'S ---
 
 // The server identifies the user from the auth token, so no user info is sent
 api.placeOrder = (couponCode, deliveryAddress, paymentMethod) => {
-  return api.post("/order/placeOrder", {
+  return api.post("/orders", {
     couponCode,
     deliveryAddress,
     paymentMethod,
   });
 };
-
-api.getAllOrdersList = (currPage) => {
-  return api.get("/order/allOrdersList", {
-    params: {
-      currPage,
-    },
-  });
-};
-
-api.updateOrder = (orderId, orderData) => {
-  return api.put(`/order/update/${orderId}`, orderData);
-};
-
-api.deleteOrder = (orderId) => {
-  return api.delete(`/order/delete/${orderId}`);
-};
-
-// The server returns the authenticated user's orders based on the auth token
 api.getOrderHistory = (currPage) => {
-  return api.get("/order/getOrders", {
-    params: {
-      currPage,
-    },
-  });
+  return api.get("/orders/me", { params: { currPage } });
 };
-
-api.verifyOrder = (stripeSessionID) => {
-  return api.get("/order/verifyOrder", { params: { stripeSessionID } });
+api.getAllOrdersList = (currPage) => {
+  return api.get("/orders", { params: { currPage } });
+};
+api.getOrderStats = () => {
+  return api.get("/orders/stats");
+};
+api.updateOrder = (orderId, orderData) => {
+  return api.patch(`/orders/${orderId}`, orderData);
+};
+api.deleteOrder = (orderId) => {
+  return api.delete(`/orders/${orderId}`);
 };
 
 // --- USER API'S ---
 
-api.updateUser = (userId, userData) => {
-  const formData = new FormData();
-  Object.entries(userData).forEach(([key, value]) => {
-    if (value !== undefined && value !== null)
-      formData.append(key, value);
-  });
-  return api.put(`/user/update/${userId}`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-};
-
-api.deleteUser = (userId) => {
-  return api.delete(`/user/delete/${userId}`);
-};
-
 api.getUsers = (currPage, searchQuery, role) => {
-  return api.get("/user/getUsers", {
+  return api.get("/users", {
     params: {
       currPage,
       searchQuery,
@@ -162,41 +126,45 @@ api.getUsers = (currPage, searchQuery, role) => {
     },
   });
 };
+api.updateUser = (userId, userData) => {
+  const formData = new FormData();
+  Object.entries(userData).forEach(([key, value]) => {
+    if (value !== undefined && value !== null)
+      formData.append(key, value);
+  });
+  return api.patch(`/users/${userId}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+api.deleteUser = (userId) => {
+  return api.delete(`/users/${userId}`);
+};
 
 // --- COUPON API'S ---
 
-api.createCoupon = (couponData) => {
-  return api.post("/coupon/createCoupon", couponData);
-};
-
-api.updateCoupon = (couponId, couponData) => {
-  return api.put(`/coupon/update/${couponId}`, couponData);
-};
-
-api.getAllCoupons = (currPage) => {
-  return api.get("/coupon/allCoupons", {
-    params: {
-      currPage,
-    },
-  });
-};
-
-api.deleteCoupon = (couponId) => {
-  return api.delete(`/coupon/delete/${couponId}`);
-};
-
-api.getCouponStats = () => {
-  return api.get("/coupon/stats");
-};
-
 api.verifyCouponCode = (couponCode) => {
-  return api.post("/coupon/verify", { couponCode });
+  return api.get("/coupons/eligibility", { params: { code: couponCode } });
+};
+api.getAllCoupons = (currPage) => {
+  return api.get("/coupons", { params: { currPage } });
+};
+api.getCouponStats = () => {
+  return api.get("/coupons/stats");
+};
+api.createCoupon = (couponData) => {
+  return api.post("/coupons", couponData);
+};
+api.updateCoupon = (couponId, couponData) => {
+  return api.patch(`/coupons/${couponId}`, couponData);
+};
+api.deleteCoupon = (couponId) => {
+  return api.delete(`/coupons/${couponId}`);
 };
 
 // --- EXPORT API ---
 
 api.exportData = (dataType, format) => {
-  return api.get(`/export/${dataType}`, {
+  return api.get(`/exports/${dataType}`, {
     params: {
       format,
     },
@@ -204,36 +172,37 @@ api.exportData = (dataType, format) => {
   });
 };
 
-// --- API'S FOR STOCK MANAGEMENT
+// --- CART API'S ---
+
+api.getCart = () => {
+  return api.get("/cart");
+};
+// Adding an item to the cart reserves its stock
 api.reserveStock = (productId, variant, quantity) => {
-  return api.post("/reserveStock", {
+  return api.post("/cart/items", {
     productId,
     variant,
     quantity: typeof quantity === "number" ? quantity : Number(quantity),
   });
 };
-
-// --- CART API'S ---
-api.getCart = () => {
-  return api.post("/cart");
-};
-
 api.updateCartItem = (productId, variant, newQuantity) => {
-  return api.put("/cart/update", {
-    productId,
+  return api.patch(`/cart/items/${productId}`, {
     variant,
-    newQuantity: typeof newQuantity === "number" ? newQuantity : Number(newQuantity),
+    quantity: typeof newQuantity === "number" ? newQuantity : Number(newQuantity),
   });
 };
-
 api.clearCart = () => {
-  return api.delete("/cart/clear");
+  return api.delete("/cart");
 };
 
-// --- STRIPE API ---
+// --- CHECKOUT API'S ---
+
 api.createCheckOutSession = (paymentData) => {
-  return api.post("/stripe/create-checkout-session", {
-    paymentData,
-  });
+  return api.post("/checkout-sessions", { paymentData });
 };
+// Has the Stripe webhook created the order for this checkout session yet?
+api.verifyOrder = (stripeSessionID) => {
+  return api.get(`/checkout-sessions/${encodeURIComponent(stripeSessionID)}/order`);
+};
+
 export default api;

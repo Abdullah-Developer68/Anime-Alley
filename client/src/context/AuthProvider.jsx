@@ -36,45 +36,17 @@ const AuthProvider = ({ children }) => {
     }
   };
 
-  // Try Google auth as a fallback
-  const tryGoogleAuth = async () => {
-    try {
-      const googleRes = await api.googleAuthSuccess();
-      if (googleRes.data.success) {
-        setUserAndStorage(googleRes.data.user);
-        return true;
-      }
-    } catch (googleError) {
-      if (googleError.response?.status === 401) {
-        console.log("Google token expired or invalid, clearing auth data");
-      } else {
-        console.error("Google auth check error:", googleError);
-      }
-    }
-    setUserAndStorage(null);
-    return false;
-  };
-
-  // Main auth check
+  // Local and Google logins use the same JWT, so one check covers both
   const checkAuthStatus = async () => {
     try {
-      // check for JWT auth first for the local Signup
       const res = await api.verifyAuth();
       if (res.data.success) {
         setUserAndStorage(res.data.user);
         return;
       }
     } catch (error) {
-      if (error.response?.status === 401) {
-        // Try Google auth if JWT fails
-        const googleSuccess = await tryGoogleAuth();
-        if (googleSuccess) return;
-        // If Google also fails, clear user
-        setUserAndStorage(null);
-        return;
-      }
-      // Other errors
-      console.error("Auth check error:", error);
+      if (error.response?.status !== 401)
+        console.error("Auth check error:", error);
       setUserAndStorage(null);
     } finally {
       setLoading(false);

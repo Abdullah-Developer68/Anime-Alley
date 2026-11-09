@@ -51,27 +51,9 @@ const GoogleAuthSuccess = () => {
           } else {
             throw new Error("Failed to verify token");
           }
-        } else {
-          console.log("No token in URL, trying cookie fallback");
-          // Fallback: try to get user data from cookies (existing flow)
-          const res = await api.googleAuthSuccess();
-
-          if (res.data.success) {
-            // Check if user email has changed and clear localStorage if needed
-            const wasCleared = checkAndHandleUserChange(res.data.user);
-            if (!wasCleared) {
-              // Only clear if user didn't change (to avoid double clearing)
-              localStorage.clear();
-            }
-
-            localStorage.setItem("userInfo", JSON.stringify(res.data.user));
-            setUser(res.data.user);
-            toast.success("Successfully logged in with Google!");
-            navigate("/");
-          } else {
-            throw new Error("Google authentication failed");
-          }
-        }
+        } else
+          // The server always returns the token in the URL; without it the login failed
+          throw new Error("No token returned from Google login");
       } catch (error) {
         console.error("Google auth success error:", error);
         toast.error("Google authentication failed. Please try again.");

@@ -220,11 +220,7 @@ const ProductForm = () => {
       setIsSaving(true);
       const formData = new FormData();
 
-      // Basic fields
-      // Product ID is generated on creation; updates identify the product by Mongo _id in the request body.
-      if (editProduct)
-        formData.append("_id", editProduct._id);
-
+      // Basic fields (updates identify the product by its _id in the URL, see api.updateProduct)
       formData.append("name", data.productName);
       formData.append("description", data.description);
       formData.append("price", formatPrice(data.price));
@@ -312,7 +308,7 @@ const ProductForm = () => {
       // API call to create or update product with proper error handling
       let response;
       if (editProduct)
-        response = await api.updateProduct(formData);
+        response = await api.updateProduct(editProduct._id, formData);
       else
         response = await api.createProduct(formData);
 

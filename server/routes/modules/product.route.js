@@ -16,28 +16,11 @@ const {
 } = require("../../controllers/product.controller.js");
 
 // Public route - anyone can view products
-router.get("/getProducts", productSearchLimiter, getProducts);
+router.get("/", productSearchLimiter, getProducts);
 
 // Admin-only routes - require authentication and admin role
-router.post(
-  "/createProduct",
-  verifyTokenMiddleware,
-  requireAdmin,
-  upload.single("image"),
-  createProduct,
-);
-router.post(
-  "/deleteProduct",
-  verifyTokenMiddleware,
-  requireAdmin,
-  deleteProduct,
-);
-router.put(
-  "/updateProduct",
-  verifyTokenMiddleware,
-  requireAdmin,
-  upload.single("image"),
-  updateProduct,
-);
+router.post("/", verifyTokenMiddleware, requireAdmin, upload.single("image"), createProduct);
+router.put("/:productId", verifyTokenMiddleware, requireAdmin, upload.single("image"), updateProduct);
+router.delete("/:productId", verifyTokenMiddleware, requireAdmin, deleteProduct);
 
 module.exports = router;

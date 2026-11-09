@@ -11,24 +11,19 @@ const {
   deleteOrder,
   updateOrder,
   getOrderStats,
-  verifyOrder
 } = require("../../controllers/order.controller.js");
 
-// Verify Stripe order completion (publicly accessible by high-entropy session ID)
-router.get("/verifyOrder", verifyOrder);
-
-// All subsequent order routes require authentication
+// All order routes require authentication
 router.use(verifyTokenMiddleware);
 
-// POST
-router.post("/placeOrder", placeOrder);
-// GET
-router.get("/getOrders", getOrderHistory);
-router.get("/allOrdersList", requireAdmin, allOrdersList);
-router.get("/orderStats", requireAdmin, getOrderStats);
-// DELETE
-router.delete("/delete/:orderId", requireAdmin, deleteOrder);
-// UPDATE
-router.put("/update/:orderId", requireAdmin, updateOrder);
+// Logged-in user's own orders
+router.post("/", placeOrder);
+router.get("/me", getOrderHistory);
+
+// Admin-only routes
+router.get("/", requireAdmin, allOrdersList);
+router.get("/stats", requireAdmin, getOrderStats);
+router.patch("/:orderId", requireAdmin, updateOrder);
+router.delete("/:orderId", requireAdmin, deleteOrder);
 
 module.exports = router;

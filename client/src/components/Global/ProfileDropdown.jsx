@@ -11,15 +11,11 @@ const ProfileDropdown = ({ onClose }) => {
   const handleLogout = async () => {
     try {
       if (onClose) onClose();
-      if (user?.googleId) {
-        api.googleLogout();
-        localStorage.clear();
-      } else {
-        await api.logout();
-        localStorage.clear();
-        setUser(null);
-        navigate("/login");
-      }
+      // Same for local and Google logins: the session is the token stored in localStorage
+      await api.logout();
+      localStorage.clear();
+      setUser(null);
+      navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
       toast.error("Failed to logout. Please try again.");

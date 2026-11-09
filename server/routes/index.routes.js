@@ -8,21 +8,19 @@ const couponRoutes = require("./modules/coupon.route.js");
 const orderRoutes = require("./modules/order.route.js");
 const userRoutes = require("./modules/user.route.js");
 const exportRoutes = require("./modules/export.route.js");
-const reservationRoutes = require("./modules/reservation.route.js");
-const stripeRoutes = require("./modules/stripe.routes.js");
+const checkoutRoutes = require("./modules/checkout.route.js");
 const cartRoutes = require("./modules/cart.route.js");
 const cleanupRoutes = require("./modules/cleanup.route.js");
 
-// Mount all routers
+// Every router is mounted on its own resource path so its middleware never runs for other routes
 router.use("/auth", authRoutes);
 router.use("/googleAuth", googleAuthRoutes);
-router.use("/product", productRoutes);
-router.use("/coupon", couponRoutes);
-router.use("/order", orderRoutes);
-router.use("/user", userRoutes);
-router.use("/export", exportRoutes);
-router.use("/", reservationRoutes);
-router.use("/stripe", stripeRoutes);
+router.use("/products", productRoutes);
+router.use("/coupons", couponRoutes);
+router.use("/orders", orderRoutes);
+router.use("/users", userRoutes);
+router.use("/exports", exportRoutes);
+router.use("/checkout-sessions", checkoutRoutes);
 router.use("/cart", cartRoutes);
 router.use("/cleanup", cleanupRoutes);
 

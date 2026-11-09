@@ -10,7 +10,7 @@ const checkCoupon = async (req, res) => {
   try {
     // User is identified from the verified token
     const userId = req.user?.id;
-    const couponCode = req.body?.couponCode;
+    const couponCode = req.query?.code;
 
     if (!couponCode || typeof couponCode !== "string")
       return res.status(400).json({

@@ -25,7 +25,7 @@ if (isBehindProxy)
 
 // Stripe webhook must be registered before any body parser middleware because Stripe webhooks
 // must use raw body parsing while regular API routes use JSON body parsing to handle requests
-//  and so that is why it is not in strip.routes.js
+// and so that is why it is not in checkout.route.js
 const { handleStripeWebhook } = require("./hooks/stripeWebHook.js");
 
 app.post(

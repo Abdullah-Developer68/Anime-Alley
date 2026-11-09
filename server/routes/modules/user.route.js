@@ -14,13 +14,8 @@ const {
 // All routes below require authentication and admin role
 router.use(verifyTokenMiddleware, requireAdmin);
 
-// Route to get a paginated list of all users (admin-only)
-router.get("/getUsers", getUsers);
-
-// Route to delete a user by ID
-router.delete("/delete/:userId", deleteUser);
-
-// Route to update a user by ID
-router.put("/update/:userId", upload.single("profilePic"), updateUser);
+router.get("/", getUsers);
+router.patch("/:userId", upload.single("profilePic"), updateUser);
+router.delete("/:userId", deleteUser);
 
 module.exports = router;

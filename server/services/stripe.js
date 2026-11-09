@@ -179,7 +179,7 @@ const createCheckoutSession = async (req, res) => {
       throw snapshotErr;
     }
 
-    res.json({
+    res.status(201).json({
       sessionId: session.id,
       subtotal: subtotal.toFixed(2),
       discountAmount: discountAmount || "0",

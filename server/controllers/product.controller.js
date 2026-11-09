@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const productModel = require("../db/models/product.model.js");
 const dbConnect = require("../db/dbConnect.js");
 const {
@@ -277,15 +278,9 @@ const createProduct = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
-    // Extract product ID from body with optional chaining
-    const _id = req.body?._id;
-
-    // Validate product ID presence before processing update
-    if (!_id)
-      return res.status(400).json({
-        success: false,
-        message: "Product id is required",
-      });
+    const _id = req.params?.productId;
+    if (!mongoose.isValidObjectId(_id))
+      return res.status(400).json({ success: false, message: "Invalid product id" });
 
     const isMultipart = Boolean(
       req?.is?.("multipart/form-data") ||
@@ -387,18 +382,14 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
-    // Extract productID with optional chaining
-    const productID = req.body?.productID;
-
-    // Reject missing or empty whitespace product ID
-    if (!productID || (typeof productID === "string" && !productID.trim()))
-      return res.status(400).json({ message: "The productID is required!" });
+    const _id = req.params?.productId;
+    if (!mongoose.isValidObjectId(_id))
+      return res.status(400).json({ success: false, message: "Invalid product id" });
 
     // Connect to database only after in-memory validation succeeds
     await dbConnect();
 
-    // Find and delete the product document by unique productID
-    const deletedProduct = await productModel.findOneAndDelete({ productID });
+    const deletedProduct = await productModel.findByIdAndDelete(_id);
 
     if (!deletedProduct)
       return res.status(404).json({
@@ -415,7 +406,7 @@ const deleteProduct = async (req, res) => {
       await destroyCloudinaryImage(deletedProduct.image, publicId);
 
     res.status(200).json({
-      message: `Product with ID: ${productID} has been deleted!`,
+      message: `Product with ID: ${deletedProduct.productID} has been deleted!`,
       success: true,
     });
   } catch (error) {

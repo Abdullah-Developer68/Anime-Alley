@@ -461,7 +461,7 @@ const getOrderStats = async (req, res) => {
 // This is used when the payment is made through stripe
 const verifyOrder = async (req, res) => {
   try {
-    const stripeSessionID = req.query?.stripeSessionID;
+    const stripeSessionID = req.params?.sessionId;
 
     if (!stripeSessionID || typeof stripeSessionID !== "string" || !stripeSessionID.trim())
       return res.status(400).json({

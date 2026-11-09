@@ -13,49 +13,12 @@ dotenv.config();
 const secretKey = process.env.JWT_KEY;
 const getSecretKey = () => process.env.JWT_KEY || secretKey;
 
-// Utility function to extract token from Authorization header or cookies
+// Bearer header only: a cookie would be attached by the browser to cross-site requests (CSRF)
 const extractToken = (req) => {
-  // First, try to get token from Authorization header (Bearer token)
   const authHeader = req.headers?.authorization;
   if (authHeader && authHeader.startsWith("Bearer "))
-    return authHeader.substring(7); // Remove 'Bearer ' prefix
-
-  // Fallback to cookie-based token
-  return req.cookies?.token;
-};
-
-// Centralized cookie configuration for consistent JWT-only auth
-const getCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === "production";
-
-  return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    path: "/",
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    // ...(isProduction &&
-    //   process.env.COOKIE_DOMAIN && {
-    //     domain: process.env.COOKIE_DOMAIN,
-    //   }),
-  };
-};
-
-// Separate function for clearing cookies to avoid maxAge conflicts
-const getClearCookieOptions = () => {
-  const isProduction = process.env.NODE_ENV === "production";
-
-  return {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    path: "/",
-    maxAge: 0, // Immediately expire
-    // ...(isProduction &&
-    //   process.env.COOKIE_DOMAIN && {
-    //     domain: process.env.COOKIE_DOMAIN,
-    //   }),
-  };
+    return authHeader.substring(7);
+  return null;
 };
 
 const sendSignupOtp = async (req, res) => {
@@ -271,9 +234,6 @@ const signUp = async (req, res) => {
       { expiresIn: "7d" },
     );
 
-    // Set cookie as fallback (for compatibility)
-    res.cookie("token", token, getCookieOptions());
-
     // Send token in response body for localStorage storage
     res.status(201).json({
       success: true,
@@ -346,7 +306,7 @@ const login = async (req, res) => {
         message: "Either email or password is incorrect!",
       });
 
-    // Create token and send as cookie
+    // Create token; the client stores it and sends it as a Bearer header
     const token = jwt.sign(
       {
         userid: userExist._id,
@@ -359,9 +319,6 @@ const login = async (req, res) => {
       getSecretKey(),
       { expiresIn: "7d" },
     );
-
-    // Set cookie as fallback (for compatibility)
-    res.cookie("token", token, getCookieOptions());
 
     const user = {
       id: userExist._id,
@@ -387,19 +344,8 @@ const login = async (req, res) => {
 
 const logout = async (req, res) => {
   try {
-    // Clear JWT cookie (works for both local and Google auth)
-    res.cookie("token", "", getClearCookieOptions()); // Use dedicated clear cookie options
-
-    // because the browser was constantly caching the logout function
-    // the cookie never got cleared and because of that the token from
-    // the client side was never deleted and after every refresh the user
-    // was being logged back in. Making every request unique solved this issue
-    // but in the req header we can also tell the browser to not cache this request
-    res.status(200).json({
-      success: true,
-      message: "Logged out successfully",
-      timestamp: Date.now(), // Makes each response unique so that the browser doesn't cache it
-    });
+    // JWTs are stateless: the client logs out by deleting its stored token
+    res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (error) {
     console.error("Logout Error:", error.message);
     res.status(500).json({
@@ -412,7 +358,7 @@ const logout = async (req, res) => {
 //  helps to stay logged in even after refreshing the page
 const verifyToken = async (req, res) => {
   try {
-    // Use utility function to extract token from Authorization header or cookies
+    // Token comes only from the Authorization header
     const token = extractToken(req);
     if (!token)
       return res
@@ -457,7 +403,7 @@ const verifyToken = async (req, res) => {
 const demoLogin = async (req, res) => {
   try {
     const requestedRole =
-      (req.body?.role || req.query?.role) === "admin" ? "admin" : "user";
+      req.body?.role === "admin" ? "admin" : "user";
     const base = requestedRole === "admin" ? "demoAdmin" : "demoUser";
 
     await dbConnect();
@@ -549,9 +495,6 @@ const demoLogin = async (req, res) => {
       getSecretKey(),
       { expiresIn: "7d" },
     );
-
-    // Set cookie as fallback
-    res.cookie("token", token, getCookieOptions());
 
     const userData = {
       id: user._id,

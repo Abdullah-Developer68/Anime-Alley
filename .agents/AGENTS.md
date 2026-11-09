@@ -64,6 +64,27 @@ Follow this strict two-part convention across all controllers, services, and mid
 - **Never use multi-line comment blocks (`/* ... */`)**: Multi-line comment blocks can interfere with linting, minification, and diff clarity.
 - **Comment density limit**: At most 1 line of comment for every 3 lines of code. Comment the *why* (security reasons, non-obvious behavior), not what the code already says.
 
+### REST API Standard
+- **Plural nouns, no verbs in paths**: `/api/products`, `/api/orders/:orderId`, not `/product/deleteProduct` or `/order/getOrders`.
+- **The HTTP method is the action**:
+  - `GET` reads and never changes data.
+  - `POST` creates and returns `201`.
+  - `PUT` replaces the whole resource.
+  - `PATCH` updates some fields.
+  - `DELETE` removes.
+- **IDs go in the path** (`DELETE /api/coupons/:couponId`), filters and paging go in the query (`?currPage=2`), and the data being written goes in the body.
+- **Each router is mounted on its own path** in `server/routes/index.routes.js`. Never mount a router at `/`, because its `router.use(...)` middleware would run for every route.
+- **Allowed exceptions** (they have a comment in the route file):
+  - auth actions such as `/auth/login`;
+  - the Google OAuth redirects;
+  - `POST /api/stripe/webhook`, whose URL is registered with Stripe;
+  - the cron cleanup routes, which are `GET` because Vercel Cron only sends `GET`.
+
+### Authentication Standard
+- **Bearer header only**: the JWT is sent as `Authorization: Bearer <token>`.
+- **Never read the token from a cookie**: browsers attach cookies to requests that other sites start, which enables CSRF.
+- **No `express.urlencoded` parser**: the API accepts JSON, plus multipart for uploads.
+
 ### No Prop Drilling Standard
 - **No Prop Drilling**: Prop drilling (passing state, configuration, layout flags, or handlers down component trees) is strictly forbidden across the codebase.
 - **Redux as Single Source of Truth**: Any shared state, layout modes, or cross-component communication must be read and dispatched via Redux Toolkit slices (`useSelector` / `useDispatch`), never passed down as component props.

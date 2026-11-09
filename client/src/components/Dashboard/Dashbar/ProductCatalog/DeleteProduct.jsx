@@ -32,7 +32,7 @@ const DeleteProduct = () => {
       setIsDeleting(true);
       setError("");
 
-      const res = await api.deleteProduct(selectedProduct.productID);
+      const res = await api.deleteProduct(selectedProduct._id);
 
       if (res.data.success) {
         toast.success("Product deleted successfully!");

@@ -4,6 +4,7 @@ const {
   verifyTokenMiddleware,
 } = require("../../middlewares/custom/auth.middleware.js");
 const {
+  reserveStock,
   getCart,
   updateCartItem,
   clearCart,
@@ -12,8 +13,10 @@ const {
 // All cart routes require authentication
 router.use(verifyTokenMiddleware);
 
-router.post("/", getCart);
-router.put("/update", updateCartItem);
-router.delete("/clear", clearCart);
+router.get("/", getCart);
+router.delete("/", clearCart);
+// Adding an item reserves its stock; a cart item is identified by productId + variant
+router.post("/items", reserveStock);
+router.patch("/items/:productId", updateCartItem);
 
 module.exports = router;

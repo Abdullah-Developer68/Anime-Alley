@@ -74,7 +74,7 @@ const Orders = () => {
     setStatsLoading(true);
     setStatsError("");
     try {
-      const res = await api.get("/order/orderStats");
+      const res = await api.getOrderStats();
       if (res.data.success) {
         setOrderStats(res.data.stats);
       } else {
