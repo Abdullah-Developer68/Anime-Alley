@@ -16,7 +16,34 @@ import ComicsFields from "./ProductFormSections/ComicsFields";
 import ClothesShoesFields from "./ProductFormSections/ClothesShoesFields";
 import ToysFields from "./ProductFormSections/ToysFields";
 import ProductImageUpload from "./ProductFormSections/ProductImageUpload";
+import CategoryPicker from "./ProductFormSections/CategoryPicker";
+import { Loader2, X } from "lucide-react";
+import PropTypes from "prop-types";
 import { splitList } from "./ProductFormSections/constants";
+
+// Titled block of the form; the step number makes the top-to-bottom order explicit
+const FormSection = ({ step, title, hint, children }) => (
+  <section className="space-y-4">
+    <header className="flex items-baseline gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold tabular-nums text-ink-300">
+        {step}
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        {hint && <p className="text-xs text-ink-500">{hint}</p>}
+      </div>
+    </header>
+    <div className="sm:pl-9">{children}</div>
+  </section>
+);
+
+FormSection.propTypes = { step: PropTypes.number, title: PropTypes.string.isRequired, hint: PropTypes.string, children: PropTypes.node };
+
+const EmptyHint = ({ children }) => (
+  <p className="rounded-lg border border-dashed border-white/10 p-3 text-xs text-ink-500">{children}</p>
+);
+
+EmptyHint.propTypes = { children: PropTypes.node };
 
 // Sections read and update the form through useFormContext, so nothing is passed down as props
 const ProductForm = () => {
@@ -234,67 +261,79 @@ const ProductForm = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl p-4 sm:p-6 bg-ink-900 border rounded-2xl border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
-          <h2 className="text-lg font-bold text-white sm:text-xl">
-            {editProduct ? "Edit Product" : "Add New Product"}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-form-title"
+        className="flex max-h-[100dvh] w-full max-w-4xl flex-col rounded-t-2xl border border-white/10 bg-ink-900 shadow-2xl shadow-black/60 sm:max-h-[90vh] sm:rounded-2xl"
+      >
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-4">
+          <div className="min-w-0">
+            <h2 id="product-form-title" className="truncate text-lg font-semibold text-white">
+              {editProduct ? `Edit ${editProduct.name}` : "Add a product"}
+            </h2>
+            <p className="mt-0.5 text-sm text-ink-400">
+              {editProduct ? `#${editProduct.productID}` : "It goes live in the shop as soon as you save."}
+            </p>
+          </div>
           <button
+            type="button"
             onClick={handleClose}
-            className="text-gray-400 transition-colors cursor-pointer hover:text-white"
+            aria-label="Close"
+            className="-mr-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-400 transition-colors hover:bg-white/[0.08] hover:text-white"
           >
-            ✕
+            <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
 
         <FormProvider {...methods}>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {/* Left Column - Product Details */}
-              <div className="space-y-4 lg:col-span-2">
-                <div className="space-y-4">
-                  <BasicFields />
-                  <StockFields />
-                </div>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex min-h-0 flex-1 flex-col">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-8 overflow-y-auto px-5 py-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+              <div className="space-y-8">
+                <FormSection step={1} title="Category" hint="Decides which details and stock fields appear below.">
+                  <CategoryPicker />
+                </FormSection>
 
-                {/* Category Specific Fields */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-white">
-                    Additional Details
-                  </h3>
+                <FormSection step={2} title="Basics">
+                  <BasicFields />
+                </FormSection>
+
+                <FormSection step={3} title="Details">
+                  {!selectedCategory && <EmptyHint>Choose a category to see its options.</EmptyHint>}
+                  {/* Kept mounted while hidden so their values and validation rules survive category switches */}
                   <ComicsFields />
                   <ClothesShoesFields />
                   <ToysFields />
-                </div>
+                </FormSection>
+
+                <FormSection step={4} title="Inventory">
+                  {selectedCategory ? <StockFields /> : <EmptyHint>Choose a category to enter stock.</EmptyHint>}
+                </FormSection>
               </div>
 
-              {/* Right Column - Image Upload */}
-              <div className="lg:col-span-1">
-                <ProductImageUpload />
+              <div className="lg:sticky lg:top-0 lg:self-start">
+                <FormSection title="Image">
+                  <ProductImageUpload />
+                </FormSection>
               </div>
             </div>
 
-            {/* Form Actions */}
-            <div className="flex flex-col justify-end gap-3 pt-6 mt-6 border-t sm:flex-row sm:gap-4 border-white/10">
+            <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-white/[0.08] px-5 py-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full px-4 py-2 text-sm text-black transition-colors bg-gray-300 rounded-lg cursor-pointer sm:w-auto hover:bg-white sm:text-base"
+                className="h-10 cursor-pointer rounded-lg px-4 text-sm font-medium text-ink-200 transition-colors hover:bg-white/[0.06] hover:text-white"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full px-4 py-2 text-sm font-medium text-black transition-colors bg-gray-300 rounded-lg sm:w-auto sm:text-base ${
-                  isSubmitting
-                    ? "opacity-60 cursor-not-allowed"
-                    : "cursor-pointer hover:bg-white"
-                }`}
+                className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-pink-500 px-5 text-sm font-semibold text-ink-950 transition-colors hover:bg-pink-400 disabled:cursor-wait disabled:opacity-70"
               >
-                {isSubmitting ? "Saving..." : "Save"}
+                {isSubmitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+                {isSubmitting ? "Saving…" : editProduct ? "Save changes" : "Create product"}
               </button>
             </div>
           </form>

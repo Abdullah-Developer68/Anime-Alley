@@ -1,76 +1,67 @@
 import { useFormContext } from "react-hook-form";
 import FieldError from "./FieldError";
-import { INPUT_CLASS, LABEL_CLASS, SELECT_CLASS } from "./constants";
+import { INPUT_CLASS, LABEL_CLASS } from "./constants";
 
-const CATEGORIES = [
-  ["comics", "Comics"],
-  ["clothes", "Clothes"],
-  ["shoes", "Shoes"],
-  ["toys", "Toys"],
-];
-
-// Name, description, price and category
+// Name, description and price
 const BasicFields = () => {
   const { register } = useFormContext();
 
   return (
-    <>
+    <div className="space-y-4">
       <div>
-        <label className={LABEL_CLASS}>Product Name</label>
+        <label htmlFor="product-name" className={LABEL_CLASS}>
+          Name
+        </label>
         <input
+          id="product-name"
           type="text"
           className={INPUT_CLASS}
-          placeholder="Enter product name"
+          placeholder="e.g. Berserk: Volume 15"
           {...register("productName", { required: "Product name is required!" })}
         />
         <FieldError name="productName" />
       </div>
 
       <div>
-        <label className={LABEL_CLASS}>Description</label>
+        <label htmlFor="product-description" className={LABEL_CLASS}>
+          Description
+        </label>
         <textarea
-          rows="3"
-          className={INPUT_CLASS}
-          placeholder="Enter product description"
+          id="product-description"
+          rows="4"
+          className={`${INPUT_CLASS} resize-y`}
+          placeholder="What makes this item worth buying?"
           {...register("description", { required: "Description is required!" })}
         />
         <FieldError name="description" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className={LABEL_CLASS}>Price</label>
+      <div className="sm:w-1/2">
+        <label htmlFor="product-price" className={LABEL_CLASS}>
+          Price
+        </label>
+        <div className="relative">
+          <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">
+            $
+          </span>
           <input
+            id="product-price"
             type="number"
             step="any"
             min="0"
-            className={INPUT_CLASS}
-            placeholder="Enter price"
+            inputMode="decimal"
+            className={`${INPUT_CLASS} pl-7 tabular-nums`}
+            placeholder="0.00"
             {...register("price", {
               required: "Price is required!",
               validate: (value) =>
                 (!isNaN(Number(value)) && Number(value) >= 0) || "Price must be a valid non-negative number",
             })}
           />
-          <FieldError name="price" />
         </div>
-
-        <div>
-          <label className={LABEL_CLASS}>Category</label>
-          <select className={SELECT_CLASS} {...register("category", { required: "Category is required!" })}>
-            <option className="text-white bg-black" value="">
-              Select Category
-            </option>
-            {CATEGORIES.map(([value, label]) => (
-              <option key={value} className="text-gray-300 bg-gray-800" value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <FieldError name="category" />
-        </div>
+        <FieldError name="price" />
       </div>
-    </>
+    </div>
   );
 };
 

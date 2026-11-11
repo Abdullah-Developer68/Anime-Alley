@@ -3,12 +3,19 @@ export const GENRES = ["Action", "Adventure", "Comedy", "Drama", "Fantasy"];
 // Categories whose stock is entered per variant instead of as a single number
 export const VARIANT_CATEGORIES = ["clothes", "shoes", "comics"];
 
-export const LABEL_CLASS = "block mb-1 text-sm font-medium text-gray-400";
-export const SELECT_CLASS =
-  "w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base";
-export const INPUT_CLASS = `${SELECT_CLASS} placeholder:text-white/50`;
+export const LABEL_CLASS = "mb-1.5 block text-sm font-medium text-ink-200";
+const FIELD_BASE =
+  "w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-white transition-colors hover:border-white/20 focus:border-pink-500/60 focus:outline-none focus:ring-2 focus:ring-pink-500/15";
+export const SELECT_CLASS = `${FIELD_BASE} h-10 cursor-pointer`;
+export const INPUT_CLASS = `${FIELD_BASE} py-2.5 placeholder:text-ink-500`;
+export const OPTION_CLASS = "bg-ink-900 text-white";
+// Toggle chips (sizes, genres): the checkbox is visually hidden, so focus is shown on the chip itself
 export const CHIP_CLASS =
-  "inline-flex items-center px-3 py-1 rounded-full border border-white/10 cursor-pointer hover:bg-white hover:text-black transition-colors text-sm";
+  "inline-flex h-8 cursor-pointer select-none items-center rounded-full border px-3 text-sm transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-pink-400/60";
+export const chipState = (selected) =>
+  selected
+    ? "border-pink-400/50 bg-pink-500/15 text-pink-100"
+    : "border-white/10 bg-white/[0.03] text-ink-200 hover:border-white/20 hover:text-white";
 
 // "V1, V2, " -> ["V1", "V2"]
 export const splitList = (value) =>
@@ -60,14 +67,14 @@ export const TYPE_FIELDS = {
 export const VARIANT_STOCK = {
   size: {
     title: "Stock per Size",
-    emptyMessage: "Please select at least one size below under Additional Details to enter stock values.",
+    emptyMessage: "Pick at least one size under Details to enter its stock.",
     labelWidth: "min-w-[44px]",
     columns: "md:grid-cols-6",
     requiredPrefix: "Size",
   },
   volume: {
     title: "Stock per Volume",
-    emptyMessage: "Please enter at least one volume number below under Additional Details to enter stock values.",
+    emptyMessage: "Add at least one volume number under Details to enter its stock.",
     labelWidth: "min-w-[54px]",
     columns: "md:grid-cols-4",
     requiredPrefix: "Volume",

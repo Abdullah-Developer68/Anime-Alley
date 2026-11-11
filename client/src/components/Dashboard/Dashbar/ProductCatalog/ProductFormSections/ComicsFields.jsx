@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { validateComicVolumes } from "../../../../../utils/volume";
 import FieldError from "./FieldError";
-import { CHIP_CLASS, GENRES, INPUT_CLASS, LABEL_CLASS, splitList } from "./constants";
+import { CHIP_CLASS, GENRES, INPUT_CLASS, LABEL_CLASS, chipState, splitList } from "./constants";
 
 // Genres and volume numbers; stays mounted (hidden) so values survive category switches
 const ComicsFields = () => {
@@ -41,12 +41,12 @@ const ComicsFields = () => {
     <div className={`space-y-4 comics-fields ${selectedCategory === "comics" ? "block" : "hidden"}`}>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className={LABEL_CLASS}>Genres</label>
+          <p className={LABEL_CLASS}>Genres</p>
           <div className="flex flex-wrap gap-2">
             {GENRES.map((genre) => {
               const checked = genres.includes(genre);
               return (
-                <label key={genre} className={`${CHIP_CLASS} ${checked ? "bg-pink-500 text-black" : "bg-white/5 text-white"}`}>
+                <label key={genre} className={`${CHIP_CLASS} ${chipState(checked)}`}>
                   <input
                     type="checkbox"
                     value={genre}
@@ -63,14 +63,18 @@ const ComicsFields = () => {
         </div>
 
         <div>
-          <label className={LABEL_CLASS}>Volume Numbers</label>
+          <label htmlFor="product-volumes" className={LABEL_CLASS}>
+            Volume numbers
+          </label>
           <input
+            id="product-volumes"
             type="text"
             className={INPUT_CLASS}
-            placeholder="V1, V2, V10, ... (e.g. V1, V2, V10)"
+            placeholder="V1, V2, V10"
             {...register("volumes", { validate: validateVolumes })}
             onBlur={handleVolumesBlur}
           />
+          <p className="mt-1.5 text-xs text-ink-500">Comma separated. Plain numbers become V1, V2 when you leave the field.</p>
           <FieldError name="volumes" />
         </div>
       </div>

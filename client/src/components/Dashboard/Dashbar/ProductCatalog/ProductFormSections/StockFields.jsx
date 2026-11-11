@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { Info } from "lucide-react";
 import FieldError from "./FieldError";
 import { INPUT_CLASS, LABEL_CLASS, SIZES, VARIANT_CATEGORIES, VARIANT_STOCK, splitList, stockRules } from "./constants";
 
@@ -8,13 +9,17 @@ const SingleStock = () => {
 
   return (
     <div>
-      <label className={LABEL_CLASS}>Stock</label>
+      <label htmlFor="product-stock" className={LABEL_CLASS}>
+        Units in stock
+      </label>
       <input
+        id="product-stock"
         type="number"
         step="1"
         min="0"
-        className={INPUT_CLASS}
-        placeholder="Enter stock"
+        inputMode="numeric"
+        className={`${INPUT_CLASS} tabular-nums sm:w-1/2`}
+        placeholder="0"
         {...register("stock", stockRules("Stock is required!"))}
       />
       <FieldError name="stock" />
@@ -33,18 +38,19 @@ const VariantStock = ({ variant }) => {
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-400">{title}</label>
+      <p className="text-sm font-medium text-ink-200">{title}</p>
       {labels.length === 0 ? (
-        <div className="p-3 text-xs text-yellow-400 border rounded-lg bg-yellow-400/10 border-yellow-400/20">
+        <p className="flex items-center gap-2 rounded-lg border border-dashed border-white/10 p-3 text-xs text-ink-400">
+          <Info aria-hidden="true" className="h-4 w-4 shrink-0" />
           {emptyMessage}
-        </div>
+        </p>
       ) : (
         <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${columns}`}>
           {labels.map((label) => (
             <div key={label} className="flex flex-col">
-              <div className="flex overflow-hidden transition-colors border rounded-lg border-white/10 bg-white/5 focus-within:border-pink-500">
+              <div className="flex overflow-hidden rounded-lg border border-white/10 bg-white/[0.04] transition-colors hover:border-white/20 focus-within:border-pink-500/60">
                 <span
-                  className={`inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white/90 bg-white/10 border-r border-white/10 ${labelWidth}`}
+                  className={`inline-flex items-center justify-center border-r border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-ink-200 ${labelWidth}`}
                 >
                   {label}
                 </span>
@@ -52,7 +58,9 @@ const VariantStock = ({ variant }) => {
                   type="number"
                   step="1"
                   min="0"
-                  className="w-full px-3 py-2 text-sm text-white bg-transparent placeholder:text-white/40 focus:outline-none sm:text-base"
+                  aria-label={`Stock for ${requiredPrefix.toLowerCase()} ${label}`}
+                  inputMode="numeric"
+                  className="h-10 w-full min-w-0 bg-transparent px-3 text-sm tabular-nums text-white placeholder:text-ink-600 focus:outline-none"
                   placeholder="0"
                   {...register(`stock_${label}`, stockRules(`Stock for ${requiredPrefix} ${label} is required!`))}
                 />

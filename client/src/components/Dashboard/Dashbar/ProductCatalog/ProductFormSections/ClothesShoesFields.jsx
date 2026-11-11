@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import FieldError from "./FieldError";
 import TypeSelect from "./TypeSelect";
-import { CHIP_CLASS, LABEL_CLASS, SIZES } from "./constants";
+import { CHIP_CLASS, LABEL_CLASS, SIZES, chipState } from "./constants";
 
 // Sizes plus the clothes or shoe type; stays mounted (hidden) so the size validation stays registered
 const ClothesShoesFields = () => {
@@ -38,12 +38,12 @@ const ClothesShoesFields = () => {
       }`}
     >
       <div>
-        <label className={LABEL_CLASS}>Available Sizes</label>
+        <p className={LABEL_CLASS}>Available sizes</p>
         <div className="flex flex-wrap gap-2">
           {SIZES.map((size) => (
             <label
               key={size}
-              className={`${CHIP_CLASS} ${availableSizes.includes(size) ? "bg-pink-500 text-black" : "bg-white/5 text-white"}`}
+              className={`${CHIP_CLASS} min-w-11 justify-center ${chipState(availableSizes.includes(size))}`}
             >
               <input
                 type="checkbox"
