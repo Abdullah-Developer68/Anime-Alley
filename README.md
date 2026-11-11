@@ -7,39 +7,40 @@ Anime Alley is a full-stack MERN e-commerce app for anime fans, with a customer 
 ### Customer Experience
 
 - Email/password sign-up with OTP verification and Google login
-- Product browsing with search and category filtering
-- Persistent cart and coupon support at checkout
-- Cash on Delivery and Stripe payment options
-- Order history and status tracking
-- Responsive design for desktop and mobile
+- Product browsing with search, category, type and price filters
+- Stock held for you while it's in your cart, with coupon support at checkout
+- Cash on Delivery and Stripe Checkout payment options
+- Order history with each order's items, sizes and status
+- Responsive design for desktop and mobile, with motion that respects "reduce motion"
 
 ### Admin Tools
 
 - Manage users, products, coupons, and orders
 - Update order status from the dashboard
 - Export data to Excel and PDF
+- One-click read-only demo admin, with customer details masked
 
 ## Screenshots
 
 ### Home Page
 
-<img src="client/src/assets/img/readme/home.png" alt="Home Page" width="220" />
+![Home Page](client/src/assets/img/readme/home.png)
 
 ### Shop Page
 
-<img src="client/src/assets/img/readme/shop.png" alt="Shop Page" width="220" />
+![Shop Page](client/src/assets/img/readme/shop.png)
 
-### Cart Page
+### Product Page
 
-![Cart Page](client/src/assets/img/readme/cart.png)
+![Product Page](client/src/assets/img/readme/checkout.png)
 
-### Checkout / Payment
+### Cart and Checkout
 
-![Checkout / Payment](client/src/assets/img/readme/checkout.png)
+![Cart and Checkout](client/src/assets/img/readme/cart.png)
 
-### Purchase History
+### Order History
 
-![Purchase History](client/src/assets/img/readme/history.png)
+![Order History](client/src/assets/img/readme/history.png)
 
 ### Admin Dashboard - Products
 
@@ -59,6 +60,6 @@ Anime Alley is a full-stack MERN e-commerce app for anime fans, with a customer 
 
 ## Tech Stack:
 
-- **Frontend:** React, Redux Toolkit, Tailwind CSS, React Hook Form, React Router DOM, Stripe.js, Google OAuth
-- **Backend:** Node.js, Express.js, MongoDB Passport.js, Stripe SDK, Nodemailer, Cloudinary, ExcelJS, PDFKit
+- **Frontend:** React 19, Redux Toolkit, Tailwind CSS 4, Motion, React Hook Form, React Router, Lucide icons, Geist font
+- **Backend:** Node.js, Express 5, MongoDB with Mongoose, Passport.js, Stripe SDK, Nodemailer, Cloudinary, ExcelJS, PDFKit
 - **Deployment:** Vercel

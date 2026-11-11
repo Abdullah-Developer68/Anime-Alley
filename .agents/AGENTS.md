@@ -105,7 +105,17 @@ Follow this strict two-part convention across all controllers, services, and mid
   - Put a per-user limiter (`keyGenerator: byUser`) after `verifyTokenMiddleware`, and put any limiter before multer so a blocked request never uploads its file.
   - Counters live in MongoDB (`MongoRateLimitStore`), because each Vercel instance has its own memory. Never fall back to the default in-memory store.
 - **No debug `console.log`** of request bodies, user documents, tokens or passwords, on the server or the client.
-- **Client CSP**: `client/vercel.json` sets the Content Security Policy. A new external script, API or frame origin must be added there, or the browser blocks it.
+- **Client CSP**: `client/vercel.json` sets the Content Security Policy. A new external script, API or frame origin must be added there, or the browser blocks it. Stripe is a redirect to its hosted Checkout page (the server returns `url`), so no Stripe script or frame is allowed.
+- **Demo accounts are read-only**: anyone can create one with a click.
+  - Every admin write route gets `blockDemoWrites` (`server/middlewares/custom/demo.middleware.js`) after `requireAdmin`.
+  - Admin reads that return other people's data mask it for `req.user.isDemo` with `maskEmail` / `maskText` / `HIDDEN_ADDRESS` (`server/utils/privacy.utils.js`). Demo admins can't search users or export anything but products.
+- **Admins never change another user's email or password**; only the account owner can (`editProblem` in `user.controller.js`).
+- **User data in responses uses an explicit field list** (`SAFE_USER_FIELDS`), never a whole user document.
+- **Emails go through `normalizeEmail`** (`validation.utils.js`) before any lookup or write; the schema stores them lower-case.
+- **Refresh tokens rotate** on every refresh (`refreshSession` in `authSession.utils.js`); the client stores the new one.
+- **Uploads**: routes use `singleImage(field)` (`multerConfig.js`: memory storage, 4 MB, JPG/PNG/WebP), and controllers call `uploadImage` only after the request has been validated. Never trust an image URL from the request body.
+- **Stock updates use `$elemMatch`** so the label and the stock check apply to the same variant, and multi-step writes run in `inTransaction` (`server/utils/transaction.utils.js`), which retries on write conflicts. Throw `RequestError` inside it to roll back with a 4xx.
+- **Heavy libraries load on first use** (Stripe, Cloudinary, nodemailer, exceljs, pdfkit) to keep cold starts fast. Don't add top-level requires for them.
 - **Never read the token from a cookie**: browsers attach cookies to requests that other sites start, which enables CSRF.
 - **No `express.urlencoded` parser**: the API accepts JSON, plus multipart for uploads.
 - **Never put a JWT in a URL**: Google login sends a short-lived handoff code in the URL fragment, and the client swaps it for the JWT with `POST /api/googleAuth/token`, proving with its `sessionStorage` verifier that it started the login.
@@ -114,12 +124,29 @@ Follow this strict two-part convention across all controllers, services, and mid
 - **No Prop Drilling**: Prop drilling (passing state, configuration, layout flags, or handlers down component trees) is strictly forbidden across the codebase.
 - **Redux as Single Source of Truth**: Any shared state, layout modes, or cross-component communication must be read and dispatched via Redux Toolkit slices (`useSelector` / `useDispatch`), never passed down as component props.
 
+### Design System (client)
+The UI follows a light, editorial look: an off-white canvas, white surfaces, hairline borders, near-black ink, two-tone headings and pill buttons.
+
+- **Tokens live in `client/src/index.css` (`@theme`)**. Use them through Tailwind classes, never raw hex values or Tailwind's default palette:
+  - colors: `canvas`, `surface`, `sunken`, `ink`, `ink-soft`, `muted`, `subtle`, `line`, `line-strong`, and `success` / `danger` / `warning` / `info` / `violet` each with a `-soft` tint;
+  - `rounded-panel`, `shadow-panel`, `shadow-float`, `max-w-frame`;
+  - font: Geist Variable (self-hosted via `@fontsource-variable/geist`, so the CSP needs no font origin).
+- **Primitives live in `client/src/components/ui/`**. Reuse them before writing new markup:
+  - `Button` / `ButtonLink` (variants `primary`, `secondary`, `ghost`, `danger`, `danger-ghost`; sizes `sm`, `md`, `lg`, `icon`, `icon-sm`), `Badge`, `Modal`, `Spinner` / `PageSpinner`, `EmptyState`, `Pagination`, `Avatar`, `Logo`, `Frame`, `TwoTone`, `Reveal`;
+  - class recipes in `styles.js`: `buttonClass`, `inputClass`, `textareaClass`, `labelClass`, `panelClass`, `eyebrowClass`, `BADGE_TONES`, `ORDER_STATUS_TONES`, and `cx` to join classes. When a class must beat one in a recipe, use Tailwind's important suffix (`w-auto!`).
+- **Layout**: pages sit in `Frame` (the bordered content column); sections inside stack with `border-t border-line`. Headings are `font-medium` with negative tracking; long headings use `TwoTone`.
+- **Motion**: use the `motion` package through `m.*` components only. `LazyMotion` runs in `strict` mode with `domAnimation` (loaded lazily from `utils/motionFeatures.js`), so `motion.*` components and layout animations are not available. `MotionConfig reducedMotion="user"` is global. Use `Reveal` for scroll-in effects and `AnimatePresence` for anything that leaves the screen.
+- **Icons** come from `lucide-react`; don't add image files for icons.
+- **Images**: product images from Cloudinary go through `productImage(url, width)` (`utils/images.js`), and below-the-fold `<img>` tags get `loading="lazy"`. Marketing images live in `src/assets/img/products/` as display-sized WebP.
+- **Routes** other than `/` are lazy-loaded in `App.jsx`; a new page should be too.
+- Shared constants (categories, product types, sort options, cart limits) live in `client/src/utils/catalog.js`.
+
 ---
 
 ## 2. Project Architecture & Setup
 
 ### Architecture Overview
-- **Client (`/client`)**: React 18 single-page application built with Vite, Tailwind CSS, Lucide icons, and Axios. Uses React Context for Cart, Auth, and Theme state.
+- **Client (`/client`)**: React 19 single-page application built with Vite, Tailwind CSS 4, Motion and Lucide icons. Redux Toolkit holds shared state; React Context holds only the signed-in user (`AuthProvider`). All requests go through the `fetch` wrapper in `client/src/api/api.js`.
 - **Server (`/server`)**: Node.js & Express REST API using Mongoose for MongoDB data modeling, Stripe SDK for checkout/payments, and JWT/Nodemailer for authentication & OTP verification.
 - **Serverless & Cron (`/api`, `/vercel.json`)**: Vercel Serverless Functions and Vercel Cron Jobs (`/api/cron/cleanup-users`, `/api/cron/cleanup-reservations`) triggering backend cleanup routines via HTTP GET.
 
