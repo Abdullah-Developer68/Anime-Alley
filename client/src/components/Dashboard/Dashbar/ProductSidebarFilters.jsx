@@ -1,303 +1,135 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { setProductFilters } from "../../../redux/Slice/DashboardSlice";
-import { formatPrice } from "../../../utils/formatPrice";
 import { Search } from "lucide-react";
-import ClearFilterButton from "../../Global/ClearFilterButton";
+import { resetProductFilters, setProductFilters } from "../../../redux/Slice/DashboardSlice";
+import { CATEGORIES, PRICE_CAP, PRODUCT_TYPES } from "../../../utils/catalog";
+import Button from "../../ui/Button";
+import { cx, inputClass } from "../../ui/styles";
 
+const sectionTitle = "mb-2 block text-[11px] font-medium uppercase tracking-[0.12em] text-subtle";
+
+const toDraft = (filters) => ({
+  searchQuery: filters.searchQuery || "",
+  price: Number(filters.price) || 0,
+  category: filters.category || "comics",
+  productTypes: filters.productTypes?.length ? filters.productTypes : ["all"],
+});
+
+// Filters for the dashboard's product table. Category applies at once; the rest on "Apply".
 const ProductSidebarFilters = () => {
   const dispatch = useDispatch();
-  const productFilters = useSelector(
-    (state) => state.dashboard.productFilters || {},
-  );
+  const applied = useSelector((state) => state.dashboard.productFilters);
+  const [draft, setDraft] = useState(() => toDraft(applied));
 
-  const [searchVal, setSearchVal] = useState(productFilters.searchQuery || "");
-  const [priceVal, setPriceVal] = useState(productFilters.price || 0);
-  const [selectedCategory, setSelectedCategory] = useState(
-    productFilters.category || "comics",
-  );
-  const [selectedTypes, setSelectedTypes] = useState(
-    productFilters.productTypes || ["all"],
-  );
-
-  // Synchronize internal state when Redux changes externally
+  // Resets from elsewhere refresh the draft
   useEffect(() => {
-    setSearchVal(productFilters.searchQuery || "");
-    setPriceVal(productFilters.price || 0);
-    setSelectedCategory(productFilters.category || "comics");
-    setSelectedTypes(productFilters.productTypes || ["all"]);
-  }, [
-    productFilters.searchQuery,
-    productFilters.price,
-    productFilters.category,
-    productFilters.productTypes,
-  ]);
+    setDraft(toDraft(applied));
+  }, [applied]);
 
-  // Determine available product types for current category
-  const getProductTypes = (category) => {
-    const list = ["All"];
-    switch (category) {
-      case "comics":
-        return list.concat(["Action", "Adventure", "Comedy", "Drama", "Fantasy"]);
-      case "clothes":
-        return list.concat(["T-Shirt", "Jacket", "Pants"]);
-      case "shoes":
-        return list.concat(["Sneakers", "Boots"]);
-      case "toys":
-        return list.concat(["Action-Figure", "Car", "Doll"]);
-      default:
-        return list;
-    }
+  const selectedTypes = draft.productTypes.includes("all") ? [] : draft.productTypes;
+  const changed = JSON.stringify(draft) !== JSON.stringify(toDraft(applied));
+  const filtered = applied.searchQuery || Number(applied.price) > 0 || applied.productTypes?.some((t) => t !== "all") || applied.category !== "comics";
+
+  const toggleType = (type) => {
+    const value = type.toLowerCase();
+    const next = selectedTypes.includes(value) ? selectedTypes.filter((t) => t !== value) : [...selectedTypes, value];
+    setDraft({ ...draft, productTypes: next.length ? next : ["all"] });
   };
 
-  const availTypes = getProductTypes(selectedCategory);
-
-  // Handle Category Change
-  const handleCategoryChange = (newCat) => {
-    setSelectedCategory(newCat);
-    const defaultTypes = ["all"];
-    setSelectedTypes(defaultTypes);
-    dispatch(
-      setProductFilters({
-        category: newCat,
-        productTypes: defaultTypes,
-        searchQuery: searchVal.trim(),
-        price: Number(priceVal) || 0,
-      }),
-    );
+  const changeCategory = (category) => {
+    const next = { ...draft, category, productTypes: ["all"] };
+    setDraft(next);
+    dispatch(setProductFilters({ ...next, searchQuery: next.searchQuery.trim() }));
   };
 
-  // Handle Type/Genre Checkbox Click
-  const handleTypeClick = (item) => {
-    let newTypes;
-    if (item === "All") {
-      newTypes = ["all"];
-    } else {
-      const lower = item.toLowerCase();
-      if (selectedTypes.includes(lower)) {
-        newTypes = selectedTypes.filter((t) => t !== lower);
-        if (newTypes.length === 0) {
-          newTypes = ["all"];
-        }
-      } else {
-        newTypes = selectedTypes
-          .filter((t) => t !== "all")
-          .concat(lower);
-      }
-    }
-    setSelectedTypes(newTypes);
-  };
-
-  // Check if any filter is actively applied in Redux
-  const hasActiveFilters = Boolean(
-    (productFilters.searchQuery && productFilters.searchQuery.trim() !== "") ||
-    (productFilters.price && Number(productFilters.price) > 0) ||
-    (productFilters.productTypes &&
-      productFilters.productTypes.length > 0 &&
-      productFilters.productTypes.some((t) => t && t.toLowerCase() !== "all")) ||
-    (productFilters.category && productFilters.category !== "comics")
-  );
-
-  // Check if current form inputs differ from applied filters (uncommitted changes)
-  const hasUncommittedChanges = useMemo(() => {
-    // Search
-    if ((searchVal || "").trim() !== (productFilters.searchQuery || "").trim()) {
-      return true;
-    }
-    // Price
-    if (Number(priceVal || 0) !== Number(productFilters.price || 0)) {
-      return true;
-    }
-    // Category
-    if (selectedCategory !== (productFilters.category || "comics")) {
-      return true;
-    }
-    // Types
-    const normalizeTypes = (types) => {
-      if (!Array.isArray(types)) return [];
-      return types
-        .map((t) => String(t).toLowerCase().trim())
-        .filter((t) => t && t !== "all")
-        .sort();
-    };
-    if (
-      JSON.stringify(normalizeTypes(selectedTypes)) !==
-      JSON.stringify(normalizeTypes(productFilters.productTypes))
-    ) {
-      return true;
-    }
-    return false;
-  }, [searchVal, priceVal, selectedCategory, selectedTypes, productFilters]);
-
-  // Submit / Apply all filters
-  const handleApply = (e) => {
-    if (e) e.preventDefault();
-    dispatch(
-      setProductFilters({
-        searchQuery: searchVal.trim(),
-        category: selectedCategory,
-        price: Number(priceVal) || 0,
-        productTypes: selectedTypes,
-      }),
-    );
-  };
-
-  const getBackgroundStyle = (val) => {
-    const max = productFilters.maxPrice || 100;
-    const percentage = (val / max) * 100;
-    return {
-      background: `linear-gradient(to right, #EC4899 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%)`,
-    };
+  const apply = (e) => {
+    e.preventDefault();
+    dispatch(setProductFilters({ ...draft, searchQuery: draft.searchQuery.trim() }));
   };
 
   return (
-    <form onSubmit={handleApply} className="space-y-5">
-      {/* Search Input */}
-      <div className="relative">
-        <input
-          type="text"
-          value={searchVal}
-          onChange={(e) => setSearchVal(e.target.value)}
-          placeholder="Search products..."
-          className="w-full h-9 pl-3.5 pr-9 text-xs text-white rounded-lg outline-none bg-white/10 border border-white/20 placeholder:text-white/40 focus:border-pink-500/60 transition-all duration-300"
-        />
-        <button
-          type="submit"
-          disabled={!hasUncommittedChanges}
-          className={`absolute -translate-y-1/2 right-3 top-1/2 transition-opacity ${
-            !hasUncommittedChanges
-              ? "opacity-30 cursor-not-allowed text-white/40"
-              : "opacity-75 hover:opacity-100 cursor-pointer text-white/70 hover:text-white"
-          }`}
-        >
-          <Search className="w-4 h-4" />
-        </button>
+    <form onSubmit={apply} className="space-y-5">
+      <div>
+        <label htmlFor="admin-search" className={sectionTitle}>
+          Search
+        </label>
+        <div className="relative">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-subtle" />
+          <input
+            id="admin-search"
+            type="search"
+            value={draft.searchQuery}
+            maxLength={100}
+            onChange={(e) => setDraft({ ...draft, searchQuery: e.target.value })}
+            placeholder="Product name"
+            className={cx(inputClass, "h-9! pl-8! text-[13px]")}
+          />
+        </div>
       </div>
 
-      {/* Category Dropdown */}
       <div>
-        <h3 className="flex items-center gap-2 mb-2 text-xs font-semibold text-white/90">
-          <span className="w-1 h-3.5 bg-pink-500 rounded-full"></span>
+        <label htmlFor="admin-category" className={sectionTitle}>
           Category
-        </h3>
-        <select
-          value={selectedCategory}
-          onChange={(e) => handleCategoryChange(e.target.value)}
-          className="w-full h-9 px-2.5 text-xs text-white/90 rounded-lg cursor-pointer bg-white/10 border border-white/20 outline-none focus:border-pink-500/60 transition-all duration-300 hover:bg-white/15"
-        >
-          <option className="text-black bg-white" value="comics">
-            Comics
-          </option>
-          <option className="text-black bg-white" value="clothes">
-            Clothes
-          </option>
-          <option className="text-black bg-white" value="shoes">
-            Shoes
-          </option>
-          <option className="text-black bg-white" value="toys">
-            Toys
-          </option>
+        </label>
+        <select id="admin-category" value={draft.category} onChange={(e) => changeCategory(e.target.value)} className={cx(inputClass, "h-9! text-[13px]")}>
+          {CATEGORIES.map(({ id, label }) => (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          ))}
         </select>
       </div>
 
-      {/* Price Range Slider */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="flex items-center gap-2 text-xs font-semibold text-white/90">
-            <span className="w-1 h-3.5 bg-pink-500 rounded-full"></span>
-            Price Range
-          </h3>
-          {priceVal > 0 && (
-            <button
-              type="button"
-              onClick={() => setPriceVal(0)}
-              className="text-[11px] font-medium text-pink-400 hover:text-pink-300 transition-colors cursor-pointer"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-        <div className="px-1">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value={priceVal}
-            onChange={(e) => setPriceVal(Number(e.target.value))}
-            style={getBackgroundStyle(priceVal)}
-            className="w-full h-1.5 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-pink-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-pink-500 [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/40"
-          />
-          <div className="flex justify-between mt-2 text-[11px] tabular-nums text-white/60">
-            <span>$0</span>
-            <span className="font-semibold text-pink-400">
-              {priceVal === 0 ? "All Prices" : `Up to $${formatPrice(priceVal)}`}
-            </span>
-            <span>$100</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Available Filters Section */}
-      <div>
-        <h3 className="flex items-center gap-2 mb-2 text-xs font-semibold text-white/90">
-          <span className="w-1 h-3.5 bg-pink-500 rounded-full"></span>
-          {selectedCategory === "clothes"
-            ? "Available Clothes"
-            : selectedCategory === "shoes"
-              ? "Available Shoes"
-              : selectedCategory === "comics"
-                ? "Available Genres"
-                : "Available Toys"}
-        </h3>
-        <div className="grid grid-cols-2 gap-2 text-white/70 max-h-36 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-white/10">
-          {availTypes.map((item) => {
-            const isChecked = selectedTypes.includes(item.toLowerCase());
+      <fieldset>
+        <legend className={sectionTitle}>Type</legend>
+        <div className="flex flex-wrap gap-1.5">
+          {(PRODUCT_TYPES[draft.category] || []).map((type) => {
+            const active = selectedTypes.includes(type.toLowerCase());
             return (
-              <label
-                key={item}
-                className="flex items-center gap-2 text-xs transition-colors duration-200 cursor-pointer hover:text-pink-400 group"
+              <button
+                key={type}
+                type="button"
+                aria-pressed={active}
+                onClick={() => toggleType(type)}
+                className={cx(
+                  "h-7 rounded-full border px-2.5 text-xs transition-colors",
+                  active ? "border-ink bg-ink text-white" : "border-line text-ink-soft hover:border-line-strong hover:text-ink",
+                )}
               >
-                <input
-                  type="checkbox"
-                  value={item}
-                  checked={isChecked}
-                  onChange={() => handleTypeClick(item)}
-                  className="flex-shrink-0 w-3.5 h-3.5 cursor-pointer accent-pink-500 border-white/20 focus:ring-pink-500 focus:ring-offset-1 focus:ring-offset-black"
-                />
-                <span className="text-[11px] transition-transform duration-200 group-hover:translate-x-1">
-                  {item}
-                </span>
-              </label>
+                {type.replace("-", " ")}
+              </button>
             );
           })}
         </div>
+      </fieldset>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <label htmlFor="admin-price" className={cx(sectionTitle, "mb-0")}>
+            Max price
+          </label>
+          <span className="text-xs tabular-nums text-ink">{draft.price > 0 ? `$${draft.price}` : "Any"}</span>
+        </div>
+        <input
+          id="admin-price"
+          type="range"
+          min="0"
+          max={PRICE_CAP}
+          step="5"
+          value={draft.price || PRICE_CAP}
+          onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) >= PRICE_CAP ? 0 : Number(e.target.value) })}
+          className="w-full"
+        />
       </div>
 
-      {/* Apply and Clear/Reset Buttons */}
-      <div className="flex items-center gap-2 pt-2">
-        <button
-          type="submit"
-          disabled={!hasUncommittedChanges}
-          className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-1.5 ${
-            !hasUncommittedChanges
-              ? "bg-white/5 text-white/35 border border-white/10 cursor-not-allowed select-none"
-              : "bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg hover:shadow-pink-500/25 cursor-pointer active:scale-[0.98]"
-          }`}
-        >
-          Apply Filters
-        </button>
-        {hasActiveFilters && (
-          <ClearFilterButton
-            target="dashboard"
-            className="py-1.5 px-2 h-[32px] w-[32px]"
-            onReset={() => {
-              setSearchVal("");
-              setPriceVal(0);
-              setSelectedCategory("comics");
-              setSelectedTypes(["all"]);
-            }}
-          />
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={!changed} className="flex-1">
+          Apply
+        </Button>
+        {filtered && (
+          <Button variant="ghost" size="sm" onClick={() => dispatch(resetProductFilters())}>
+            Reset
+          </Button>
         )}
       </div>
     </form>

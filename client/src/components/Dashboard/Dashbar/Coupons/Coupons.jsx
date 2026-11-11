@@ -1,321 +1,169 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import useAuth from "../../../../Hooks/UseAuth";
+import { BadgePercent, Download, Pencil, Plus, Tag, Trash2, TrendingUp } from "lucide-react";
 import api from "../../../../api/api";
-import assets from "../../../../assets/asset";
 import {
+  openCouponCreateModal,
+  openCouponDeleteModal,
+  openCouponEditModal,
   openExportModal,
   setReloadData,
-  openCouponEditModal,
-  openCouponDeleteModal,
-  openCouponCreateModal,
 } from "../../../../redux/Slice/DashboardSlice";
+import { formatDate, formatMoney } from "../../../../utils/money";
 import EditCoupon from "./EditCoupon";
 import DeleteCoupon from "./DeleteCoupon";
 import CreateCoupon from "./CreateCoupon";
-import { Download, RefreshCw, Plus } from "lucide-react";
-import DashboardPagination from "../../DashboardPagination";
+import PageHeader from "../../shared/PageHeader";
+import StatCard from "../../shared/StatCard";
+import DemoNotice from "../../shared/DemoNotice";
+import { READ_ONLY_TITLE, useReadOnly } from "../../shared/readOnly";
+import { emptyCellClass, rowClass, tableClass, tableWrapClass, tdClass, thClass } from "../../shared/tableStyles";
+import Badge from "../../../ui/Badge";
+import Button from "../../../ui/Button";
+import Pagination from "../../../ui/Pagination";
+import { cx } from "../../../ui/styles";
+
+const isActive = (coupon) => new Date(coupon.expiryDate) > new Date();
 
 const Coupons = () => {
-  const { user } = useAuth();
   const dispatch = useDispatch();
+  const readOnly = useReadOnly();
+  const reloadData = useSelector((state) => state.dashboard.reloadData);
   const [coupons, setCoupons] = useState([]);
   const [currPage, setCurrPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCoupons, setTotalCoupons] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const reloadDataType = useSelector((state) => state.dashboard.reloadData);
-  const [stats, setStats] = useState({
-    activeCoupons: 0,
-    totalUsage: 0,
-    totalDiscount: 0,
-  });
+  const [stats, setStats] = useState({ activeCoupons: 0, totalUsage: 0, totalDiscount: 0 });
 
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  const getStatus = (expiryDate) => {
-    return new Date(expiryDate) > new Date() ? "Active" : "Expired";
-  };
-
-  const loadCoupons = useCallback(
-    async (page = 1) => {
-      if (!user?.email) return;
-      setLoading(true);
-      setError("");
-      try {
-        const res = await api.getAllCoupons(page);
-        if (res.data.success) {
-          setCoupons(res.data.allCoupons);
-          setTotalPages(res.data.totalPages);
-          setTotalCoupons(res.data.totalCoupons);
-        } else {
-          setError(res.data.message || "Failed to fetch coupons.");
-        }
-      } catch (err) {
-        setError(err.response?.data?.message || "An error occurred.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [user?.email],
-  );
-
-  const refreshStats = useCallback(async () => {
+  const loadCoupons = useCallback(async (page) => {
     setLoading(true);
     setError("");
-    if (!user?.email) return;
     try {
-      const res = await api.getCouponStats();
-      if (res.data.success) {
-        setStats(res.data);
-      } else {
-        setStats({ activeCoupons: 0, totalUsage: 0, totalDiscount: 0 });
-      }
-    } catch (error) {
-      console.error("Failed to fetch coupon stats:", error);
+      const { data } = await api.getAllCoupons(page);
+      setCoupons(data.allCoupons);
+      setTotalPages(data.totalPages);
+      setTotalCoupons(data.totalCoupons);
+    } catch (err) {
+      setCoupons([]);
+      setError(err.response?.data?.message || "Failed to fetch coupons.");
     } finally {
       setLoading(false);
     }
-  }, [user?.email]);
+  }, []);
 
-  // Fetch stats only on mount and when refresh is clicked
-  useEffect(() => {
-    setLoading(true);
-    refreshStats();
-  }, [refreshStats]);
+  const loadStats = useCallback(async () => {
+    try {
+      const { data } = await api.getCouponStats();
+      setStats(data);
+    } catch (err) {
+      console.error("Failed to fetch coupon stats:", err);
+    }
+  }, []);
 
-  // Load coupons on mount and when page changes
   useEffect(() => {
     loadCoupons(currPage);
-  }, [loadCoupons, currPage]);
+  }, [currPage, loadCoupons]);
 
-  // Reload data when reloadDataType changes (when user makes edit or delete actions)
   useEffect(() => {
-    if (reloadDataType === "coupons") {
-      loadCoupons(currPage);
-      dispatch(setReloadData(null));
-      refreshStats();
-    }
-  }, [reloadDataType, currPage, refreshStats, dispatch, loadCoupons]);
+    loadStats();
+  }, [loadStats]);
 
-  // Handler for refresh button
-  const handleRefreshStats = () => {
-    refreshStats();
-  };
-
-  const handlePg = (value) => {
-    let newPage;
-    if (value === "next" && currPage < totalPages) newPage = currPage + 1;
-    else if (value === "prev" && currPage > 1) newPage = currPage - 1;
-    else if (typeof value === "number") newPage = value;
-    else return;
-    setCurrPage(newPage);
-  };
-
-  const handleDelete = (couponToDelete) => {
-    dispatch(openCouponDeleteModal(couponToDelete));
-  };
+  // Creates, edits and deletes ask for a reload through Redux
+  useEffect(() => {
+    if (reloadData !== "coupons")
+      return;
+    loadCoupons(currPage);
+    loadStats();
+    dispatch(setReloadData(null));
+  }, [reloadData, currPage, loadCoupons, loadStats, dispatch]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
+      <CreateCoupon />
       <EditCoupon />
       <DeleteCoupon />
-      <CreateCoupon />
-      {/* Header Section */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Coupons</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRefreshStats}
-            disabled={loading}
-            title="Refresh Stats"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white disabled:opacity-50"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("coupons"))}
-            title="Export Coupons"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatch(openCouponCreateModal())}
-            title="Create Coupon"
-            className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </div>
+
+      <PageHeader title="Coupons" description={`${totalCoupons} codes`}>
+        <Button variant="secondary" size="sm" onClick={() => dispatch(openExportModal("coupons"))} disabled={readOnly} title={readOnly ? READ_ONLY_TITLE : undefined}>
+          <Download aria-hidden="true" className="size-3.5" />
+          Export
+        </Button>
+        <Button size="sm" onClick={() => dispatch(openCouponCreateModal())} disabled={readOnly} title={readOnly ? READ_ONLY_TITLE : undefined}>
+          <Plus aria-hidden="true" className="size-3.5" />
+          New coupon
+        </Button>
+      </PageHeader>
+
+      <DemoNotice />
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="Active codes" value={stats.activeCoupons} icon={Tag} tone="success" index={0} />
+        <StatCard label="Times used" value={stats.totalUsage} icon={TrendingUp} tone="info" index={1} />
+        <StatCard label="Discount given" value={formatMoney(stats.totalDiscount)} icon={BadgePercent} tone="violet" index={2} />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Active Coupons</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {stats.activeCoupons}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-green-500/20">
-              <img src={assets.activeCoupons} alt="Active Coupons" />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Total Usage</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {stats.totalUsage}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-blue-500/20">
-              <img src={assets.couponUsage} alt="Coupon Usage" />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Total Discount</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                ${stats.totalDiscount.toLocaleString()}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-yellow-500/20">
-              <img src={assets.couponDiscount} alt="Coupon Discount" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Coupons Table */}
-      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-x-auto max-h-[600px]">
-          <table className="w-full min-w-[800px]">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Actions
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Code
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Discount
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Valid Until
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Status
-                </th>
+      <div className={tableWrapClass}>
+        <table className={tableClass}>
+          <thead>
+            <tr>
+              <th className={thClass}>Code</th>
+              <th className={thClass}>Discount</th>
+              <th className={thClass}>Expires</th>
+              <th className={thClass}>Used</th>
+              <th className={thClass}>Status</th>
+              <th className={cx(thClass, "text-right")}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className={emptyCellClass}>Loading coupons…</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    Loading...
+            ) : error ? (
+              <tr>
+                <td colSpan={6} className={cx(emptyCellClass, "text-danger")}>{error}</td>
+              </tr>
+            ) : coupons.length === 0 ? (
+              <tr>
+                <td colSpan={6} className={emptyCellClass}>No coupons yet.</td>
+              </tr>
+            ) : (
+              coupons.map((coupon) => (
+                <tr key={coupon._id} className={rowClass}>
+                  <td className={cx(tdClass, "font-mono text-[12.5px] text-ink")}>{coupon.couponCode}</td>
+                  <td className={cx(tdClass, "tabular-nums")}>{coupon.discountPercentage}%</td>
+                  <td className={cx(tdClass, "whitespace-nowrap")}>{formatDate(coupon.expiryDate)}</td>
+                  <td className={cx(tdClass, "tabular-nums")}>
+                    {coupon.totalUsage || 0}
+                    <span className="ml-1.5 text-xs text-subtle">({formatMoney(coupon.lifeTimeDiscount || 0)})</span>
+                  </td>
+                  <td className={tdClass}>
+                    <Badge tone={isActive(coupon) ? "success" : "neutral"}>{isActive(coupon) ? "Active" : "Expired"}</Badge>
+                  </td>
+                  <td className={cx(tdClass, "text-right")}>
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${coupon.couponCode}`} title={readOnly ? READ_ONLY_TITLE : "Edit"} disabled={readOnly} onClick={() => dispatch(openCouponEditModal(coupon))}>
+                        <Pencil aria-hidden="true" className="size-3.5" />
+                      </Button>
+                      <Button variant="danger-ghost" size="icon-sm" aria-label={`Delete ${coupon.couponCode}`} title={readOnly ? READ_ONLY_TITLE : "Delete"} disabled={readOnly} onClick={() => dispatch(openCouponDeleteModal(coupon))}>
+                        <Trash2 aria-hidden="true" className="size-3.5" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-red-400">
-                    {error}
-                  </td>
-                </tr>
-              ) : coupons.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    No coupons found.
-                  </td>
-                </tr>
-              ) : (
-                coupons.map((coupon) => (
-                  <tr
-                    key={coupon._id}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Edit"
-                          onClick={() => dispatch(openCouponEditModal(coupon))}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Delete"
-                          onClick={() => handleDelete(coupon)}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5"
-                            alt="Delete"
-                          />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-white">
-                      {coupon.couponCode}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {coupon.discountPercentage}%
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {formatDate(coupon.expiryDate)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          getStatus(coupon.expiryDate) === "Active"
-                            ? "bg-green-500/20 text-green-500"
-                            : "bg-red-500/20 text-red-500"
-                        }`}
-                      >
-                        {getStatus(coupon.expiryDate)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <DashboardPagination
-        currPage={currPage}
-        totalPages={totalPages}
-        totalItems={totalCoupons}
-        itemCount={coupons.length}
-        pageSize={20}
-        label="coupons"
-        onPageChange={handlePg}
-      />
+      <div className="flex justify-end">
+        <Pagination page={currPage} totalPages={totalPages} onPageChange={setCurrPage} label="Coupon pages" />
+      </div>
     </div>
   );
 };

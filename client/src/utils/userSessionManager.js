@@ -1,75 +1,17 @@
-// User Session Manager
-// Handles localStorage cleanup when user email changes
+// Everything stored for the signed-in person. The shop's own cache (category, filters, product
+// pages) is not personal, so it survives logouts and keeps the shop instant.
+const USER_DATA_KEYS = [
+  "authToken",
+  "refreshToken",
+  "userInfo",
+  "currentUserEmail",
+  "purchaseHistory",
+  "userHistoryTotalPages",
+  "deliveryAddress",
+];
 
-const USER_EMAIL_KEY = "currentUserEmail";
-
-// Get the currently stored user email
-export const getCurrentUserEmail = () => {
-  return localStorage.getItem(USER_EMAIL_KEY);
-};
-
-// Set the current user email
-export const setCurrentUserEmail = (email) => {
-  localStorage.setItem(USER_EMAIL_KEY, email);
-};
-
-// Clear all localStorage data except authentication tokens
-export const clearUserData = () => {
-  // Items to preserve during user switch
-  const itemsToPreserve = [
-    "userInfo", // Keep new user info
-    "authToken", // Keep authentication token
-    "token", // Keep fallback token if exists
-    "refreshToken", // Keep refresh token if exists
-    USER_EMAIL_KEY, // Keep the new email reference
-  ];
-
-  // Get all localStorage keys
-  const allKeys = Object.keys(localStorage);
-
-  // Remove all items except preserved ones
-  allKeys.forEach((key) => {
-    if (!itemsToPreserve.includes(key))
-      localStorage.removeItem(key);
-  });
-
-  console.log("User data cleared from localStorage due to email change");
-};
-
-// Check if user email has changed and clear data if needed
-// Call this function whenever userInfo is updated
-
-export const checkAndHandleUserChange = (newUserInfo) => {
-  if (!newUserInfo || !newUserInfo.email)
-    return false; // No valid user info provided
-
-  const currentStoredEmail = getCurrentUserEmail();
-  const newEmail = newUserInfo.email;
-
-  // If this is the first time or email hasn't changed, just update the stored email
-  if (!currentStoredEmail || currentStoredEmail === newEmail) {
-    setCurrentUserEmail(newEmail);
-    return false; // No cleanup needed
-  }
-
-  // Email has changed - clear user data and update email
-  clearUserData();
-  setCurrentUserEmail(newEmail);
-
-  return true; // Cleanup was performed
-};
-
-// Initialize user session on app start
-// Call this when the app loads to sync stored email with current userInfo
-export const initializeUserSession = () => {
-  try {
-    const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-    if (userInfo && userInfo.email)
-      checkAndHandleUserChange(userInfo);
-  } catch (error) {
-    console.error("Error initializing user session:", error);
-  }
-};
+export const hasStoredSession = () =>
+  Boolean(localStorage.getItem("authToken") || localStorage.getItem("refreshToken"));
 
 // Stores the 15-minute access token and the refresh token that renews it (see api.js)
 export const saveAuthTokens = ({ token, refreshToken } = {}) => {
@@ -79,8 +21,22 @@ export const saveAuthTokens = ({ token, refreshToken } = {}) => {
     localStorage.setItem("refreshToken", refreshToken);
 };
 
-// Clear all user data on logout
 export const clearAllUserData = () => {
-  localStorage.clear();
-  console.log("All localStorage data cleared on logout");
+  USER_DATA_KEYS.forEach((key) => localStorage.removeItem(key));
+};
+
+// After any login: drop the previous person's data, then keep the new tokens and profile
+export const startUserSession = (user, tokens) => {
+  clearAllUserData();
+  saveAuthTokens(tokens);
+  localStorage.setItem("userInfo", JSON.stringify(user));
+  localStorage.setItem("currentUserEmail", user.email);
+};
+
+export const readStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem("userInfo"));
+  } catch {
+    return null;
+  }
 };

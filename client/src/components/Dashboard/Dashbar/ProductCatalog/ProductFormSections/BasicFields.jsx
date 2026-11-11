@@ -1,6 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import FieldError from "./FieldError";
-import { INPUT_CLASS, LABEL_CLASS, SELECT_CLASS } from "./constants";
+import { INPUT_CLASS, LABEL_CLASS, SELECT_CLASS, TEXTAREA_CLASS } from "./constants";
 
 const CATEGORIES = [
   ["comics", "Comics"],
@@ -30,7 +30,7 @@ const BasicFields = () => {
         <label className={LABEL_CLASS}>Description</label>
         <textarea
           rows="3"
-          className={INPUT_CLASS}
+          className={TEXTAREA_CLASS}
           placeholder="Enter product description"
           {...register("description", { required: "Description is required!" })}
         />
@@ -58,11 +58,9 @@ const BasicFields = () => {
         <div>
           <label className={LABEL_CLASS}>Category</label>
           <select className={SELECT_CLASS} {...register("category", { required: "Category is required!" })}>
-            <option className="text-white bg-black" value="">
-              Select Category
-            </option>
+            <option value="">Select category</option>
             {CATEGORIES.map(([value, label]) => (
-              <option key={value} className="text-gray-300 bg-gray-800" value={value}>
+              <option key={value} value={value}>
                 {label}
               </option>
             ))}

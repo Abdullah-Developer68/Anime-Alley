@@ -1,76 +1,55 @@
-/* eslint-disable react/prop-types */
 import { createContext, useEffect, useState } from "react";
 import api from "../api/api";
-import {
-  checkAndHandleUserChange,
-  initializeUserSession,
-  clearAllUserData,
-} from "../utils/userSessionManager";
+import { clearAllUserData, hasStoredSession, readStoredUser } from "../utils/userSessionManager";
 
 const AuthContext = createContext();
 
-// Manages authentication state and provides it to all child components
-// through React Context. Initializes auth state from localStorage if available.
-
+// Signed-in user for the whole app. Starts from the stored profile so the first paint is right,
+// then confirms it with the server. Visitors without tokens never call the server at all.
 const AuthProvider = ({ children }) => {
-  const userInfo = localStorage.getItem("userInfo");
-  const authToken = localStorage.getItem("authToken");
-  const [user, setUser] = useState(userInfo ? JSON.parse(userInfo) : null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => (hasStoredSession() ? readStoredUser() : null));
+  const [loading, setLoading] = useState(hasStoredSession);
 
-  // Helper to set user and localStorage
   const setUserAndStorage = (userData) => {
     if (userData) {
-      // Check if user email has changed and clear localStorage if needed
-      const wasCleared = checkAndHandleUserChange(userData);
-      if (wasCleared) {
-        console.log("localStorage cleared due to user email change");
-      }
-
       setUser(userData);
       localStorage.setItem("userInfo", JSON.stringify(userData));
-    } else {
-      // Clear all data on logout
-      setUser(null);
-      clearAllUserData();
+      return;
     }
-  };
-
-  // Local and Google logins use the same JWT, so one check covers both
-  const checkAuthStatus = async () => {
-    try {
-      const res = await api.verifyAuth();
-      if (res.data.success) {
-        setUserAndStorage(res.data.user);
-        return;
-      }
-    } catch (error) {
-      if (error.response?.status !== 401)
-        console.error("Auth check error:", error);
-      setUserAndStorage(null);
-    } finally {
-      setLoading(false);
-    }
+    setUser(null);
+    clearAllUserData();
   };
 
   useEffect(() => {
-    // Initialize user session to check for email changes
-    initializeUserSession();
-
-    // Check auth status if we have user info or auth token in localStorage
-    if (userInfo || authToken || loading) {
-      checkAuthStatus();
-    } else {
-      setLoading(false);
-    }
-    // eslint-disable-next-line
+    if (!hasStoredSession())
+      return;
+    let active = true;
+    api
+      .verifyAuth()
+      .then((res) => {
+        if (!active || !res.data.success)
+          return;
+        setUser(res.data.user);
+        localStorage.setItem("userInfo", JSON.stringify(res.data.user));
+      })
+      .catch((error) => {
+        if (!active)
+          return;
+        if (error.response?.status !== 401)
+          console.error("Auth check error:", error);
+        // Only a rejected session logs the person out; a network blip keeps the stored profile
+        if (error.response?.status === 401) {
+          setUser(null);
+          clearAllUserData();
+        }
+      })
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
   }, []);
 
-  return (
-    <AuthContext value={{ user, setUser: setUserAndStorage, loading }}>
-      {children}
-    </AuthContext>
-  );
+  return <AuthContext value={{ user, setUser: setUserAndStorage, loading }}>{children}</AuthContext>;
 };
 
 export { AuthProvider, AuthContext };

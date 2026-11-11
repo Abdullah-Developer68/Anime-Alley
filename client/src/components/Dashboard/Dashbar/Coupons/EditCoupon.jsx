@@ -1,120 +1,81 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  closeCouponEditModal,
-  setReloadData,
-} from "../../../../redux/Slice/DashboardSlice";
-import api from "../../../../api/api";
 import { toast } from "react-toastify";
+import api from "../../../../api/api";
+import { closeCouponEditModal, setReloadData } from "../../../../redux/Slice/DashboardSlice";
+import Modal from "../../../ui/Modal";
+import Button from "../../../ui/Button";
+import { inputClass, labelClass } from "../../../ui/styles";
 
 const EditCoupon = () => {
   const dispatch = useDispatch();
-  const { isOpen, selectedCoupon } = useSelector(
-    (state) => state.dashboard.couponEditFormState,
-  );
-
-  const [formData, setFormData] = useState({
-    discountPercentage: 0,
-    expiryDate: "",
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
+  const { isOpen, selectedCoupon } = useSelector((state) => state.dashboard.couponEditFormState);
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm();
 
   useEffect(() => {
-    if (selectedCoupon) {
-      setFormData({
-        discountPercentage: selectedCoupon.discountPercentage || 0,
-        expiryDate: selectedCoupon.expiryDate
-          ? new Date(selectedCoupon.expiryDate).toISOString().split("T")[0]
-          : "",
+    if (selectedCoupon)
+      reset({
+        discountPercentage: selectedCoupon.discountPercentage || "",
+        expiryDate: selectedCoupon.expiryDate ? new Date(selectedCoupon.expiryDate).toISOString().split("T")[0] : "",
       });
-    }
-  }, [selectedCoupon]);
+  }, [selectedCoupon, reset]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  const close = () => dispatch(closeCouponEditModal());
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    setError("");
+  const onSubmit = async (form) => {
     try {
-      const payload = {
-        discountPercentage: Number(formData.discountPercentage),
-        expiryDate: formData.expiryDate,
-      };
-      const res = await api.updateCoupon(selectedCoupon._id, payload);
-      if (res.data.success) {
-        toast.success("Coupon updated successfully!");
-        dispatch(setReloadData("coupons"));
-        dispatch(closeCouponEditModal());
-      } else {
-        setError(res.data.message || "Failed to update coupon.");
-      }
+      await api.updateCoupon(selectedCoupon._id, {
+        discountPercentage: Number(form.discountPercentage),
+        ...(form.expiryDate && { expiryDate: form.expiryDate }),
+      });
+      toast.success(`${selectedCoupon.couponCode} updated.`);
+      dispatch(setReloadData("coupons"));
+      close();
     } catch (err) {
-      setError(err.response?.data?.message || "An error occurred.");
-    } finally {
-      setIsSaving(false);
+      toast.error(err.response?.data?.message || "Couldn't update the coupon.");
     }
   };
-
-  const handleClose = () => {
-    dispatch(closeCouponEditModal());
-  };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
-        <h3 className="mb-4 text-lg font-semibold text-white">
-          Edit Coupon: {selectedCoupon.couponCode}
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-400">
-              Discount (%)
-            </label>
-            <input
-              type="number"
-              name="discountPercentage"
-              value={formData.discountPercentage}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-400">
-              Expiry Date
-            </label>
-            <input
-              type="date"
-              name="expiryDate"
-              value={formData.expiryDate}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
-            />
-          </div>
-        </div>
-        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
-        <div className="flex justify-end gap-4 mt-6">
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 text-black bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
+    <Modal
+      open={isOpen && Boolean(selectedCoupon)}
+      onClose={close}
+      busy={isSubmitting}
+      size="sm"
+      title="Edit coupon"
+      description={selectedCoupon?.couponCode}
+      footer={
+        <>
+          <Button variant="secondary" onClick={close} disabled={isSubmitting}>
             Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 text-black bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-            disabled={isSaving}
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </button>
+          </Button>
+          <Button type="submit" form="edit-coupon-form" disabled={isSubmitting}>
+            {isSubmitting ? "Saving…" : "Save changes"}
+          </Button>
+        </>
+      }
+    >
+      <form id="edit-coupon-form" onSubmit={handleSubmit(onSubmit)} noValidate className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="coupon-percent-edit" className={labelClass}>Discount %</label>
+          <input
+            id="coupon-percent-edit"
+            type="number"
+            min="1"
+            max="100"
+            className={inputClass}
+            aria-invalid={errors.discountPercentage ? "true" : "false"}
+            {...register("discountPercentage", { validate: (value) => (Number(value) >= 1 && Number(value) <= 100) || "1 to 100." })}
+          />
+          {errors.discountPercentage && <p role="alert" className="mt-1.5 text-xs text-danger">{errors.discountPercentage.message}</p>}
         </div>
-      </div>
-    </div>
+        <div>
+          <label htmlFor="coupon-expiry-edit" className={labelClass}>Expires</label>
+          <input id="coupon-expiry-edit" type="date" className={inputClass} {...register("expiryDate")} />
+        </div>
+      </form>
+    </Modal>
   );
 };
 

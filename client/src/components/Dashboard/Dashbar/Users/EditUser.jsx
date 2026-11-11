@@ -1,328 +1,158 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  closeUserEditModal,
-  setReloadData,
-  setUpdatedProfilePic,
-} from "../../../../redux/Slice/DashboardSlice";
+import { toast } from "react-toastify";
 import useAuth from "../../../../Hooks/UseAuth";
 import api from "../../../../api/api";
-import assets from "../../../../assets/asset";
-import { toast } from "react-toastify";
+import { closeUserEditModal, setReloadData, setUpdatedProfilePic } from "../../../../redux/Slice/DashboardSlice";
+import { canChangeCredentials, canChangeRole } from "./permissions";
+import Modal from "../../../ui/Modal";
+import Avatar from "../../../ui/Avatar";
+import Button from "../../../ui/Button";
+import { inputClass, labelClass } from "../../../ui/styles";
 
-const roleOptions = [
-  { value: "user", label: "User" },
-  { value: "admin", label: "Admin" },
-];
+const MAX_BYTES = 4 * 1024 * 1024;
 
 const EditUser = () => {
   const dispatch = useDispatch();
-  const { isOpen, selectedUser } = useSelector(
-    (state) => state.dashboard.userEditFormState,
-  );
-  const { user } = useAuth(); // Get user from the auth context
-  const editor = user || {}; // Fallback to empty object if user is not available
+  const { user: editor, setUser } = useAuth();
+  const { isOpen, selectedUser } = useSelector((state) => state.dashboard.userEditFormState);
+  const [picture, setPicture] = useState(null);
+  const [preview, setPreview] = useState("");
+  const credentials = canChangeCredentials(editor, selectedUser);
+  const roleEditable = canChangeRole(editor, selectedUser);
 
-  // Helper function to format date with fallback for invalid dates
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "N/A";
-
-    const date = new Date(dateStr);
-
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      return "N/A";
-    }
-
-    return date.toLocaleDateString();
-  };
-  const [selectedUserRole, setSelectedUserRole] = useState("");
-  const [roleDropdownOptions, setRoleDropdownOptions] = useState(roleOptions);
-  const [roleDropdownDisabled, setRoleDropdownDisabled] = useState(false);
-  const [allControlsDisabled, setAllControlsDisabled] = useState(false);
-  const [profilePic, setProfilePic] = useState(null);
-  const [previewPic, setPreviewPic] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  // React Hook Form setup
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm({
-    defaultValues: {
-      username: "",
-      email: "",
-      role: "user",
-      password: "",
-    },
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+    defaultValues: { username: "", email: "", role: "user", password: "" },
   });
 
   useEffect(() => {
-    if (selectedUser) {
-      reset({
-        username: selectedUser.username || "",
-        email: selectedUser.email || "",
-        role: selectedUser.role || "user",
-        password: "",
-      });
-
-      // Set preview picture logic
-      let previewUrl = assets.defaultProfile; // Default fallback
-
-      if (selectedUser.profilePic) {
-        // If user has a profile picture, use it directly (Cloudinary URLs are complete)
-        previewUrl = selectedUser.profilePic;
-      }
-
-      setPreviewPic(previewUrl);
-    }
+    if (!selectedUser)
+      return;
+    reset({ username: selectedUser.username || "", email: selectedUser.email || "", role: selectedUser.role || "user", password: "" });
+    setPicture(null);
+    setPreview(selectedUser.profilePic || "");
   }, [selectedUser, reset]);
 
-  // Keep selectedUserRole in sync
-  useEffect(() => {
-    if (selectedUser) {
-      setSelectedUserRole(selectedUser.role || "user");
-    }
-  }, [selectedUser]);
-
-  // Determine control disabling logic
-  useEffect(() => {
-    // Default: all enabled
-    let disableAll = false;
-    let disableRoleDropdown = false;
-    let dropdownOptions = roleOptions;
-    // If editing self, allow all except role
-    if (editor.email && selectedUser && editor.email === selectedUser.email) {
-      disableAll = false;
-      disableRoleDropdown = true;
-    } else if (editor.role === "user") {
-      disableAll = true;
-      disableRoleDropdown = true;
-    } else if (editor.role === "admin") {
-      // Admins: can only edit users, cannot change roles
-      if (selectedUserRole !== "user") {
-        disableAll = true;
-      } else {
-        disableRoleDropdown = true;
-      }
-    } else if (editor.role === "superAdmin") {
-      // SuperAdmin: can edit users and admins, not superAdmins
-      if (selectedUserRole === "superAdmin") {
-        disableAll = true;
-        disableRoleDropdown = true;
-      } else {
-        // Can only change between user/admin
-        dropdownOptions = roleOptions;
-        disableRoleDropdown = false;
-      }
-    }
-    setAllControlsDisabled(disableAll);
-    setRoleDropdownDisabled(disableRoleDropdown);
-    setRoleDropdownOptions(dropdownOptions);
-  }, [editor.role, selectedUserRole, editor.email, selectedUser]);
-
-  const handlePicChange = (e) => {
+  const pickPicture = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setProfilePic(file);
-      setPreviewPic(URL.createObjectURL(file));
-    } else {
-      // If no file selected, reset to original or default
-      setProfilePic(null);
-      setPreviewPic(selectedUser?.profilePic || assets.defaultProfile);
+    if (!file)
+      return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > MAX_BYTES) {
+      e.target.value = "";
+      return toast.error("Use a JPG, PNG or WebP image of 4 MB or less.");
     }
+    setPicture(file);
+    setPreview(URL.createObjectURL(file));
   };
 
-  const onSubmit = async (data) => {
-    setIsSaving(true);
-    setError("");
+  const close = () => dispatch(closeUserEditModal());
+
+  const onSubmit = async (form) => {
+    // Only fields this editor may change are sent; empty values mean "keep the current one"
+    const payload = { username: form.username.trim() };
+    if (credentials) {
+      payload.email = form.email.trim();
+      payload.password = form.password;
+    }
+    if (roleEditable)
+      payload.role = form.role;
+    if (picture)
+      payload.profilePic = picture;
+
     try {
-      const payload = { ...data };
-      if (profilePic) {
-        payload.profilePic = profilePic;
+      const { data } = await api.updateUser(selectedUser._id, payload);
+      toast.success("User updated.");
+      if (editor?.id === selectedUser._id) {
+        dispatch(setUpdatedProfilePic(data.user.profilePic));
+        setUser({ ...editor, username: data.user.username, email: data.user.email, profilePic: data.user.profilePic });
       }
-      const res = await api.updateUser(selectedUser._id, payload);
-      if (res.data.success) {
-        toast.success("User updated successfully!");
-
-        // If the editor is updating their own profile, dispatch the updated profile picture
-        if (editor.id === selectedUser._id) {
-          dispatch(setUpdatedProfilePic(res.data.user.profilePic));
-        }
-
-        dispatch(setReloadData("users"));
-        // Reset states before closing
-        setProfilePic(null);
-        setPreviewPic("");
-        setError("");
-        dispatch(closeUserEditModal());
-      } else {
-        setError(res.data.message || "Failed to update user.");
-      }
+      dispatch(setReloadData("users"));
+      close();
     } catch (err) {
-      setError(err.response?.data?.message || "An error occurred.");
-    } finally {
-      setIsSaving(false);
+      toast.error(err.response?.data?.message || "Couldn't update the user.");
     }
   };
-
-  const handleClose = () => {
-    // Reset states when closing
-    setProfilePic(null);
-    setPreviewPic("");
-    setError("");
-    dispatch(closeUserEditModal());
-  };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-md p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
-        <h3 className="mb-4 text-lg font-semibold text-white">Edit User</h3>
-        <div className="flex flex-col items-center mb-4">
-          <img
-            src={previewPic || assets.defaultProfile}
-            alt="Profile"
-            className="object-cover w-20 h-20 mb-2 border-2 border-pink-500 rounded-full"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = assets.defaultProfile;
-            }}
-          />
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handlePicChange}
-            className="text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100"
-            disabled={allControlsDisabled}
-          />
+    <Modal
+      open={isOpen && Boolean(selectedUser)}
+      onClose={close}
+      busy={isSubmitting}
+      title="Edit user"
+      description={selectedUser?.email}
+      footer={
+        <>
+          <Button variant="secondary" onClick={close} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" form="edit-user-form" disabled={isSubmitting}>
+            {isSubmitting ? "Saving…" : "Save changes"}
+          </Button>
+        </>
+      }
+    >
+      <form id="edit-user-form" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Avatar src={preview} name={selectedUser?.username} className="size-14 text-lg" />
+          <label className={`${labelClass} mb-0 cursor-pointer rounded-full border border-line-strong px-3.5 py-1.5 text-[13px] text-ink hover:bg-sunken`}>
+            Change photo
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={pickPicture} className="sr-only" />
+          </label>
         </div>
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+
+        <div>
+          <label htmlFor="edit-username" className={labelClass}>Username</label>
+          <input
+            id="edit-username"
+            className={inputClass}
+            aria-invalid={errors.username ? "true" : "false"}
+            {...register("username", {
+              validate: (value) => (value.trim().length >= 2 && value.trim().length <= 40) || "Username must be 2 to 40 characters.",
+            })}
+          />
+          {errors.username && <p role="alert" className="mt-1.5 text-xs text-danger">{errors.username.message}</p>}
+        </div>
+
+        <div>
+          <label htmlFor="edit-email" className={labelClass}>Email</label>
+          <input id="edit-email" type="email" disabled={!credentials} className={inputClass} {...register("email")} />
+          {!credentials && <p className="mt-1.5 text-xs text-muted">Only the account owner can change their email or password.</p>}
+        </div>
+
+        {credentials && (
           <div>
-            <label className="block mb-1 text-sm font-medium text-gray-400">
-              Username
-            </label>
+            <label htmlFor="edit-password" className={labelClass}>New password</label>
             <input
-              type="text"
-              {...register("username", { required: true })}
-              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
-              disabled={allControlsDisabled}
-            />
-            {errors.username && (
-              <span className="text-xs text-red-400">Username is required</span>
-            )}
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-400">
-              Email
-            </label>
-            <input
-              type="email"
-              {...register("email", { required: true })}
-              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
-              disabled={allControlsDisabled}
-            />
-            {errors.email && (
-              <span className="text-xs text-red-400">Email is required</span>
-            )}
-          </div>
-          {/* Only show the entire Role field if superAdmin (not editing self) or editing self */}
-          {(editor.role === "superAdmin" &&
-            !(
-              editor.email &&
-              selectedUser &&
-              editor.email === selectedUser.email
-            )) ||
-          (editor.email &&
-            selectedUser &&
-            editor.email === selectedUser.email) ? (
-            <div>
-              <label className="block mb-1 text-sm font-medium text-gray-400">
-                Role
-              </label>
-              {editor.role === "superAdmin" &&
-              !(
-                editor.email &&
-                selectedUser &&
-                editor.email === selectedUser.email
-              ) ? (
-                <select
-                  {...register("role")}
-                  className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
-                  disabled={roleDropdownDisabled || allControlsDisabled}
-                >
-                  {roleDropdownOptions.map((opt) => (
-                    <option
-                      key={opt.value}
-                      value={opt.value}
-                      className="text-black bg-gray-400"
-                    >
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-sm text-gray-400">
-                  {selectedUser.role} you can not change your own role.
-                </p>
-              )}
-            </div>
-          ) : null}
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-400">
-              Joined Date
-            </label>
-            <p className="w-full px-3 py-2 text-gray-300 border rounded-lg bg-white/5 border-white/10">
-              {formatDate(selectedUser?.createdAt)}
-            </p>
-          </div>
-          <div>
-            <label className="block mb-1 text-sm font-medium text-gray-400">
-              Password (leave blank to keep unchanged)
-            </label>
-            <input
+              id="edit-password"
               type="password"
-              {...register("password", {
-                // Same rules as the server (validation.utils.js); blank means unchanged
-                validate: (value) =>
-                  !value ||
-                  (value.length >= 8 && value.length <= 72) ||
-                  "Password must be 8 to 72 characters.",
-              })}
-              className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10"
               autoComplete="new-password"
-              disabled={allControlsDisabled}
+              placeholder="Leave blank to keep the current one"
+              className={inputClass}
+              aria-invalid={errors.password ? "true" : "false"}
+              {...register("password", {
+                validate: (value) => !value || (value.length >= 8 && value.length <= 72) || "Use 8 to 72 characters.",
+              })}
             />
-            {errors.password && (
-              <span className="text-xs text-red-400">{errors.password.message}</span>
+            {errors.password ? (
+              <p role="alert" className="mt-1.5 text-xs text-danger">{errors.password.message}</p>
+            ) : (
+              <p className="mt-1.5 text-xs text-muted">Changing it signs you out on your other devices.</p>
             )}
           </div>
-          {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
-          <div className="flex justify-end gap-4 mt-6">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 text-black bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-              disabled={isSaving}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-black bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-              disabled={isSaving || allControlsDisabled}
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        )}
+
+        <div>
+          <label htmlFor="edit-role" className={labelClass}>Role</label>
+          <select id="edit-role" disabled={!roleEditable} className={inputClass} {...register("role")}>
+            {selectedUser?.role === "superAdmin" && <option value="superAdmin">Super admin</option>}
+            <option value="admin">Admin</option>
+            <option value="user">Customer</option>
+          </select>
+          {!roleEditable && <p className="mt-1.5 text-xs text-muted">Only super admins change roles, and never their own.</p>}
+        </div>
+      </form>
+    </Modal>
   );
 };
 

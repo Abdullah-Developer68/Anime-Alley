@@ -1,37 +1,118 @@
 @import "tailwindcss";
 
-/* Add these styles to hide the scrollbar */
-.no-scrollbar::-webkit-scrollbar {
-    display: none;
+/* Anime Alley design system tokens. Every color, radius and shadow in the app comes from here,
+   so Tailwind classes read as bg-canvas, text-ink, border-line, rounded-panel, shadow-float. */
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Neutrals: a warm off-white canvas, white surfaces, near-black ink */
+  --color-canvas: #f7f7f6;
+  --color-surface: #ffffff;
+  --color-sunken: #f0f0ee;
+  --color-ink: #111111;
+  --color-ink-soft: #3d3d3d;
+  --color-muted: #6e6e6e;
+  --color-subtle: #a3a3a3;
+  --color-line: #e6e6e3;
+  --color-line-strong: #d4d4d0;
+
+  /* Status colors, each with a soft tint for badges and notices */
+  --color-success: #15803d;
+  --color-success-soft: #e8f5ec;
+  --color-danger: #c62828;
+  --color-danger-soft: #fcecec;
+  --color-warning: #a15c07;
+  --color-warning-soft: #fcf3df;
+  --color-info: #2563eb;
+  --color-info-soft: #eaf0fe;
+  --color-violet: #6d28d9;
+  --color-violet-soft: #f1ebfd;
+
+  --radius-panel: 14px;
+  --shadow-panel: 0 1px 2px rgb(17 17 17 / 0.04);
+  --shadow-float: 0 24px 48px -16px rgb(17 17 17 / 0.18), 0 4px 12px -4px rgb(17 17 17 / 0.06);
+
+  /* The framed content column, like a page in a printed catalog */
+  --container-frame: 72rem;
+
+  --animate-marquee: marquee 40s linear infinite;
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
 }
 
-.no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-}
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
 
-/* Scrollbar styles */
-::-webkit-scrollbar {
-    width: 10px;
-}
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
 
-::-webkit-scrollbar-track {
-    background: transparent;
-}
+  ::selection {
+    background-color: var(--color-ink);
+    color: #fff;
+  }
 
-::-webkit-scrollbar-thumb {
-    background: #4B5563;
-    /* Changed to a medium gray */
-    border-radius: 5px;
-}
+  /* Native checkboxes, radios and sliders follow the ink color */
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"] {
+    accent-color: var(--color-ink);
+  }
 
-::-webkit-scrollbar-thumb:hover {
-    background: #6B7280;
-    /* Slightly lighter gray on hover */
-}
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 
-/* For Firefox */
-* {
+  * {
     scrollbar-width: thin;
-    scrollbar-color: #4B5563 transparent;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    .animate-marquee {
+      animation: none;
+    }
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Toasts restyled to match the surfaces */
+.Toastify__toast {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-float);
+  min-height: 52px;
+}
+
+.Toastify__toast-icon {
+  width: 18px;
+}
+
+.Toastify__close-button {
+  color: var(--color-muted);
+  opacity: 1;
 }

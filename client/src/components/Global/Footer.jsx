@@ -1,63 +1,64 @@
 import { Link } from "react-router-dom";
-import assets from "../../assets/asset";
+import { ArrowUpRight } from "lucide-react";
+import useOpenCategory from "../../Hooks/useOpenCategory";
+import { CATEGORIES } from "../../utils/catalog";
+import Logo from "../ui/Logo";
+
+const footerLink = "text-[13px] text-muted transition-colors hover:text-ink";
 
 const Footer = () => {
+  const openCategory = useOpenCategory();
+
   return (
-    <footer className="relative z-30 w-full py-3.5 sm:py-4 bg-black border-t border-red-500/80 text-white/90">
-      <div className="w-full px-4 sm:px-8 lg:px-12">
-        {/* Main Footer Row: Brand on far left, Navigation links on far right */}
-        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row sm:gap-0">
-          {/* Logo and Title Section on Far Left */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <img
-              src={assets.footerPic}
-              alt="Anime Alley Logo"
-              className="object-contain w-9 h-9 border-2 border-red-500 rounded-full shadow-lg sm:w-10 sm:h-10"
-            />
-            <div className="text-center sm:text-left">
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl leading-tight">
-                Anime Alley
-              </h1>
-              <p className="text-[11px] sm:text-xs italic text-white/70">
-                Your Anime Collection Starts Here
-              </p>
-            </div>
-          </div>
-
-          {/* Navigation Links on Far Right */}
-          <nav className="flex flex-wrap items-center justify-center gap-4 sm:justify-end sm:gap-6">
-            <Link
-              to="/"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
-            >
-              Home
-            </Link>
-            <Link
-              to="/about"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
-            >
-              About
-            </Link>
-            <Link
-              to="/privacy"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
-            >
-              Privacy
-            </Link>
-            <Link
-              to="/contact"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
-            >
-              Contact
-            </Link>
-          </nav>
+    <footer className="border-t border-line">
+      <div className="mx-auto grid w-full max-w-frame gap-10 px-6 py-14 sm:grid-cols-2 md:grid-cols-[1.4fr_repeat(3,1fr)] md:border-x md:border-line">
+        <div>
+          <Logo />
+          <p className="mt-3 max-w-xs text-[13px] leading-relaxed text-muted">
+            Comics, figures, apparel and sneakers from the series you love.
+          </p>
         </div>
 
-        {/* Subtle separator and bottom credits */}
-        <div className="flex flex-col items-center justify-between pt-2.5 mt-3 text-[11px] sm:text-xs border-t sm:flex-row border-white/10 text-white/60 gap-1 sm:gap-0">
-          <p>© {new Date().getFullYear()} Anime Alley. All rights reserved.</p>
-          <p className="italic text-white/40">Bringing anime collectibles to life</p>
+        <div>
+          <p className="text-[13px] font-medium text-ink">Shop</p>
+          <ul className="mt-3 space-y-2">
+            {CATEGORIES.map(({ id, label }) => (
+              <li key={id}>
+                <button type="button" onClick={() => openCategory(id)} className={footerLink}>
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
+
+        <div>
+          <p className="text-[13px] font-medium text-ink">Account</p>
+          <ul className="mt-3 space-y-2">
+            <li><Link to="/login" className={footerLink}>Log in</Link></li>
+            <li><Link to="/signup" className={footerLink}>Create an account</Link></li>
+            <li><Link to="/cart" className={footerLink}>Cart</Link></li>
+            <li><Link to="/history" className={footerLink}>Order history</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <p className="text-[13px] font-medium text-ink">Store</p>
+          <ul className="mt-3 space-y-2 text-[13px] text-muted">
+            <li>Flat $5 shipping</li>
+            <li>Card or cash on delivery</li>
+            <li>
+              <a href="https://github.com/Abdullah-Developer68/Anime-Alley" target="_blank" rel="noreferrer" className={`${footerLink} inline-flex items-center gap-1`}>
+                Source code
+                <ArrowUpRight aria-hidden="true" className="size-3.5" />
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div className="mx-auto flex w-full max-w-frame flex-wrap items-center justify-between gap-2 border-t border-line px-6 py-5 text-xs text-subtle md:border-x">
+        <p>© {new Date().getFullYear()} Anime Alley</p>
+        <p>Prices in USD</p>
       </div>
     </footer>
   );

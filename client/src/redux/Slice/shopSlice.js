@@ -1,69 +1,99 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { CATEGORIES } from "../../utils/catalog";
 
-// Get initial values from localStorage or use defaults
+export const DEFAULT_FILTERS = { productTypes: ["all"], sortBy: "popular", price: 0, searchQuery: "" };
+
+// Older versions kept whole product lists here, which went stale; they are dropped on load
+["shopProductsCache", "productData", "shopTotalPages", "openFilterBar", "productTypes"].forEach((key) => localStorage.removeItem(key));
+
+const readJSON = (key, fallback) => {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const storedCategory = localStorage.getItem("currCategory");
+
+// Where the shopper was (category, filters, page) survives reloads; product data is always fetched
+// fresh, and the browser's 30-second HTTP cache makes going back and forth instant
 const initialState = {
-  currCategory: localStorage.getItem("currCategory") || "comics",
-  openFilterBar: JSON.parse(localStorage.getItem("openFilterBar")) || false,
-  productTypes: JSON.parse(localStorage.getItem("productTypes")) || {},
-  currPage: parseInt(localStorage.getItem("shopCurrPage")) || 1,
-  totalPages: parseInt(localStorage.getItem("shopTotalPages")) || 1,
-  productData: JSON.parse(localStorage.getItem("productData")) || {},
-  productsCache: JSON.parse(localStorage.getItem("shopProductsCache")) || [], // Cache persists for UX continuity
-  isLoading: false, // Loading state for products
+  currCategory: CATEGORIES.some(({ id }) => id === storedCategory) ? storedCategory : "comics",
+  filters: { ...DEFAULT_FILTERS, ...readJSON("shopFilters", {}) },
+  currPage: Math.max(parseInt(localStorage.getItem("shopCurrPage"), 10) || 1, 1),
+  filtersOpen: false,
+  products: [],
+  // Which query `products` answers, so returning to the shop doesn't refetch the same page
+  productsKey: null,
+  totalPages: 1,
+  totalProducts: 0,
+  isLoading: false,
+  // The product being viewed, handed over by the card that was clicked
+  productData: null,
+};
+
+const persist = (state) => {
+  localStorage.setItem("currCategory", state.currCategory);
+  localStorage.setItem("shopFilters", JSON.stringify(state.filters));
+  localStorage.setItem("shopCurrPage", String(state.currPage));
 };
 
 const shopSlice = createSlice({
   name: "shop",
   initialState,
   reducers: {
-    // Actions are written below. They are plain JavaScript objects that describe what should happen in the Redux store.
-    //Every action has a type (a string) and optionally a payload (data needed for the action).
-    //state is used to access the current value of the property in initailState and payload contains values that are passed to it
+    // Product types belong to one category, so switching category clears them
     setCategory: (state, action) => {
       state.currCategory = action.payload;
-      localStorage.setItem("currCategory", action.payload);
+      state.filters.productTypes = ["all"];
+      state.currPage = 1;
+      persist(state);
     },
-    openFilterBar: (state, action) => {
-      state.openFilterBar = action.payload;
-      localStorage.setItem("openFilterBar", JSON.stringify(action.payload));
+    setFilters: (state, action) => {
+      state.filters = { ...state.filters, ...action.payload };
+      state.currPage = 1;
+      persist(state);
     },
-    transferFilterData: (state, action) => {
-      state.productTypes = action.payload;
-      localStorage.setItem("productTypes", JSON.stringify(action.payload));
+    resetFilters: (state) => {
+      state.filters = { ...DEFAULT_FILTERS };
+      state.currPage = 1;
+      persist(state);
     },
-    updateCurrPage: (state, action) => {
+    setPage: (state, action) => {
       state.currPage = action.payload;
-      localStorage.setItem("shopCurrPage", action.payload);
+      persist(state);
     },
-    updateTotalPages: (state, action) => {
-      state.totalPages = action.payload;
-      localStorage.setItem("shopTotalPages", action.payload);
+    setFiltersOpen: (state, action) => {
+      state.filtersOpen = action.payload;
     },
-    transferProductData: (state, action) => {
-      state.productData = action.payload;
-      localStorage.setItem("productData", JSON.stringify(action.payload));
-    },
-    setProductsCache: (state, action) => {
-      state.productsCache = action.payload;
-      localStorage.setItem("shopProductsCache", JSON.stringify(action.payload));
+    // Ends loading in the same update: the re-render it triggers cancels the request's own cleanup
+    setResults: (state, action) => {
+      const { products, totalPages, totalProducts, key } = action.payload;
+      state.products = products;
+      state.totalPages = totalPages;
+      state.totalProducts = totalProducts;
+      state.productsKey = key;
+      state.isLoading = false;
     },
     setLoading: (state, action) => {
       state.isLoading = action.payload;
     },
+    transferProductData: (state, action) => {
+      state.productData = action.payload;
+    },
   },
 });
 
-// Action creators are generated for each case reducer function by redux toolkit
-// Action creators are functions that create actions. They simply return an action object (contains type and payload).
 export const {
   setCategory,
-  openFilterBar,
-  transferFilterData,
-  updateCurrPage,
-  updateTotalPages,
-  transferProductData,
+  setFilters,
+  resetFilters,
+  setPage,
+  setFiltersOpen,
+  setResults,
   setLoading,
-  setProductsCache,
+  transferProductData,
 } = shopSlice.actions;
 
 export default shopSlice.reducer;

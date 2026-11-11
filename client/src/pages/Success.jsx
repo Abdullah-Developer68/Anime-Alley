@@ -1,101 +1,90 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { emptyCartLocal } from "../redux/Slice/cartSlice";
-import assets from "../assets/asset";
+import { m } from "motion/react";
+import { Check } from "lucide-react";
 import api from "../api/api";
+import { emptyCartLocal } from "../redux/Slice/cartSlice";
+import { getNewHistoryCounter } from "../redux/Slice/userHistorySlice";
+import { ButtonLink } from "../components/ui/Button";
+import Spinner from "../components/ui/Spinner";
 
+const POLL_MS = 2000;
+const MAX_ATTEMPTS = 10;
+
+// Stripe sends the shopper here after paying. The order is created by Stripe's webhook, so this page
+// waits for it to appear, then opens the order history.
 const Success = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  // Extract session_id query parameter from Stripe redirect URL
   const [searchParams] = useSearchParams();
-  const session_id = searchParams.get("session_id");
-  const [timedOut, setTimedOut] = useState(false);
-
-  const historyRedirect = useCallback(async () => {
-    if (!session_id) return false;
-    try {
-      const res = await api.verifyOrder(session_id);
-      if (res?.data?.success) {
-        dispatch(emptyCartLocal()); // Clears local cart state after confirmed order
-        navigate("/history");
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Error verifying order:", error);
-      return false;
-    }
-  }, [session_id, dispatch, navigate]);
+  const sessionId = searchParams.get("session_id");
+  const [timedOut, setTimedOut] = useState(!sessionId);
 
   useEffect(() => {
-    const maxAttempts = 10;
+    if (!sessionId)
+      return;
     let attempts = 0;
-    let result = false;
+    let timer;
+    let active = true;
 
-    // Immediately check once upon mounting
-    historyRedirect().then((succeeded) => {
-      if (succeeded) return;
-    });
-
-    const timer = setInterval(async () => {
-      result = await historyRedirect();
+    const check = async () => {
       attempts++;
-      if (result) {
-        clearInterval(timer);
+      try {
+        const { data } = await api.verifyOrder(sessionId);
+        if (!active)
+          return;
+        if (data.success) {
+          dispatch(emptyCartLocal());
+          dispatch(getNewHistoryCounter());
+          return navigate("/history", { replace: true });
+        }
+      } catch (error) {
+        console.error("Error verifying order:", error);
+      }
+      if (!active)
         return;
-      }
-      if (attempts >= maxAttempts) {
-        clearInterval(timer);
-        setTimedOut(true);
-      }
-    }, 2000);
+      if (attempts >= MAX_ATTEMPTS)
+        return setTimedOut(true);
+      timer = setTimeout(check, POLL_MS);
+    };
 
-    // Clean up timer on unmount to prevent memory leaks
-    return () => clearInterval(timer);
-  }, [historyRedirect]);
+    check();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [sessionId, dispatch, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#18181b]">
-      <div className="bg-[#23232b] rounded-2xl shadow-2xl p-8 sm:p-12 flex flex-col items-center max-w-md w-full mx-4 border border-white/10">
-        {/* Checkmark Icon */}
-        <div className="p-4 mb-6 bg-green-500 rounded-full shadow-lg animate-bounce">
-          <img src={assets.tick} alt="Success" />
-        </div>
-        <h1 className="mb-3 text-3xl font-extrabold text-center text-white sm:text-4xl drop-shadow-lg">
-          Payment Successful!
-        </h1>
+    <div className="flex flex-1 items-center justify-center px-6 py-20">
+      <div className="w-full max-w-md rounded-panel border border-line bg-surface p-8 text-center shadow-float sm:p-10">
+        <m.span
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 320, damping: 18 }}
+          className="mx-auto flex size-14 items-center justify-center rounded-full bg-success text-white"
+        >
+          <Check aria-hidden="true" className="size-7" strokeWidth={2.5} />
+        </m.span>
+        <h1 className="mt-6 text-2xl font-medium tracking-[-0.02em] text-ink">Payment received</h1>
         {timedOut ? (
           <>
-            <p className="mb-6 text-center text-white/80">
-              Your payment was received and your order is being finalized.
-              It will appear in your order history shortly.
+            <p className="mt-2 text-sm text-muted">
+              Thanks for your order. It&apos;s still being confirmed and will appear in your order history shortly.
             </p>
-            <div className="flex gap-4">
-              <button
-                onClick={() => navigate("/history")}
-                className="px-4 py-2 text-sm font-semibold text-white bg-pink-600 rounded-lg hover:bg-pink-700 transition"
-              >
-                View Order History
-              </button>
-              <button
-                onClick={() => navigate("/")}
-                className="px-4 py-2 text-sm font-semibold text-white/80 bg-white/10 rounded-lg hover:bg-white/20 transition"
-              >
-                Home
-              </button>
+            <div className="mt-7 flex justify-center gap-2">
+              <ButtonLink to="/history">Order history</ButtonLink>
+              <ButtonLink to="/shop" variant="secondary">
+                Keep shopping
+              </ButtonLink>
             </div>
           </>
         ) : (
-          <>
-            <p className="mb-6 text-lg text-center sm:text-xl text-white/80">
-              Thank you for your purchase.
-              <br />
-              Redirecting to your order history...
-            </p>
-            <div className="w-full h-2 rounded-full bg-green-500 animate-pulse" />
-          </>
+          <p className="mt-2 flex items-center justify-center gap-2 text-sm text-muted">
+            <Spinner className="size-4" />
+            Confirming your order…
+          </p>
         )}
       </div>
     </div>

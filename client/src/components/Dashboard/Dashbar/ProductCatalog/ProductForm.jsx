@@ -17,6 +17,8 @@ import ClothesShoesFields from "./ProductFormSections/ClothesShoesFields";
 import ToysFields from "./ProductFormSections/ToysFields";
 import ProductImageUpload from "./ProductFormSections/ProductImageUpload";
 import { splitList } from "./ProductFormSections/constants";
+import Modal from "../../../ui/Modal";
+import Button from "../../../ui/Button";
 
 // Sections read and update the form through useFormContext, so nothing is passed down as props
 const ProductForm = () => {
@@ -170,11 +172,9 @@ const ProductForm = () => {
       formData.append("price", formatPrice(data.price));
       formData.append("category", data.category);
 
-      // Handle image - only append if new file selected, otherwise keep existing
+      // Only a newly picked file is sent; without one the server keeps the current image
       if (data.imageFile)
         formData.append("image", data.imageFile);
-      else if (editProduct && editProduct.image)
-        formData.append("image", editProduct.image);
 
       if (data.category === "comics") {
         const volumes = splitList(data.volumes);
@@ -234,73 +234,42 @@ const ProductForm = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-4xl p-4 sm:p-6 bg-[#0b0b10] border rounded-2xl border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
-          <h2 className="text-lg font-bold text-white sm:text-xl">
-            {editProduct ? "Edit Product" : "Add New Product"}
-          </h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 transition-colors cursor-pointer hover:text-white"
-          >
-            ✕
-          </button>
-        </div>
-
-        <FormProvider {...methods}>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {/* Left Column - Product Details */}
-              <div className="space-y-4 lg:col-span-2">
-                <div className="space-y-4">
-                  <BasicFields />
-                  <StockFields />
-                </div>
-
-                {/* Category Specific Fields */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-white">
-                    Additional Details
-                  </h3>
-                  <ComicsFields />
-                  <ClothesShoesFields />
-                  <ToysFields />
-                </div>
-              </div>
-
-              {/* Right Column - Image Upload */}
-              <div className="lg:col-span-1">
-                <ProductImageUpload />
+    <Modal
+      open
+      onClose={handleClose}
+      busy={isSubmitting}
+      size="xl"
+      title={editProduct ? "Edit product" : "Add a product"}
+      description={editProduct ? `#${editProduct.productID}` : "It goes live in the shop as soon as you save."}
+      footer={
+        <>
+          <Button variant="secondary" onClick={handleClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button type="submit" form="product-form" disabled={isSubmitting}>
+            {isSubmitting ? "Saving…" : editProduct ? "Save changes" : "Create product"}
+          </Button>
+        </>
+      }
+    >
+      <FormProvider {...methods}>
+        <form id="product-form" onSubmit={handleSubmit(onSubmit)} noValidate>
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <div className="space-y-4">
+              <BasicFields />
+              <StockFields />
+              <div className="space-y-4 border-t border-line pt-5">
+                <p className="text-[13px] font-medium text-ink">Details</p>
+                <ComicsFields />
+                <ClothesShoesFields />
+                <ToysFields />
               </div>
             </div>
-
-            {/* Form Actions */}
-            <div className="flex flex-col justify-end gap-3 pt-6 mt-6 border-t sm:flex-row sm:gap-4 border-white/10">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="w-full px-4 py-2 text-sm text-black transition-colors bg-gray-300 rounded-lg cursor-pointer sm:w-auto hover:bg-white sm:text-base"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`w-full px-4 py-2 text-sm font-medium text-black transition-colors bg-gray-300 rounded-lg sm:w-auto sm:text-base ${
-                  isSubmitting
-                    ? "opacity-60 cursor-not-allowed"
-                    : "cursor-pointer hover:bg-white"
-                }`}
-              >
-                {isSubmitting ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </form>
-        </FormProvider>
-      </div>
-    </div>
+            <ProductImageUpload />
+          </div>
+        </form>
+      </FormProvider>
+    </Modal>
   );
 };
 

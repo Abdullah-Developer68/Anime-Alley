@@ -1,77 +1,67 @@
-import { useSelector, useDispatch } from "react-redux";
+import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { FileSpreadsheet, FileText } from "lucide-react";
+import { toast } from "react-toastify";
 import api from "../../api/api";
-import assets from "../../assets/asset";
 import { closeExportModal } from "../../redux/Slice/DashboardSlice";
+import Modal from "../ui/Modal";
+import { cx } from "../ui/styles";
+
+const FORMATS = [
+  { id: "excel", label: "Excel spreadsheet", hint: ".xlsx, opens in Excel or Sheets", icon: FileSpreadsheet, extension: "xlsx" },
+  { id: "pdf", label: "PDF document", hint: ".pdf, ready to print", icon: FileText, extension: "pdf" },
+];
 
 const ExportModal = () => {
-  const { isOpen, dataType } = useSelector(
-    (state) => state.dashboard.exportModalState,
-  );
   const dispatch = useDispatch();
+  const { isOpen, dataType } = useSelector((state) => state.dashboard.exportModalState);
+  const [busy, setBusy] = useState(null);
 
-  if (!isOpen) return null;
-
-  const handleExport = async (format) => {
-    if (!dataType) return;
-
+  const download = async ({ id, extension }) => {
+    setBusy(id);
     try {
-      const response = await api.exportData(dataType, format);
-      const url = window.URL.createObjectURL(new Blob([response.data])); // Wraps the binary file in a blob and creates a downloadable link to that blob.
-      const link = document.createElement("a"); // <a> tag.
-      link.href = url; // Sets the href of the link to the blob URL.
-      const filename = `${dataType}.${format === "excel" ? "xlsx" : "pdf"}`;
-      link.setAttribute("download", filename); // Tells browser to download it as users.xlsx or orders.pdf etc.
+      const { data } = await api.exportData(dataType, id);
+      const url = URL.createObjectURL(data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${dataType}.${extension}`;
       document.body.appendChild(link);
-      link.click(); // Simulates a click on the link (<a> tag) to trigger the download.
-      link.parentNode.removeChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
       dispatch(closeExportModal());
     } catch (error) {
-      console.error(`Failed to export ${dataType}:`, error);
-      // Optionally, dispatch an action to show an error notification
+      toast.error(error.response?.data?.message || `Couldn't export ${dataType}.`);
+    } finally {
+      setBusy(null);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-sm p-6 bg-gray-800 border border-gray-700 rounded-lg shadow-lg animate-fade-in-down">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white">
-            Export {dataType.charAt(0).toUpperCase() + dataType.slice(1)}
-          </h3>
-          <button onClick={() => dispatch(closeExportModal())}>
-            <img
-              src={assets.cross}
-              alt="Close"
-              className="w-5 h-5 cursor-pointer"
-            />
-          </button>
-        </div>
-        <div className="space-y-3">
-          <button
-            onClick={() => handleExport("excel")}
-            className="flex items-center justify-between w-full gap-3 px-4 py-3 text-sm text-left text-black transition-colors bg-gray-500 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <span>Export as Excel</span>{" "}
-            <img
-              src={assets.excel}
-              className="w-10 h-10 text-green-500"
-              alt="Excel Icon"
-            />
-          </button>
-          <button
-            onClick={() => handleExport("pdf")}
-            className="flex items-center justify-between w-full gap-3 px-4 py-6 text-sm text-left text-black transition-colors bg-gray-500 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <span>Export as PDF</span>
-            <img
-              src={assets.pdf}
-              className="w-5 h-5 mr-[8px]  text-red-500"
-              alt="PDF Icon"
-            />
-          </button>
-        </div>
+    <Modal open={isOpen} onClose={() => dispatch(closeExportModal())} busy={Boolean(busy)} size="sm" title={`Export ${dataType || ""}`} description="Every record is included, not just the current page.">
+      <div className="grid gap-2">
+        {FORMATS.map((format) => {
+          const Icon = format.icon;
+          return (
+            <button
+              key={format.id}
+              type="button"
+              disabled={Boolean(busy)}
+              onClick={() => download(format)}
+              className={cx("flex items-center gap-3 rounded-lg border border-line p-3.5 text-left transition-colors hover:border-line-strong hover:bg-canvas disabled:opacity-50")}
+            >
+              <span className="flex size-9 items-center justify-center rounded-full bg-sunken text-ink-soft">
+                <Icon aria-hidden="true" className="size-4" />
+              </span>
+              <span>
+                <span className="block text-[13px] font-medium text-ink">{busy === format.id ? "Preparing…" : format.label}</span>
+                <span className="block text-xs text-muted">{format.hint}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </Modal>
   );
 };
 

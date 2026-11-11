@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { validateComicVolumes } from "../../../../../utils/volume";
 import FieldError from "./FieldError";
-import { CHIP_CLASS, GENRES, INPUT_CLASS, LABEL_CLASS, splitList } from "./constants";
+import { CHIP_CLASS, CHIP_OFF, CHIP_ON, GENRES, INPUT_CLASS, LABEL_CLASS, splitList } from "./constants";
 
 // Genres and volume numbers; stays mounted (hidden) so values survive category switches
 const ComicsFields = () => {
@@ -46,7 +46,7 @@ const ComicsFields = () => {
             {GENRES.map((genre) => {
               const checked = genres.includes(genre);
               return (
-                <label key={genre} className={`${CHIP_CLASS} ${checked ? "bg-pink-500 text-black" : "bg-white/5 text-white"}`}>
+                <label key={genre} className={`${CHIP_CLASS} ${checked ? CHIP_ON : CHIP_OFF}`}>
                   <input
                     type="checkbox"
                     value={genre}

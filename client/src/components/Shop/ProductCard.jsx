@@ -1,65 +1,68 @@
-import assets from "../../assets/asset";
-import { useDispatch } from "react-redux";
-import { transferProductData } from "../../redux/Slice/shopSlice";
 import { Link } from "react-router-dom";
-import { formatPrice } from "../../utils/formatPrice";
+import { useDispatch } from "react-redux";
+import { m } from "motion/react";
+import { transferProductData } from "../../redux/Slice/shopSlice";
+import { formatMoney } from "../../utils/money";
+import { productImage } from "../../utils/images";
+import { categoryLabel, variantName } from "../../utils/catalog";
+import { cx } from "../ui/styles";
 
-/* eslint-disable react/prop-types */
-const Cards = ({ product }) => {
+const stockSummary = (product) => {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const inStock = variants.filter((variant) => variant.stock > 0);
+  if (inStock.length === 0)
+    return null;
+  if (variants.length === 1 && variants[0].label === "Default")
+    return variants[0].stock <= 3 ? `Only ${variants[0].stock} left` : "In stock";
+  const name = variantName(product.category).toLowerCase();
+  return `${inStock.length} ${name}${inStock.length === 1 ? "" : "s"} in stock`;
+};
+
+// Product tile used by the shop grid and the home page
+const ProductCard = ({ product, priority = false }) => {
   const dispatch = useDispatch();
-  const sendProductData = () => {
-    dispatch(transferProductData(product)); // sent so it can be viewed in ProductDes
-  };
-
-  // Use the image URL directly (Cloudinary or local)
-  const imageUrl = product.image;
+  const stock = stockSummary(product);
+  // Comic covers fill the frame; product shots on white sit inside it
+  const isCover = product.category === "comics";
 
   return (
-    <Link to={`/shop/:${product._id}`}>
-      <div
-        key={product._id}
-        className="group bg-gradient-to-b bg-black rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-all duration-300 shadow-lg max-w-[200px]  cursor-pointer"
-        onClick={() => {
-          sendProductData(); // Call the function to send product data to Redux store
-        }}
+    <m.article whileHover={{ y: -3 }} transition={{ type: "spring", stiffness: 400, damping: 28 }} className="group h-full">
+      <Link
+        to={`/shop/${product._id}`}
+        onClick={() => dispatch(transferProductData(product))}
+        className="flex h-full flex-col overflow-hidden rounded-panel border border-line bg-surface transition-shadow duration-300 group-hover:shadow-float"
       >
-        {/* Product Image */}
-        <div className="aspect-[3/4] overflow-hidden">
+        <div className="relative aspect-[4/5] overflow-hidden border-b border-line bg-surface">
           <img
-            src={imageUrl}
+            src={productImage(product.image, 480)}
             alt={product.name}
-            className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            className={cx(
+              "size-full transition-transform duration-500 ease-out group-hover:scale-[1.04]",
+              isCover ? "object-cover" : "object-contain p-5",
+              !stock && "opacity-50 grayscale",
+            )}
           />
-        </div>
-
-        {/* Product Info */}
-        <div className="p-2">
-          {/* Title and Rating */}
-          <div className="flex items-start justify-between mb-1">
-            <h3 className="text-white/90 font-medium text-sm truncate max-w-[120px]">
-              {product.name}
-            </h3>
-          </div>
-
-          {/* Category */}
-          <p className="text-white/50 text-xs mb-1.5">{product.category}</p>
-
-          {/* Price and Add to Cart */}
-          <div className="flex items-center justify-between">
-            <p className="p-1 text-xs font-bold text-black bg-gray-300 rounded-md">
-              {formatPrice(product.price)} $
-            </p>
-            {/* Add to Cart Button with product._id as the url parameter */}
-            <span>
-              <button className="p-1 text-xs font-medium text-black transition-all duration-300 bg-gray-300 rounded-md cursor-pointer hover:bg-white">
-                <img src={assets.bag} alt="add to cart" className="w-5" />
-              </button>
+          {!stock && (
+            <span className="absolute left-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 text-[11px] font-medium text-ink-soft ring-1 ring-line">
+              Sold out
             </span>
-          </div>
+          )}
         </div>
-      </div>
-    </Link>
+        <div className="flex flex-1 flex-col gap-1 p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="line-clamp-2 text-sm font-medium leading-snug text-ink">{product.name}</h3>
+            <p className="shrink-0 text-sm font-medium tabular-nums text-ink">{formatMoney(product.price)}</p>
+          </div>
+          <p className="mt-auto text-xs text-muted">
+            {categoryLabel(product.category)}
+            {stock && <span className="text-subtle"> · {stock}</span>}
+          </p>
+        </div>
+      </Link>
+    </m.article>
   );
 };
 
-export default Cards;
+export default ProductCard;

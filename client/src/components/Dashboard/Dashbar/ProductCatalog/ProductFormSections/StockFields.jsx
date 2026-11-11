@@ -23,7 +23,7 @@ const SingleStock = () => {
 };
 
 // One stock input per selected size or entered volume, labelled with that variant
-// eslint-disable-next-line react/prop-types
+ 
 const VariantStock = ({ variant }) => {
   const { register, watch } = useFormContext();
   const { title, emptyMessage, labelWidth, columns, requiredPrefix } = VARIANT_STOCK[variant];
@@ -33,26 +33,24 @@ const VariantStock = ({ variant }) => {
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-400">{title}</label>
+      <label className={LABEL_CLASS}>{title}</label>
       {labels.length === 0 ? (
-        <div className="p-3 text-xs text-yellow-400 border rounded-lg bg-yellow-400/10 border-yellow-400/20">
+        <div className="rounded-lg bg-warning-soft px-3 py-2.5 text-xs text-warning">
           {emptyMessage}
         </div>
       ) : (
         <div className={`grid grid-cols-2 gap-3 sm:grid-cols-3 ${columns}`}>
           {labels.map((label) => (
             <div key={label} className="flex flex-col">
-              <div className="flex overflow-hidden transition-colors border rounded-lg border-white/10 bg-white/5 focus-within:border-pink-500">
-                <span
-                  className={`inline-flex items-center justify-center px-3 py-2 text-xs font-semibold text-white/90 bg-white/10 border-r border-white/10 ${labelWidth}`}
-                >
+              <div className="flex overflow-hidden rounded-lg border border-line bg-surface transition-colors focus-within:border-ink">
+                <span className={`inline-flex items-center justify-center border-r border-line bg-canvas px-3 text-xs font-medium text-ink-soft ${labelWidth}`}>
                   {label}
                 </span>
                 <input
                   type="number"
                   step="1"
                   min="0"
-                  className="w-full px-3 py-2 text-sm text-white bg-transparent placeholder:text-white/40 focus:outline-none sm:text-base"
+                  className="h-10 w-full bg-transparent px-3 text-sm text-ink placeholder:text-subtle focus:outline-none"
                   placeholder="0"
                   {...register(`stock_${label}`, stockRules(`Stock for ${requiredPrefix} ${label} is required!`))}
                 />

@@ -1,14 +1,14 @@
 import { useFormContext } from "react-hook-form";
 
 // Validation message for one field, read straight from the form context
-// eslint-disable-next-line react/prop-types
+ 
 const FieldError = ({ name }) => {
   const {
     formState: { errors },
   } = useFormContext();
   const message = errors[name]?.message;
 
-  return message ? <span className="block mt-1 text-xs text-red-500">{message}</span> : null;
+  return message ? <span role="alert" className="mt-1.5 block text-xs text-danger">{message}</span> : null;
 };
 
 export default FieldError;

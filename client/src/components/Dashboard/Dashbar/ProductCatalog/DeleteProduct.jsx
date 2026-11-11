@@ -1,185 +1,44 @@
-import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  closeProductDeleteModal,
-  setReloadData,
-} from "../../../../redux/Slice/DashboardSlice";
-import api from "../../../../api/api";
 import { toast } from "react-toastify";
-import { formatPrice } from "../../../../utils/formatPrice";
+import api from "../../../../api/api";
+import { closeProductDeleteModal, setReloadData } from "../../../../redux/Slice/DashboardSlice";
+import { categoryLabel } from "../../../../utils/catalog";
+import { formatMoney } from "../../../../utils/money";
+import { productImage } from "../../../../utils/images";
+import ConfirmDialog from "../../shared/ConfirmDialog";
 
 const DeleteProduct = () => {
   const dispatch = useDispatch();
-  const { productDeleteModalState } = useSelector((state) => state.dashboard);
-  const { isOpen, selectedProduct } = productDeleteModalState;
+  const { isOpen, selectedProduct } = useSelector((state) => state.dashboard.productDeleteModalState);
 
-  const [productId, setProductId] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleDelete = async () => {
-    if (!productId.trim()) {
-      setError("Please enter a product ID");
-      return;
-    }
-
-    if (productId !== selectedProduct.productID) {
-      setError("Product ID does not match");
-      return;
-    }
-
-    try {
-      setIsDeleting(true);
-      setError("");
-
-      const res = await api.deleteProduct(selectedProduct._id);
-
-      if (res.data.success) {
-        toast.success("Product deleted successfully!");
-        handleClose();
-        dispatch(setReloadData("products"));
-      } else
-        toast.error(res.data.message || "Failed to delete product");
-    } catch (err) {
-      console.error("Delete product error:", err);
-      toast.error(
-        err.response?.data?.message ||
-          "Failed to delete product. Please try again.",
-      );
-    } finally {
-      setIsDeleting(false);
-    }
+  const remove = async () => {
+    await api.deleteProduct(selectedProduct._id);
+    toast.success(`${selectedProduct.name} deleted.`);
+    dispatch(setReloadData("products"));
   };
-
-  const handleClose = () => {
-    if (isDeleting) return;
-    setProductId("");
-    setError("");
-    dispatch(closeProductDeleteModal());
-  };
-
-  if (!isOpen || !selectedProduct) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-md p-6 bg-[#0b0b10] border rounded-2xl border-white/10 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-          <h2 className="text-xl font-bold text-white">Delete Product</h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 transition-colors cursor-pointer hover:text-white"
-            disabled={isDeleting}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Product Details Preview */}
-        <div className="p-4 mb-4 border rounded-lg bg-white/5 border-white/10">
-          <div className="flex items-center gap-3">
-            <img
-              src={`${selectedProduct.image}`}
-              alt={selectedProduct.name}
-              className="object-cover w-12 h-12 rounded-lg bg-white/5"
-            />
-            <div className="flex-1">
-              <p className="font-medium text-white">{selectedProduct.name}</p>
-              <p className="text-sm text-gray-400">
-                ID: {selectedProduct.productID}
-              </p>
-              <p className="text-sm text-gray-400">
-                Category: {selectedProduct.category}
-              </p>
-              <p className="text-sm text-gray-400">
-                Price: ${formatPrice(selectedProduct.price)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Warning Message */}
-        <div className="p-3 mb-4 border rounded-lg bg-red-500/10 border-red-500/20">
-          <div className="flex items-center gap-2">
-            {/* Warning SVG Icon */}
-            <svg
-              className="flex-shrink-0 w-5 h-5 text-red-400"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <p className="text-sm text-red-400">
-              This action cannot be undone. To confirm deletion, please enter
-              the product ID below.
+    <ConfirmDialog
+      open={isOpen && Boolean(selectedProduct)}
+      onClose={() => dispatch(closeProductDeleteModal())}
+      title="Delete product"
+      description="It disappears from the shop and from every cart holding it."
+      confirmWord={selectedProduct?.productID || ""}
+      confirmLabel="Delete product"
+      onConfirm={remove}
+    >
+      {selectedProduct && (
+        <div className="flex items-center gap-3 rounded-lg border border-line p-3">
+          <img src={productImage(selectedProduct.image, 96)} alt="" className="size-12 rounded-md border border-line object-cover" />
+          <div className="min-w-0 text-[13px]">
+            <p className="truncate font-medium text-ink">{selectedProduct.name}</p>
+            <p className="text-muted">
+              #{selectedProduct.productID} · {categoryLabel(selectedProduct.category)} · {formatMoney(selectedProduct.price)}
             </p>
           </div>
         </div>
-
-        {/* Product ID Display */}
-        <div className="p-3 mb-3 border rounded-lg bg-blue-500/10 border-blue-500/20">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-blue-400">
-              Product ID:
-            </span>
-            <span className="px-2 py-1 font-mono text-sm text-blue-300 rounded bg-blue-500/20">
-              {selectedProduct.productID}
-            </span>
-          </div>
-        </div>
-
-        {/* Product ID Input */}
-        <div className="mb-4">
-          <label className="block mb-2 text-sm font-medium text-gray-400">
-            Enter Product ID to confirm deletion:
-          </label>
-          <input
-            type="text"
-            value={productId}
-            onChange={(e) => {
-              setProductId(e.target.value);
-              setError(""); // Clear error when user types
-            }}
-            placeholder={`Enter: ${selectedProduct.productID}`}
-            className="w-full px-3 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/30 focus:outline-none focus:border-red-500"
-            disabled={isDeleting}
-          />
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="p-3 mb-4 border rounded-lg bg-red-500/10 border-red-500/20">
-            <p className="text-sm text-red-400">{error}</p>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          <button
-            onClick={handleClose}
-            className="flex-1 px-4 py-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-            disabled={isDeleting}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={
-              isDeleting ||
-              !productId.trim() ||
-              productId !== selectedProduct.productID
-            }
-            className="flex-1 px-4 py-2 font-medium text-white transition-colors bg-red-500 rounded-lg cursor-pointer hover:bg-red-600 disabled:bg-red-500/50 disabled:cursor-not-allowed"
-          >
-            {isDeleting ? "Deleting..." : "Delete Product"}
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </ConfirmDialog>
   );
 };
 
