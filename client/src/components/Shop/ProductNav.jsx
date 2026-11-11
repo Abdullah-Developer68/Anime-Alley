@@ -26,8 +26,8 @@ const ProductNav = () => {
               key={category.name}
               className={`group relative flex items-center justify-center p-2 rounded-xl cursor-pointer transition-all duration-300 ${
                 isActive
-                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-500/30 border border-yellow-300/60 scale-[1.04]"
-                  : "bg-white/[0.05] hover:bg-white/[0.12] border border-white/5 hover:border-yellow-500/30 text-white/70 hover:text-white"
+                  ? "bg-pink-400 text-black shadow-lg shadow-pink-500/30 border border-pink-300/60 scale-[1.04]"
+                  : "bg-white/[0.05] hover:bg-white/[0.12] border border-white/5 hover:border-pink-500/30 text-white/70 hover:text-white"
               }`}
               onClick={() => {
                 dispatch(setCategory(category.name));
@@ -55,7 +55,7 @@ const ProductNav = () => {
         })}
         {/* Filter Icon - visible only on mobile/tablet */}
         <div
-          className="relative cursor-pointer lg:hidden group flex items-center justify-center p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.12] border border-white/5 hover:border-yellow-500/30 transition-all duration-300"
+          className="relative cursor-pointer lg:hidden group flex items-center justify-center p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.12] border border-white/5 hover:border-pink-500/30 transition-all duration-300"
           onClick={() => {
             dispatch(openFilterBar(!barState));
           }}

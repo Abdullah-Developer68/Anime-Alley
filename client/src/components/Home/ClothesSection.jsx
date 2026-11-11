@@ -1,104 +1,78 @@
-import Slider from "react-slick";
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
 import { Link } from "react-router-dom";
-import { setCategory } from "../../redux/Slice/shopSlice";
 import { useDispatch } from "react-redux";
+import { motion, useReducedMotion } from "framer-motion";
+import { setCategory } from "../../redux/Slice/shopSlice";
 import assets from "../../assets/asset";
+
+// Fan angle and vertical lift per stem: the inner pair stand taller, like the centre of a bouquet
+const BOUQUET = [
+  { image: assets.aotHoddie, label: "Hoodie", angle: -28, lift: 0 },
+  { image: assets.narutoShoes, label: "Shoes", angle: -9, lift: 36 },
+  { image: assets.jjkPants, label: "Pants", angle: 9, lift: 36 },
+  { image: assets.soloShoes, label: "Sneakers", angle: 28, lift: 0 },
+];
 
 const ClothesSection = () => {
   const dispatch = useDispatch();
-  const products = [
-    { image: assets.aotHoddie, label: "Hoddy" },
-    { image: assets.jjkPants, label: "Pants" },
-    { image: assets.narutoShoes, label: "Shoes" },
-  ];
-
-  const settings = {
-    dots: true,
-    infinite: false,
-    speed: 500,
-    slidesToShow: 3,
-    slidesToScroll: 3,
-    initialSlide: 0,
-    responsive: [
-      {
-        breakpoint: 1024,
-        settings: {
-          slidesToShow: 3,
-          slidesToScroll: 2,
-          infinite: true,
-          dots: true,
-        },
-      },
-      {
-        breakpoint: 830,
-        settings: {
-          slidesToShow: 2,
-          slidesToScroll: 2,
-          initialSlide: 2,
-        },
-      },
-      {
-        breakpoint: 820,
-        settings: {
-          slidesToShow: 1,
-          slidesToScroll: 1,
-          centerMode: true,
-          centerPadding: "0px",
-        },
-      },
-    ],
-  };
+  const reduceMotion = useReducedMotion();
 
   return (
-    <div
-      className="relative flex flex-col justify-center items-center w-full min-h-[690px] overflow-hidden bg-cover bg-center bg-no-repeat"
+    <section
+      className="relative flex min-h-[690px] w-full items-center justify-center overflow-hidden bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: `url(${assets.halloweenBackground})` }}
     >
-      <div className="absolute inset-0 bg-black pointer-events-none opacity-20"></div>
+      <div className="pointer-events-none absolute inset-0 bg-black opacity-30"></div>
 
-      <h2 className="z-40 px-4 mt-16 mb-8 text-2xl font-bold tracking-wider text-center font-display text-yellow-400 md:text-3xl lg:text-4xl md:mt-24">
-        Spooky Fashion Collection
-      </h2>
-      <Link to={"/shop"} className="z-40">
-        <div
-          className="z-10 px-4 py-2 mb-10 font-semibold text-ink-950 bg-yellow-400 rounded-full cursor-pointer transition-colors hover:bg-yellow-300"
-          onClick={() => dispatch(setCategory("clothes"))}
-        >
-          Shop Now!
-        </div>
-      </Link>
-
-      {/* Product Cards Slider */}
-      <div className="z-40 w-full max-w-6xl px-8 mx-auto">
-        <div className="[&_.slick-prev]:left-2 [&_.slick-next]:right-2 [&_.slick-prev]:z-10 [&_.slick-next]:z-10 [&_.slick-prev:before]:text-2xl [&_.slick-next:before]:text-2xl">
-          <Slider {...settings}>
-            {products.map((product, index) => (
-              <div key={index} className="px-2">
-                <div className="group relative w-full max-w-[140px] sm:max-w-[160px] md:max-w-[180px] mx-auto bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg shadow-lg overflow-hidden transition-all duration-300 hover:scale-100 hover:shadow-yellow-500/20 hover:border-yellow-400/60">
-                  <div className="w-full aspect-[3/4] overflow-hidden">
-                    <img
-                      src={product.image}
-                      alt={product.label}
-                      className="object-cover object-center w-full h-full transition-transform duration-500 group-hover:scale-105"
-                    />
-                  </div>
-
-                  <div className="absolute inset-x-0 bottom-0 p-2 text-center bg-ink-950/85">
-                    <h3 className="text-xs font-semibold tracking-wide text-yellow-300 sm:text-sm">
-                      {product.label}
-                    </h3>
-                  </div>
-
-                  <div className="absolute inset-0 transition-opacity duration-300 rounded-lg opacity-0 group-hover:opacity-100 bg-yellow-400/10"></div>
+      {/* Zero-size anchor where the stems meet, offset so the bouquet's visual centre is the section centre */}
+      <div className="absolute left-1/2 top-1/2 h-0 w-0 translate-y-[92px] sm:translate-y-[115px] md:translate-y-[138px]">
+        {BOUQUET.map((item, index) => (
+          <motion.div
+            key={item.label}
+            className="absolute bottom-0 left-0 w-[120px] sm:w-[150px] md:w-[180px]"
+            style={{ x: "-50%", transformOrigin: "50% 150%" }}
+            initial={reduceMotion ? false : { rotate: 0, y: 60, opacity: 0 }}
+            whileInView={{ rotate: item.angle, y: -item.lift, opacity: 1 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ type: "spring", stiffness: 70, damping: 14, delay: index * 0.08 }}
+          >
+            <motion.div
+              style={{ transformOrigin: "50% 150%" }}
+              animate={reduceMotion ? undefined : { rotate: [0, 1.6, 0, -1.6, 0] }}
+              transition={{ duration: 6 + index, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <figure className="group relative overflow-hidden rounded-xl border border-white/10 bg-ink-900 shadow-2xl shadow-black/60 transition-transform duration-300 hover:-translate-y-3">
+                <div className="aspect-[3/4] overflow-hidden">
+                  <img
+                    src={item.image}
+                    alt={item.label}
+                    draggable="false"
+                    className="h-full w-full object-cover object-center brightness-[0.6] transition duration-500 group-hover:scale-105 group-hover:brightness-100"
+                  />
                 </div>
-              </div>
-            ))}
-          </Slider>
-        </div>
+                <figcaption className="absolute inset-x-0 bottom-0 bg-ink-950/85 py-1.5 text-center text-xs font-semibold tracking-wide text-yellow-300 sm:text-sm">
+                  {item.label}
+                </figcaption>
+              </figure>
+            </motion.div>
+          </motion.div>
+        ))}
       </div>
-    </div>
+
+      {/* Copy sits in front of the bouquet; only the button takes clicks so the cards stay hoverable */}
+      <div className="pointer-events-none relative z-20 flex flex-col items-center px-4 text-center">
+        <h2 className="font-display text-3xl font-bold tracking-tight text-yellow-400 [text-shadow:0_2px_16px_rgb(0_0_0/0.7)] md:text-4xl lg:text-5xl">
+          Spooky Fashion Collection
+        </h2>
+        <Link to="/shop" className="pointer-events-auto mt-6">
+          <span
+            className="block cursor-pointer rounded-full bg-yellow-400 px-6 py-2.5 font-semibold text-ink-950 shadow-lg shadow-black/40 transition-colors hover:bg-yellow-300"
+            onClick={() => dispatch(setCategory("clothes"))}
+          >
+            Shop Now!
+          </span>
+        </Link>
+      </div>
+    </section>
   );
 };
 

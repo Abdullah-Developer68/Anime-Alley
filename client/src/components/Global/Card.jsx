@@ -46,7 +46,7 @@ const Cards = ({ product }) => {
 
           {/* Price and Add to Cart */}
           <div className="flex items-center justify-between">
-            <p className="px-1.5 py-1 text-xs font-bold text-yellow-300 bg-yellow-500/15 rounded-md">
+            <p className="px-1.5 py-1 text-xs font-bold text-pink-300 bg-pink-500/15 rounded-md">
               {formatPrice(product.price)} $
             </p>
             {/* Add to Cart Button with product._id as the url parameter */}

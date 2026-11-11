@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
+import PropTypes from "prop-types";
 import { useDispatch, useSelector } from "react-redux";
 import {
   setReloadData,
@@ -7,15 +8,92 @@ import {
   openExportModal,
 } from "../../../../redux/Slice/DashboardSlice";
 import api from "../../../../api/api";
-import assets from "../../../../assets/asset";
 import ProductForm from "./ProductForm";
 import DeleteProduct from "./DeleteProduct";
-import { formatPrice } from "../../../../utils/formatPrice";
+import { formatMoney } from "../../../../utils/formatPrice";
 import { Plus, Download } from "lucide-react";
 import DashboardPagination from "../../DashboardPagination";
+import DataTable, { RowActions, StatusDot, Stacked } from "../../DataTable";
+import { PageHeader, ToolbarButton } from "../../DashboardUI";
 
 // The API returns 24 products per page unless a limit is sent
 const PRODUCTS_PER_PAGE = 24;
+
+const isSingleStock = (variants) => variants.length === 1 && variants[0].label === "Default";
+
+// Comics store bare volume numbers as labels, so they get a "Vol." prefix for readability
+const variantName = (product, label) =>
+  product.category === "comics" && !label.startsWith("V") ? `Vol. ${label}` : label;
+
+const StockSummary = ({ product }) => {
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  if (variants.length === 0) return <span className="text-ink-500">—</span>;
+
+  if (isSingleStock(variants)) {
+    const units = variants[0].stock;
+    return units > 0 ? (
+      <StatusDot tone="success">{units} in stock</StatusDot>
+    ) : (
+      <StatusDot tone="danger">Out of stock</StatusDot>
+    );
+  }
+
+  const total = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+  const soldOut = variants.filter((v) => !(v.stock > 0)).length;
+  return (
+    <div className="min-w-0">
+      <StatusDot tone={total === 0 ? "danger" : soldOut > 0 ? "warning" : "success"}>
+        {total} units
+        {soldOut > 0 && <span className="text-ink-400">· {soldOut} sold out</span>}
+      </StatusDot>
+      <p className="mt-1 truncate text-xs tabular-nums text-ink-400" title={variants.map((v) => `${variantName(product, v.label)}: ${v.stock}`).join(", ")}>
+        {variants.map((v, i) => (
+          <Fragment key={v.label}>
+            {i > 0 && <span className="text-ink-600"> · </span>}
+            <span className={v.stock > 0 ? "" : "text-ink-600 line-through"}>
+              {variantName(product, v.label)} {v.stock}
+            </span>
+          </Fragment>
+        ))}
+      </p>
+    </div>
+  );
+};
+
+StockSummary.propTypes = { product: PropTypes.object.isRequired };
+
+const PRODUCT_COLUMNS = [
+  {
+    key: "product",
+    header: "Product",
+    width: "w-[38%]",
+    render: (product) => (
+      <Stacked
+        leading={<img src={product.image} alt="" className="h-11 w-11 shrink-0 rounded-lg bg-white/5 object-cover ring-1 ring-white/10" />}
+        title={product.name}
+        subtitle={`#${product.productID}`}
+      />
+    ),
+  },
+  {
+    key: "category",
+    header: "Category",
+    render: (product) => <span className="capitalize text-ink-200">{product.category}</span>,
+  },
+  {
+    key: "price",
+    header: "Price",
+    align: "right",
+    render: (product) => <span className="font-medium tabular-nums">{formatMoney(product.price)}</span>,
+  },
+  {
+    key: "stock",
+    header: "Stock",
+    width: "w-[30%]",
+    wideOnCard: true,
+    render: (product) => <StockSummary product={product} />,
+  },
+];
 
 const ProductCatalog = () => {
   // states
@@ -118,194 +196,33 @@ const ProductCatalog = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-5 p-4 sm:p-6">
       {productFormState.isOpen && <ProductForm />}
+      {productDeleteModalState.isOpen && <DeleteProduct />}
 
-      <div className="flex items-center justify-between gap-4 max-[1120px]:pl-14">
-        <h1 className="text-2xl font-bold text-white">Products</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("products"))}
-            title="Export Products"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openForm()}
-            title="Add New Product"
-            className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Products"
+        subtitle={loading ? "Loading catalogue…" : `${totalProducts} in the current filter`}
+      >
+        <ToolbarButton icon={Download} label="Export" onClick={() => dispatch(openExportModal("products"))} />
+        <ToolbarButton icon={Plus} label="Add product" variant="primary" onClick={() => openForm()} />
+      </PageHeader>
 
-      <div className="border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-auto max-h-[calc(100vh-15rem)]">
-          <table className="w-full min-w-[800px]">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th
-                  scope="col"
-                  className="w-[15%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Actions
-                </th>
-                <th
-                  scope="col"
-                  className="w-[25%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Product
-                </th>
-                <th
-                  scope="col"
-                  className="w-[15%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Category
-                </th>
-                <th
-                  scope="col"
-                  className="w-[15%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Price
-                </th>
-                <th
-                  scope="col"
-                  className="w-[30%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Stock Status
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    No products found
-                  </td>
-                </tr>
-              ) : (
-                products.map((product, index) => (
-                  <tr
-                    key={index}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white group"
-                          title="Edit"
-                          onClick={() => {
-                            openForm(product);
-                          }}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white group"
-                          title="Delete"
-                          onClick={() => {
-                            handleDeleteModal(product);
-                          }}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Delete"
-                          />
-                        </button>
-
-                        {productDeleteModalState.isOpen && <DeleteProduct />}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="object-cover w-10 h-10 rounded-lg bg-white/5"
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-white truncate max-w-[200px]">
-                            {product.name}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            ID: #{product.productID}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 text-xs font-medium text-pink-500 rounded-full bg-pink-500/20">
-                        {product.category.charAt(0).toUpperCase() +
-                          product.category.slice(1)}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-white">
-                        {formatPrice(product.price)} $
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <div className="flex max-h-[60px] flex-wrap items-start gap-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {Array.isArray(product.variants) &&
-                        product.variants.length === 1 &&
-                        product.variants[0].label === "Default" ? (
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium inline-flex items-center ${
-                              product.variants[0].stock > 0
-                                ? "bg-green-500/20 text-green-500"
-                                : "bg-red-500/20 text-red-500"
-                            }`}
-                          >
-                            {product.variants[0].stock > 0
-                              ? `${product.variants[0].stock} available`
-                              : "Out of Stock"}
-                          </span>
-                        ) : (
-                          (product.variants || []).map((v) => (
-                            <span
-                              key={v.label}
-                              className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap tabular-nums ${
-                                v.stock > 0
-                                  ? "bg-green-500/20 text-green-500"
-                                  : "bg-red-500/20 text-red-500"
-                              }`}
-                            >
-                              {product.category === "comics" &&
-                              !v.label.startsWith("V")
-                                ? "Vol. "
-                                : ""}
-                              {v.label}: {v.stock > 0 ? v.stock : "Out"}
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        label="Products"
+        columns={PRODUCT_COLUMNS}
+        rows={products}
+        rowKey={(product) => product._id}
+        loading={loading}
+        emptyMessage="No products match these filters."
+        actions={(product) => (
+          <RowActions
+            name={product.name}
+            onEdit={() => openForm(product)}
+            onDelete={() => handleDeleteModal(product)}
+          />
+        )}
+      />
 
       <DashboardPagination
         currPage={currPage}

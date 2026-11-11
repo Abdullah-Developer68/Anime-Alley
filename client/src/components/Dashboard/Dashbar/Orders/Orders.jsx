@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import useAuth from "../../../../Hooks/UseAuth";
 import api from "../../../../api/api";
 import assets from "../../../../assets/asset";
@@ -9,11 +9,80 @@ import {
   openOrderDeleteModal,
   setReloadData,
 } from "../../../../redux/Slice/DashboardSlice";
-import { useSelector } from "react-redux";
 import EditOrder from "./EditOrder";
 import DeleteOrder from "./DeleteOrder";
 import { Download, RefreshCw } from "lucide-react";
 import DashboardPagination from "../../DashboardPagination";
+import DataTable, { Avatar, RowActions, StatusDot, Stacked } from "../../DataTable";
+import { PageHeader, StatCard, ToolbarButton } from "../../DashboardUI";
+import { formatMoney } from "../../../../utils/formatPrice";
+import { formatDate } from "../../../../utils/formatDate";
+
+const STATUS_TONE = { pending: "warning", processing: "info", shipped: "accent", delivered: "success" };
+
+const STAT_CARDS = [
+  { key: "pending", label: "Pending", icon: assets.pending },
+  { key: "processing", label: "Processing", icon: assets.processing },
+  { key: "shipped", label: "Shipped", icon: assets.shipped },
+  { key: "delivered", label: "Delivered", icon: assets.delivered },
+];
+
+const capitalize = (text = "") => text.charAt(0).toUpperCase() + text.slice(1);
+
+const itemCount = (order) =>
+  (order.products || []).reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+
+const ORDER_COLUMNS = [
+  {
+    key: "order",
+    header: "Order",
+    render: (order) => (
+      <Stacked title={order.orderID} subtitle={formatDate(order.createdAt || order.orderDate)} />
+    ),
+  },
+  {
+    key: "customer",
+    header: "Customer",
+    width: "w-[30%]",
+    wideOnCard: true,
+    render: (order) => (
+      <Stacked
+        leading={<Avatar src={order.user?.profilePic} name={order.user?.username} />}
+        title={order.user?.username || "Deleted user"}
+        subtitle={order.user?.email}
+      />
+    ),
+  },
+  {
+    key: "items",
+    header: "Items",
+    align: "right",
+    render: (order) => <span className="tabular-nums text-ink-200">{itemCount(order)}</span>,
+  },
+  {
+    key: "total",
+    header: "Total",
+    align: "right",
+    render: (order) => (
+      <div>
+        <p className="font-medium tabular-nums">{formatMoney(order.finalAmount)}</p>
+        {order.discount > 0 && (
+          <p className="text-xs tabular-nums text-ink-400">
+            −{formatMoney(order.discount)}
+            {order.couponCode && ` · ${order.couponCode}`}
+          </p>
+        )}
+      </div>
+    ),
+  },
+  {
+    key: "status",
+    header: "Status",
+    render: (order) => (
+      <StatusDot tone={STATUS_TONE[order.status] || "neutral"}>{capitalize(order.status)}</StatusDot>
+    ),
+  },
+];
 
 const Orders = () => {
   const { user } = useAuth();
@@ -30,15 +99,6 @@ const Orders = () => {
 
   // selectes where to reload data or not
   const reloadDataType = useSelector((state) => state.dashboard.reloadData);
-
-  // Helper to format date as DD-MM-YYYY
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
 
   // Fetch orders for the current page
   const loadOrders = useCallback(
@@ -121,257 +181,44 @@ const Orders = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-5 p-4 sm:p-6">
       <EditOrder />
       <DeleteOrder />
-      {/* Header Section */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Orders</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={fetchOrderStats}
-            disabled={statsLoading}
-            title="Refresh Stats"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white disabled:opacity-50"
-          >
-            <RefreshCw className={`w-5 h-5 ${statsLoading ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("orders"))}
-            title="Export Orders"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Pending Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Pending Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.pending || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-yellow-500/20">
-              <img src={assets.pending} />
-            </div>
-          </div>
-        </div>
-        {/* Processing Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Processing Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.processing || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-blue-500/20">
-              <img src={assets.processing} />
-            </div>
-          </div>
-        </div>
-        {/* Shipped Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Shipped Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.shipped || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-purple-500/20">
-              <img src={assets.shipped} />
-            </div>
-          </div>
-        </div>
-        {/* Delivered Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Delivered Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.delivered || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-green-500/20">
-              <img src={assets.delivered} />
-            </div>
-          </div>
-        </div>
-      </div>
-      {statsError && (
-        <div className="mt-2 text-sm text-red-400">{statsError}</div>
-      )}
+      <PageHeader title="Orders" subtitle={loading ? "Loading orders…" : `${totalOrders} orders in total`}>
+        <ToolbarButton
+          icon={RefreshCw}
+          label="Refresh"
+          spin={statsLoading}
+          disabled={statsLoading}
+          onClick={fetchOrderStats}
+        />
+        <ToolbarButton icon={Download} label="Export" onClick={() => dispatch(openExportModal("orders"))} />
+      </PageHeader>
 
-      {/* Orders Table */}
-      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-x-auto max-h-[400px]">
-          <table className="w-full min-w-[900px] whitespace-nowrap">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Actions
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Order ID
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Customer
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Date
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Amount
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Coupon Code
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Discount
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-8 text-center text-gray-400"
-                  >
-                    Loading orders...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-8 text-center text-red-400"
-                  >
-                    {error}
-                  </td>
-                </tr>
-              ) : orders.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-8 text-center text-gray-400"
-                  >
-                    No orders found.
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => (
-                  <tr
-                    key={order._id}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Edit"
-                          onClick={() => dispatch(openOrderEditModal(order))}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Delete"
-                          onClick={() => dispatch(openOrderDeleteModal(order))}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Delete"
-                          />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-white">
-                      {order.orderID}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 overflow-hidden rounded-full bg-pink-500/20">
-                          <img
-                            src={
-                              order.user?.profilePic
-                                ? order.user.profilePic.startsWith("http")
-                                  ? order.user.profilePic
-                                  : order.user.profilePic
-                                : assets.defaultProfile
-                            }
-                            alt={order.user?.username}
-                            className="object-cover w-8 h-8 rounded-full"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = assets.defaultProfile;
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-white">
-                            {order.user?.username || "Unknown"}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {order.user?.email || "-"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {formatDate(order.createdAt || order.orderDate)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      ${order.finalAmount}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {order.couponCode || "-"}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      ${order.discount || 0}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium inline-flex items-center ${
-                          order.status === "pending"
-                            ? "bg-yellow-500/20 text-yellow-500"
-                            : order.status === "processing"
-                              ? "bg-blue-500/20 text-blue-500"
-                              : order.status === "shipped"
-                                ? "bg-purple-500/20 text-purple-500"
-                                : order.status === "delivered"
-                                  ? "bg-green-500/20 text-green-500"
-                                  : "bg-gray-500/20 text-gray-500"
-                        }`}
-                      >
-                        {order.status?.charAt(0).toUpperCase() +
-                          order.status?.slice(1)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {STAT_CARDS.map((card) => (
+          <StatCard key={card.key} label={card.label} value={orderStats[card.key] || 0} icon={card.icon} />
+        ))}
       </div>
+      {statsError && <p className="text-sm text-red-300">{statsError}</p>}
+
+      <DataTable
+        label="Orders"
+        columns={ORDER_COLUMNS}
+        rows={orders}
+        rowKey={(order) => order._id}
+        loading={loading}
+        error={error}
+        emptyMessage="No orders yet."
+        actions={(order) => (
+          <RowActions
+            name={`order ${order.orderID}`}
+            onEdit={() => dispatch(openOrderEditModal(order))}
+            onDelete={() => dispatch(openOrderDeleteModal(order))}
+          />
+        )}
+      />
 
       <DashboardPagination
         currPage={currPage}

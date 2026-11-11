@@ -36,6 +36,7 @@ import emptyCart from "./img/emptyCart.png";
 import narutoShoes from "./img/NARUTO-SHOES.webp";
 import jjkPants from "./img/JJK-PANTS.webp";
 import aotHoddie from "./img/AOT-HOODIE-2.webp";
+import soloShoes from "./img/SOLO-SHOES.png";
 import pokemonComic from "./img/pokemonComic.webp";
 import narutoComic from "./img/narutoComic.jpg";
 import saoComic from "./img/saoComic.webp";
@@ -96,6 +97,7 @@ const assets = {
   narutoShoes,
   jjkPants,
   aotHoddie,
+  soloShoes,
   pokemonComic,
   narutoComic,
   saoComic,

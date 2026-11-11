@@ -154,7 +154,7 @@ const ActiveFiltersDisplay = () => {
                   <button
                     type="button"
                     onClick={clearPriceFilter}
-                    className="ml-0.5 text-xs text-white/40 hover:text-yellow-400 transition-colors cursor-pointer"
+                    className="ml-0.5 text-xs text-white/40 hover:text-pink-400 transition-colors cursor-pointer"
                     title="Remove price filter"
                   >
                     ×
@@ -207,9 +207,9 @@ const ActiveFiltersDisplay = () => {
         {/* Clear All Button */}
         <button
           onClick={clearAllFilters}
-          className="flex items-center flex-shrink-0 gap-1 text-xs font-medium text-yellow-500 transition-colors duration-200 cursor-pointer hover:text-yellow-400"
+          className="flex items-center flex-shrink-0 gap-1 text-xs font-medium text-pink-500 transition-colors duration-200 cursor-pointer hover:text-pink-400"
         >
-          <span className="w-1 h-3 bg-yellow-500 rounded-full"></span>
+          <span className="w-1 h-3 bg-pink-500 rounded-full"></span>
           Clear All
         </button>
       </div>

@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 
 import useAuth from "../../../../Hooks/UseAuth";
 import api from "../../../../api/api";
-import assets from "../../../../assets/asset";
 
 import {
   openExportModal,
@@ -16,6 +15,61 @@ import DeleteUser from "./DeleteUser";
 import { toast } from "react-toastify";
 import { Download, Search } from "lucide-react";
 import DashboardPagination from "../../DashboardPagination";
+import DataTable, { Avatar, RowActions, StatusDot, Stacked } from "../../DataTable";
+import { PageHeader, ToolbarButton } from "../../DashboardUI";
+import { formatDate } from "../../../../utils/formatDate";
+
+const ROLE_LABELS = { superAdmin: "Super admin", admin: "Admin", user: "Customer" };
+
+const ROLE_OPTIONS = [
+  { value: "allUsers", label: "All roles" },
+  { value: "user", label: "Customers" },
+  { value: "admin", label: "Admins" },
+  { value: "superAdmin", label: "Super admins" },
+];
+
+const USER_COLUMNS = [
+  {
+    key: "user",
+    header: "User",
+    width: "w-[42%]",
+    render: (u) => (
+      <Stacked
+        leading={<Avatar src={u.profilePic} name={u.username} size="h-9 w-9" />}
+        title={u.username}
+        subtitle={u.email}
+      />
+    ),
+  },
+  {
+    key: "role",
+    header: "Role",
+    render: (u) => (
+      <span className="inline-flex rounded-md border border-white/10 px-2 py-0.5 text-xs font-medium text-ink-200">
+        {ROLE_LABELS[u.role] || u.role}
+      </span>
+    ),
+  },
+  {
+    key: "status",
+    header: "Account",
+    render: (u) => (
+      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+        {u.accountStatus === "verifying" ? (
+          <StatusDot tone="warning">Unverified</StatusDot>
+        ) : (
+          <StatusDot tone="success">Active</StatusDot>
+        )}
+        {u.isDemo && <span className="text-xs text-ink-400">Demo</span>}
+      </span>
+    ),
+  },
+  {
+    key: "joined",
+    header: "Joined",
+    render: (u) => <span className="tabular-nums text-ink-200">{formatDate(u.createdAt)}</span>,
+  },
+];
 
 const Users = () => {
   const { user } = useAuth();
@@ -33,22 +87,6 @@ const Users = () => {
 
   // Redux reload trigger
   const reloadDataType = useSelector((state) => state.dashboard.reloadData);
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "N/A";
-
-    const date = new Date(dateStr);
-
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      return "N/A";
-    }
-
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
 
   const canEditUser = (targetUser) => {
     if (!user?.role || !targetUser?.role) return false;
@@ -131,210 +169,69 @@ const Users = () => {
     dispatch(openUserDeleteModal(userToDelete));
   };
 
+  const submitSearch = (e) => {
+    e.preventDefault();
+    setSubmittedSearch(searchQuery);
+    setSubmittedRole(role);
+    setCurrPage(1); // Reset to first page on new search/filter
+  };
+
+  const fieldClass =
+    "h-10 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-white transition-colors placeholder:text-ink-500 hover:border-white/20 focus:border-pink-500/60 focus:outline-none";
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-5 p-4 sm:p-6">
       <EditUser />
       <DeleteUser />
 
-      {/* Header Section */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Users</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("users"))}
-            title="Export Users"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader title="Users" subtitle={loading ? "Loading users…" : `${totalUsers} accounts`}>
+        <ToolbarButton icon={Download} label="Export" onClick={() => dispatch(openExportModal("users"))} />
+      </PageHeader>
 
-      {/* Search and Filter Section */}
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex-1">
+      <form onSubmit={submitSearch} role="search" className="flex flex-col gap-2 sm:flex-row">
+        <label className="relative flex-1">
+          <span className="sr-only">Search users</span>
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
           <input
-            type="text"
-            placeholder="Search users..."
-            className="w-full px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
+            type="search"
+            placeholder="Search by name or email"
+            className={`${fieldClass} w-full pl-9`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+        </label>
+        <div className="flex gap-2">
+          <label className="flex-1 sm:flex-none">
+            <span className="sr-only">Filter by role</span>
+            <select className={`${fieldClass} w-full cursor-pointer`} value={role} onChange={(e) => setRole(e.target.value)}>
+              {ROLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value} className="bg-ink-900 text-white">
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="submit"
+            className="h-10 shrink-0 cursor-pointer rounded-lg bg-white/[0.08] px-4 text-sm font-medium text-white transition-colors hover:bg-white/[0.14]"
+          >
+            Search
+          </button>
         </div>
-        <select
-          className="px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 focus:outline-none focus:border-pink-500"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        >
-          <option value="allUsers" className="text-black bg-gray-400">
-            All Users
-          </option>
-          <option value="user" className="text-black bg-gray-400">
-            Users
-          </option>
-          <option value="admin" className="text-black bg-gray-400">
-            Admin
-          </option>
-          <option value="superAdmin" className="text-black bg-gray-400">
-            Super Admin
-          </option>
-        </select>
-        <button
-          type="button"
-          title="Search Users"
-          className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white shrink-0"
-          onClick={() => {
-            setSubmittedSearch(searchQuery);
-            setSubmittedRole(role);
-            setCurrPage(1); // Reset to first page on new search/filter
-          }}
-        >
-          <Search className="w-5 h-5" />
-        </button>
-      </div>
+      </form>
 
-      {/* Users Table */}
-      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-x-auto max-h-[600px]">
-          <table className="w-full min-w-[800px]">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Actions
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  User
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Email
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Role
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Joined
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-red-400">
-                    {error}
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => (
-                  <tr
-                    key={u._id}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Edit"
-                          onClick={() => handleEditClick(u)}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Delete"
-                          onClick={() => handleDelete(u)}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5"
-                            alt="Delete"
-                          />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 overflow-hidden rounded-full bg-pink-500/20">
-                          {u.profilePic ? (
-                            <img
-                              src={
-                                u.profilePic.startsWith("http")
-                                  ? u.profilePic
-                                  : u.profilePic // Cloudinary URLs are complete
-                              }
-                              alt={u.username}
-                              className="object-cover w-10 h-10 rounded-full"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = assets.defaultProfile;
-                              }}
-                            />
-                          ) : (
-                            <img
-                              src={assets.defaultProfile}
-                              alt={u.username}
-                              className="object-cover w-10 h-10 rounded-full"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                // Fallback to initials if default image fails
-                                e.target.style.display = "none";
-                                e.target.nextElementSibling.style.display =
-                                  "block";
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-white">
-                            {u.username}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">{u.email}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          u.role === "superAdmin"
-                            ? "bg-green-500/20 text-green-500"
-                            : u.role === "admin"
-                              ? "bg-purple-500/20 text-purple-500"
-                              : "bg-blue-500/20 text-blue-500"
-                        }`}
-                      >
-                        {u.role === "superAdmin"
-                          ? "Super Admin"
-                          : u.role === "admin"
-                            ? "Admin"
-                            : "User"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {formatDate(u.createdAt)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        label="Users"
+        columns={USER_COLUMNS}
+        rows={users}
+        rowKey={(u) => u._id}
+        loading={loading}
+        error={error}
+        emptyMessage="No users match this search."
+        actions={(u) => (
+          <RowActions name={u.username} onEdit={() => handleEditClick(u)} onDelete={() => handleDelete(u)} />
+        )}
+      />
 
       <DashboardPagination
         currPage={currPage}

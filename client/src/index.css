@@ -118,6 +118,17 @@
   --color-yellow-800: oklch(0.473 0.137 46.201);
   --color-yellow-900: oklch(0.414 0.112 45.904);
   --color-yellow-950: oklch(0.279 0.077 45.635);
+
+  --animate-marquee: marquee var(--marquee-duration, 45s) linear infinite;
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
 }
 
 @layer base {
@@ -187,24 +198,6 @@
 * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-ink-700) transparent;
-}
-
-/* Carousel dots and arrows: slick's defaults are black and vanish on dark sections */
-.slick-slider .slick-dots li button:before {
-    color: white;
-    opacity: 0.35;
-    font-size: 8px;
-}
-
-.slick-slider .slick-dots li.slick-active button:before {
-    color: var(--color-pink-400);
-    opacity: 1;
-}
-
-.slick-slider .slick-prev:before,
-.slick-slider .slick-next:before {
-    color: white;
-    opacity: 0.6;
 }
 
 /* Toasts follow the app typography and palette */

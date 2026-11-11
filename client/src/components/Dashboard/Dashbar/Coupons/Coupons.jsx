@@ -15,6 +15,55 @@ import DeleteCoupon from "./DeleteCoupon";
 import CreateCoupon from "./CreateCoupon";
 import { Download, RefreshCw, Plus } from "lucide-react";
 import DashboardPagination from "../../DashboardPagination";
+import DataTable, { RowActions, StatusDot } from "../../DataTable";
+import { PageHeader, StatCard, ToolbarButton } from "../../DashboardUI";
+import { formatMoney } from "../../../../utils/formatPrice";
+import { formatDate, formatRelativeDays } from "../../../../utils/formatDate";
+
+const isActive = (coupon) => new Date(coupon.expiryDate) > new Date();
+
+const COUPON_COLUMNS = [
+  {
+    key: "code",
+    header: "Code",
+    render: (coupon) => (
+      <span className="font-semibold tracking-wide text-ink-50">{coupon.couponCode}</span>
+    ),
+  },
+  {
+    key: "discount",
+    header: "Discount",
+    align: "right",
+    render: (coupon) => <span className="font-medium tabular-nums">{coupon.discountPercentage}%</span>,
+  },
+  {
+    key: "usage",
+    header: "Usage",
+    align: "right",
+    render: (coupon) => (
+      <div>
+        <p className="tabular-nums">{coupon.totalUsage || 0} uses</p>
+        <p className="text-xs tabular-nums text-ink-400">{formatMoney(coupon.lifeTimeDiscount || 0)} saved</p>
+      </div>
+    ),
+  },
+  {
+    key: "expiry",
+    header: "Valid until",
+    render: (coupon) => (
+      <div>
+        <p className="tabular-nums text-ink-200">{formatDate(coupon.expiryDate)}</p>
+        <p className="text-xs text-ink-400">{formatRelativeDays(coupon.expiryDate)}</p>
+      </div>
+    ),
+  },
+  {
+    key: "status",
+    header: "Status",
+    render: (coupon) =>
+      isActive(coupon) ? <StatusDot tone="success">Active</StatusDot> : <StatusDot>Expired</StatusDot>,
+  },
+];
 
 const Coupons = () => {
   const { user } = useAuth();
@@ -31,18 +80,6 @@ const Coupons = () => {
     totalUsage: 0,
     totalDiscount: 0,
   });
-
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  const getStatus = (expiryDate) => {
-    return new Date(expiryDate) > new Date() ? "Active" : "Expired";
-  };
 
   const loadCoupons = useCallback(
     async (page = 1) => {
@@ -124,188 +161,39 @@ const Coupons = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-5 p-4 sm:p-6">
       <EditCoupon />
       <DeleteCoupon />
       <CreateCoupon />
-      {/* Header Section */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Coupons</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRefreshStats}
-            disabled={loading}
-            title="Refresh Stats"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white disabled:opacity-50"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("coupons"))}
-            title="Export Coupons"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatch(openCouponCreateModal())}
-            title="Create Coupon"
-            className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </div>
+
+      <PageHeader title="Coupons" subtitle={`${totalCoupons} codes`}>
+        <ToolbarButton icon={RefreshCw} label="Refresh" spin={loading} disabled={loading} onClick={handleRefreshStats} />
+        <ToolbarButton icon={Download} label="Export" onClick={() => dispatch(openExportModal("coupons"))} />
+        <ToolbarButton icon={Plus} label="New coupon" variant="primary" onClick={() => dispatch(openCouponCreateModal())} />
+      </PageHeader>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatCard label="Active coupons" value={stats.activeCoupons} icon={assets.activeCoupons} />
+        <StatCard label="Total uses" value={stats.totalUsage} icon={assets.couponUsage} />
+        <StatCard label="Total discount" value={formatMoney(stats.totalDiscount || 0)} icon={assets.couponDiscount} />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Active Coupons</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {stats.activeCoupons}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-green-500/20">
-              <img src={assets.activeCoupons} alt="Active Coupons" />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Total Usage</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {stats.totalUsage}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-blue-500/20">
-              <img src={assets.couponUsage} alt="Coupon Usage" />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Total Discount</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                ${stats.totalDiscount.toLocaleString()}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-yellow-500/20">
-              <img src={assets.couponDiscount} alt="Coupon Discount" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Coupons Table */}
-      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-x-auto max-h-[600px]">
-          <table className="w-full min-w-[800px]">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Actions
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Code
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Discount
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Valid Until
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-red-400">
-                    {error}
-                  </td>
-                </tr>
-              ) : coupons.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    No coupons found.
-                  </td>
-                </tr>
-              ) : (
-                coupons.map((coupon) => (
-                  <tr
-                    key={coupon._id}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Edit"
-                          onClick={() => dispatch(openCouponEditModal(coupon))}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Delete"
-                          onClick={() => handleDelete(coupon)}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5"
-                            alt="Delete"
-                          />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium text-white">
-                      {coupon.couponCode}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {coupon.discountPercentage}%
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {formatDate(coupon.expiryDate)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          getStatus(coupon.expiryDate) === "Active"
-                            ? "bg-green-500/20 text-green-500"
-                            : "bg-red-500/20 text-red-500"
-                        }`}
-                      >
-                        {getStatus(coupon.expiryDate)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        label="Coupons"
+        columns={COUPON_COLUMNS}
+        rows={coupons}
+        rowKey={(coupon) => coupon._id}
+        loading={loading}
+        error={error}
+        emptyMessage="No coupons yet. Create one to get started."
+        actions={(coupon) => (
+          <RowActions
+            name={`coupon ${coupon.couponCode}`}
+            onEdit={() => dispatch(openCouponEditModal(coupon))}
+            onDelete={() => handleDelete(coupon)}
+          />
+        )}
+      />
 
       <DashboardPagination
         currPage={currPage}

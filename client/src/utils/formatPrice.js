@@ -18,4 +18,9 @@ export const formatPrice = (price, { asString = false } = {}) => {
   return asString ? normalized.toFixed(2) : normalized;
 };
 
+const currencyFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+// "$1,234.50" for display in tables and summaries
+export const formatMoney = (price) => currencyFormatter.format(formatPrice(price));
+
 export default formatPrice;

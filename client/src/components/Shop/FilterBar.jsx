@@ -250,7 +250,7 @@ const FilterBar = () => {
           <input
             type="text"
             placeholder="Search products..."
-            className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 outline-none text-white placeholder:text-white/60 focus:border-yellow-500/50 transition-all duration-300 text-sm"
+            className="w-full px-4 py-2.5 rounded-lg bg-white/10 border border-white/20 outline-none text-white placeholder:text-white/60 focus:border-pink-500/50 transition-all duration-300 text-sm"
             {...register("searchQuery", {
               minLength: {
                 value: 2,
@@ -279,7 +279,7 @@ const FilterBar = () => {
         {/* Filters section */}
         <div>
           <h3 className="flex items-center gap-2 mb-3 text-base font-semibold text-white/90">
-            <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
+            <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
             Available Filters
           </h3>
           <div className="grid grid-cols-2 gap-3 text-white/70">
@@ -290,14 +290,14 @@ const FilterBar = () => {
               return (
                 <label
                   key={filter}
-                  className="flex items-center gap-2 text-sm transition-colors duration-200 cursor-pointer hover:text-yellow-500 group"
+                  className="flex items-center gap-2 text-sm transition-colors duration-200 cursor-pointer hover:text-pink-500 group"
                 >
                   <input
                     type="checkbox"
                     value={filter}
                     checked={isChecked}
                     onChange={() => handleTypeClick(filter)}
-                    className="flex-shrink-0 w-4 h-4 cursor-pointer accent-yellow-500 border-white/20 focus:ring-yellow-500 focus:ring-offset-1 focus:ring-offset-black"
+                    className="flex-shrink-0 w-4 h-4 cursor-pointer accent-pink-500 border-white/20 focus:ring-pink-500 focus:ring-offset-1 focus:ring-offset-black"
                   />
                   <span className="text-xs transition-transform duration-200 group-hover:translate-x-1">
                     {filter}
@@ -312,7 +312,7 @@ const FilterBar = () => {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="flex items-center gap-2 text-base font-semibold text-white/90">
-              <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
+              <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
               Price Range
             </h3>
             {!isAllPrices && (
@@ -324,7 +324,7 @@ const FilterBar = () => {
                     shouldTouch: true,
                   })
                 }
-                className="font-mono text-xs text-yellow-500 transition-colors cursor-pointer hover:text-yellow-400"
+                className="text-xs font-semibold text-pink-400 transition-colors cursor-pointer hover:text-pink-300"
               >
                 Reset
               </button>
@@ -343,11 +343,11 @@ const FilterBar = () => {
                   shouldTouch: true,
                 })
               }
-              className="w-full h-2 cursor-pointer accent-yellow-500"
+              className="w-full h-2 cursor-pointer accent-pink-500"
             />
-            <div className="flex justify-between mt-2 font-mono text-xs text-white/70">
+            <div className="flex items-baseline justify-between mt-2 text-xs font-medium tabular-nums text-white/55">
               <span>$0</span>
-              <span className="font-semibold text-yellow-500">
+              <span className="text-sm font-semibold tracking-tight text-pink-400">
                 {isAllPrices
                   ? "All Prices"
                   : `Up to $${formatPrice(currentPrice)}`}
@@ -360,12 +360,12 @@ const FilterBar = () => {
         {/* Sort options */}
         <div>
           <h3 className="flex items-center gap-2 mb-3 text-base font-semibold text-white/90">
-            <span className="w-1 h-4 bg-yellow-500 rounded-full"></span>
+            <span className="w-1 h-4 bg-pink-500 rounded-full"></span>
             Sort By
           </h3>
           <select
             {...register("sortBy")}
-            className="w-full bg-white/10 text-white/70 p-2.5 rounded-lg border border-white/20 outline-none focus:border-yellow-500/50 transition-all duration-300 text-sm cursor-pointer hover:bg-white/15"
+            className="w-full bg-white/10 text-white/70 p-2.5 rounded-lg border border-white/20 outline-none focus:border-pink-500/50 transition-all duration-300 text-sm cursor-pointer hover:bg-white/15"
           >
             <option value="popular" className="bg-black">
               Most Popular
@@ -389,7 +389,7 @@ const FilterBar = () => {
                 ? "bg-zinc-800 text-zinc-400 border border-white/5 cursor-not-allowed select-none"
                 : !hasUncommittedChanges
                   ? "bg-zinc-800/80 text-zinc-500 border border-white/5 opacity-60 cursor-not-allowed select-none"
-                  : "bg-yellow-500 text-black hover:bg-yellow-400 hover:shadow-lg hover:shadow-yellow-500/25 active:scale-[0.98] cursor-pointer"
+                  : "bg-pink-500 text-black hover:bg-pink-400 hover:shadow-lg hover:shadow-pink-500/25 active:scale-[0.98] cursor-pointer"
             }`}
           >
             {isSubmitting ? (
