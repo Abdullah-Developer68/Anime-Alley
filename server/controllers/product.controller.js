@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const productModel = require("../db/models/product.model.js");
 const dbConnect = require("../db/dbConnect.js");
 const {
+  uploadImage,
   extractPublicIdFromCloudinaryUrl,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
@@ -203,19 +204,23 @@ const getProducts = async (req, res) => {
     const itemsPerPage = limit ?? DEFAULT_PAGE_SIZE;
     const startIndex = (page - 1) * itemsPerPage;
 
-    // Get the total count of products matching the query
-    const totalProducts = await productModel.countDocuments(query);
+    // Count and page in parallel: one round trip of waiting instead of two
+    const [totalProducts, currPageProducts] = await Promise.all([
+      productModel.countDocuments(query),
+      productModel
+        .find(query)
+        .select("-imagePublicId -__v")
+        .sort(sortOptions)
+        .skip(startIndex)
+        .limit(itemsPerPage)
+        .lean(),
+    ]);
 
-    // Get paginated products with the filters and sorting
-    const currPageProducts = await productModel
-      .find(query)
-      .sort(sortOptions)
-      .skip(startIndex)
-      .limit(itemsPerPage);
-
-    // Calculate total pages and return paginated product list
     const totalPages = Math.ceil(totalProducts / itemsPerPage);
 
+    // Public catalog data: the browser may reuse it for 30 seconds (back/forward, revisits).
+    // `private` keeps shared caches out, because the CORS headers differ per client origin.
+    res.set("Cache-Control", "private, max-age=30");
     res
       .status(200)
       .json({ success: true, currPageProducts, totalPages, totalProducts });
@@ -242,24 +247,27 @@ const createProduct = async (req, res) => {
         message: validation.message,
       });
 
+    if (!req.file)
+      return res.status(400).json({ success: false, message: "A product image (JPG, PNG or WebP) is required" });
+
     // Connect to database only after in-memory validations succeed
     await dbConnect();
 
-    // Extract uploaded Cloudinary image metadata
-    const imageUrl = req.file ? req.file.path : null;
-    const imagePublicId = req.file
-      ? extractPublicIdFromCloudinaryUrl(req.file.path)
-      : null;
-
     // Generate unique product ID based on category prefix
     const generatedProductID = await generateProductID(validation.data.category);
+
+    // Uploaded only now that the request is known to be valid
+    const uploaded = await uploadImage(req.file.buffer, {
+      folder: `anime-alley-products/${validation.data.category}`,
+      maxSize: 800,
+    });
 
     // Assemble product document data
     const productData = {
       ...validation.data,
       productID: generatedProductID,
-      image: imageUrl,
-      imagePublicId,
+      image: uploaded.url,
+      imagePublicId: uploaded.publicId,
     };
 
     // Create and persist product document in database
@@ -315,16 +323,14 @@ const updateProduct = async (req, res) => {
         message: "Product not found",
       });
 
-    // Determine new image URL and public ID from uploaded file or existing payload
-    const imageUrl = req.file
-      ? req.file.path
-      : req.body?.image || existingProduct.image;
-    const imagePublicId = req.file
-      ? extractPublicIdFromCloudinaryUrl(req.file.path)
-      : req.body?.image
-        ? extractPublicIdFromCloudinaryUrl(req.body.image)
-        : existingProduct.imagePublicId ||
-          extractPublicIdFromCloudinaryUrl(existingProduct.image);
+    // The image only changes through an upload. An image URL in the body is ignored: it would let a
+    // request point the product (and its later cleanup) at any other Cloudinary asset.
+    const uploaded = req.file
+      ? await uploadImage(req.file.buffer, { folder: `anime-alley-products/${validation.data.category}`, maxSize: 800 })
+      : null;
+    const oldPublicId = existingProduct.imagePublicId || extractPublicIdFromCloudinaryUrl(existingProduct.image);
+    const imageUrl = uploaded ? uploaded.url : existingProduct.image;
+    const imagePublicId = uploaded ? uploaded.publicId : oldPublicId;
 
     // Assemble updated product document data
     const productData = {
@@ -351,15 +357,9 @@ const updateProduct = async (req, res) => {
       { new: true, runValidators: true, context: "query" },
     );
 
-    // Clean up old Cloudinary image if a new image was uploaded
-    if (req.file) {
-      const oldPublicId =
-        existingProduct.imagePublicId ||
-        extractPublicIdFromCloudinaryUrl(existingProduct.image);
-
-      if (oldPublicId && oldPublicId !== imagePublicId)
-        await destroyCloudinaryImage(existingProduct.image, oldPublicId);
-    }
+    // Clean up the old Cloudinary image once the new one is saved
+    if (uploaded && oldPublicId && oldPublicId !== imagePublicId)
+      await destroyCloudinaryImage(existingProduct.image, oldPublicId);
 
     res.status(200).json({
       success: true,

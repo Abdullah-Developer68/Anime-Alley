@@ -1,4 +1,3 @@
-const Stripe = require("stripe");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const reservationModel = require("../db/models/reservation.model.js");
@@ -8,9 +7,9 @@ const couponModel = require("../db/models/coupon.model.js");
 const productModel = require("../db/models/product.model.js");
 const checkoutSessionModel = require("../db/models/checkoutSession.model.js");
 const dbConnect = require("../db/dbConnect.js");
+const { getStripe } = require("../config/stripe/stripe.config.js");
 dotenv.config();
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const webHookSecretKey = process.env.STRIPE_WEBHOOK_SECRET;
 
 // Removes the purchased quantities from the user's cart reservation.
@@ -116,6 +115,9 @@ const processSuccessfulPayment = async (StripeSession) => {
       stripeSessionID: StripeSession.id,
       products: snapshot.products.map((item) => ({
         productId: item.productId,
+        variant: item.variant,
+        name: item.name,
+        image: item.image,
         quantity: item.quantity,
         price: item.price,
       })),
@@ -195,7 +197,7 @@ const handleStripeWebhook = async (req, res) => {
 
   try {
     // Verify webhook signature for security
-    event = stripe.webhooks.constructEvent(req.body, sig, webHookSecretKey);
+    event = getStripe().webhooks.constructEvent(req.body, sig, webHookSecretKey);
   } catch (err) {
     console.error(`Webhook signature verification failed:`, err.message);
     return res.status(400).send("Webhook signature verification failed");

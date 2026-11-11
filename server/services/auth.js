@@ -7,7 +7,13 @@ const sendOTP = require("../utils/sendOTP.js");
 const dbConnect = require("../db/dbConnect.js");
 const { otpData, hashOtp, otpMatches, MAX_OTP_ATTEMPTS } = require("../utils/otpGenerator.js");
 const createTemporaryPasswordHash = require("../utils/tempPasswordHash.js");
-const { isNonEmptyString, passwordProblem } = require("../utils/validation.utils.js");
+const {
+  isNonEmptyString,
+  normalizeEmail,
+  isValidEmail,
+  passwordProblem,
+  usernameProblem,
+} = require("../utils/validation.utils.js");
 const { keyFor } = require("../utils/tokenKeys.utils.js");
 const { createSession, refreshSession, revokeSession } = require("../utils/authSession.utils.js");
 
@@ -22,14 +28,27 @@ let dummyPasswordHash;
 const getDummyPasswordHash = async () =>
   (dummyPasswordHash ??= await bcrypt.hash(crypto.randomBytes(16).toString("hex"), 10));
 
+// Accounts created before emails were stored lower-case keep their original case until they log in.
+// Mongoose lower-cases query values, so this exact-case lookup goes to the driver directly.
+const findLegacyMixedCaseUser = async (rawEmail, email) => {
+  if (rawEmail === email)
+    return null;
+  const legacy = await userModel.collection.findOne({ email: rawEmail }, { projection: { _id: 1 } });
+  if (!legacy)
+    return null;
+  // Fix the stored case now; fails harmlessly if a lower-case twin account already exists
+  await userModel.updateOne({ _id: legacy._id }, { email }).catch(() => {});
+  return userModel.findById(legacy._id);
+};
+
 const sendSignupOtp = async (req, res) => {
   try {
-    const email = req.body?.email;
+    const email = normalizeEmail(req.body?.email);
 
-    if (!isNonEmptyString(email))
+    if (!isValidEmail(email))
       return res.status(400).json({
         success: false,
-        message: "Email is required",
+        message: "Enter a valid email address",
       });
 
     await dbConnect();
@@ -76,9 +95,10 @@ const sendSignupOtp = async (req, res) => {
 
 const verifyOTP = async (req, res) => {
   try {
-    const { email, otp } = req.body || {};
+    const { otp } = req.body || {};
+    const email = normalizeEmail(req.body?.email);
 
-    if (!isNonEmptyString(email) || !isNonEmptyString(otp))
+    if (!email || !isNonEmptyString(otp))
       return res
         .status(400)
         .json({ success: false, message: "Email and OTP are required" });
@@ -140,17 +160,18 @@ const verifyOTP = async (req, res) => {
 
 const signUp = async (req, res) => {
   try {
-    const { email, password, username, verificationToken } = req.body || {};
+    const { password, username, verificationToken } = req.body || {};
+    const email = normalizeEmail(req.body?.email);
 
-    if (!isNonEmptyString(email) || !isNonEmptyString(password) || !isNonEmptyString(username))
+    if (!email || !isNonEmptyString(password) || !isNonEmptyString(username))
       return res.status(400).json({
         success: false,
         message: "Email, password, and username are required!",
       });
 
-    const invalidPassword = passwordProblem(password);
-    if (invalidPassword)
-      return res.status(400).json({ success: false, message: invalidPassword });
+    const invalid = usernameProblem(username) || passwordProblem(password);
+    if (invalid)
+      return res.status(400).json({ success: false, message: invalid });
 
     // Strict check: verificationToken must be present
     if (!isNonEmptyString(verificationToken))
@@ -196,7 +217,7 @@ const signUp = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     // Update user fields and set role to user
-    user.username = username;
+    user.username = username.trim();
     user.password = hashedPassword;
     user.role = "user";
     user.otp = undefined;
@@ -231,10 +252,12 @@ const signUp = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { password } = req.body || {};
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+    const email = normalizeEmail(rawEmail);
 
     // Check if credentials are provided
-    if (!isNonEmptyString(email) || !isNonEmptyString(password))
+    if (!email || !isNonEmptyString(password))
       return res.status(400).json({
         success: false,
         status: false,
@@ -243,7 +266,7 @@ const login = async (req, res) => {
 
     await dbConnect();
 
-    const userExist = await userModel.findOne({ email });
+    const userExist = (await userModel.findOne({ email })) || (await findLegacyMixedCaseUser(rawEmail, email));
 
     // One answer for every failure (no account, signup not finished, Google-only, wrong password),
     // and bcrypt always runs, so neither the message nor the timing shows whether the email exists
@@ -322,7 +345,8 @@ const refreshAccessToken = async (req, res) => {
       return res.status(401).json({ success: false, message: "Session expired. Please log in again." });
     }
 
-    res.status(200).json({ success: true, token: refreshed.token });
+    // refreshToken is missing when another tab rotated it a moment ago and already stored the new one
+    res.status(200).json({ success: true, token: refreshed.token, refreshToken: refreshed.refreshToken });
   } catch (error) {
     console.error("Token refresh error:", error.message);
     res.status(500).json({ success: false, message: "Internal server error" });
@@ -338,105 +362,55 @@ const getCurrentUser = (req, res) => {
   });
 };
 
+const DEMO_NAME_PREFIX = { admin: "demoAdmin", user: "demoUser" };
+
+// Demo accounts get a random suffix, so creating one never depends on (or scans) existing usernames
 const demoLogin = async (req, res) => {
   try {
-    const requestedRole =
-      req.body?.role === "admin" ? "admin" : "user";
-    const base = requestedRole === "admin" ? "demoAdmin" : "demoUser";
+    const role = req.body?.role === "admin" ? "admin" : "user";
 
     await dbConnect();
 
-    // Find existing users with this base pattern to determine the next sequence number
-    const regex = new RegExp(`^${base}(\\d*)$`, "i");
-    const existingUsers = await userModel
-      .find({ username: regex })
-      .select("username email");
-
-    let maxNum = 0;
-    for (const u of existingUsers) {
-      const match = u.username.match(regex);
-      if (match) {
-        const num = match[1] ? parseInt(match[1], 10) : 0;
-        if (!isNaN(num) && num > maxNum)
-          maxNum = num;
-      }
-    }
-
-    let nextNum = maxNum + 1;
-    let username = `${base}${nextNum}`;
-    let email = `${username.toLowerCase()}@demo.com`;
-
     let user = null;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (!user && attempts < maxAttempts) {
-      attempts++;
-      // Ensure uniqueness in case of race condition or gaps
-      while (
-        await userModel.exists({
-          $or: [{ username }, { email }],
-        })
-      ) {
-        nextNum++;
-        username = `${base}${nextNum}`;
-        email = `${username.toLowerCase()}@demo.com`;
-      }
-
-      // Generate random password and hash it
-      const randomPassword = crypto.randomBytes(16).toString("hex");
-      const hashedPassword = await bcrypt.hash(randomPassword, 10);
-
-      try {
-        user = await userModel.create({
+    for (let attempt = 0; attempt < 5 && !user; attempt++) {
+      const username = `${DEMO_NAME_PREFIX[role]}-${crypto.randomBytes(3).toString("hex")}`;
+      // ".invalid" is a reserved domain, so no email can ever reach a real mailbox
+      const email = `${username.toLowerCase()}@demo.invalid`;
+      user = await userModel
+        .create({
           username,
           email,
-          password: hashedPassword,
-          role: requestedRole,
+          password: await createTemporaryPasswordHash(),
+          role,
           accountStatus: "active",
           isDemo: true,
           profilePic: "",
+        })
+        .catch((error) => {
+          if (error?.code === 11000)
+            return null;
+          throw error;
         });
-      } catch (createErr) {
-        // Retry on duplicate key race conditions (code 11000)
-        if (
-          createErr.code === 11000 ||
-          /duplicate key/i.test(createErr.message)
-        ) {
-          nextNum++;
-          username = `${base}${nextNum}`;
-          email = `${username.toLowerCase()}@demo.com`;
-          user = null;
-        } else {
-          throw createErr;
-        }
-      }
     }
 
     if (!user)
-      return res.status(500).json({
-        success: false,
-        message:
-          "Failed to allocate unique demo account sequence after multiple attempts.",
-      });
+      return res.status(500).json({ success: false, message: "Could not create a demo account. Please try again." });
 
     const { token, refreshToken } = await createSession(user._id);
-
-    const userData = {
-      id: user._id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      profilePic: user.profilePic || "",
-      isDemo: true,
-    };
 
     return res.status(201).json({
       success: true,
       token,
       refreshToken,
-      user: userData,
-      message: `Demo ${requestedRole === "admin" ? "Admin" : "User"} account created!`,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        profilePic: "",
+        isDemo: true,
+      },
+      message: `Demo ${role === "admin" ? "Admin" : "User"} account created!`,
     });
   } catch (error) {
     console.error("Demo login error:", error.message);

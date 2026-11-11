@@ -1,4 +1,3 @@
-const userModel = require("../db/models/user.model.js");
 const {
   dataConfigs,
   generateExcel,
@@ -17,12 +16,17 @@ const exportData = async (req, res) => {
         .status(400)
         .json({ message: "Format and data type are required!" });
 
-    const config = dataConfigs[dataType]; // selects appropriate config(user, product, coupon, order) based on dataType
+    // Own keys only, so "constructor" or "__proto__" can't select something unexpected
+    const config = Object.hasOwn(dataConfigs, dataType) ? dataConfigs[dataType] : null;
     if (!config)
       return res.status(400).json({ message: "Invalid data type specified." });
 
     if (format !== "excel" && format !== "pdf")
       return res.status(400).json({ message: "Invalid format specified." });
+
+    // Customer lists and live coupon codes stay out of reach of one-click demo accounts
+    if (req.user?.isDemo && dataType !== "products")
+      return res.status(403).json({ success: false, message: "Demo accounts can only export products." });
 
     await dbConnect();
     // No need to check role again - requireAdmin middleware already verified admin/superAdmin role

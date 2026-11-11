@@ -12,6 +12,7 @@ const {
   updateOrder,
   getOrderStats,
 } = require("../../controllers/order.controller.js");
+const { blockDemoWrites } = require("../../middlewares/custom/demo.middleware.js");
 const {
   placeOrderLimiter,
   adminWriteLimiter,
@@ -27,7 +28,7 @@ router.get("/me", getOrderHistory);
 // Admin-only routes
 router.get("/", requireAdmin, allOrdersList);
 router.get("/stats", requireAdmin, getOrderStats);
-router.patch("/:orderId", requireAdmin, adminWriteLimiter, updateOrder);
-router.delete("/:orderId", requireAdmin, adminWriteLimiter, deleteOrder);
+router.patch("/:orderId", requireAdmin, blockDemoWrites, adminWriteLimiter, updateOrder);
+router.delete("/:orderId", requireAdmin, blockDemoWrites, adminWriteLimiter, deleteOrder);
 
 module.exports = router;

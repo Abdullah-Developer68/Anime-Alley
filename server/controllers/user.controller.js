@@ -2,320 +2,216 @@ const userModel = require("../db/models/user.model.js");
 const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const dbConnect = require("../db/dbConnect.js");
-const jwt = require("jsonwebtoken");
 const {
-  extractPublicIdFromCloudinaryUrl,
+  uploadImage,
   destroyCloudinaryImage,
 } = require("../utils/cloudinary.utils.js");
-const { isOptionalString, escapeRegex, passwordProblem } = require("../utils/validation.utils.js");
+const {
+  isOptionalString,
+  escapeRegex,
+  normalizeEmail,
+  isValidEmail,
+  passwordProblem,
+  usernameProblem,
+  parsePage,
+} = require("../utils/validation.utils.js");
 const { revokeUserSessions } = require("../utils/authSession.utils.js");
 const { clientError } = require("../utils/errors.utils.js");
+const { maskEmail, maskText } = require("../utils/privacy.utils.js");
 
 const USER_ROLE_FILTERS = ["allUsers", "user", "admin", "superAdmin"];
 const MAX_SEARCH_LENGTH = 100;
+const USERS_PER_PAGE = 20;
+// The only user fields an admin response ever contains; never the password hash, OTP or Google ID
+const SAFE_USER_FIELDS = "username email role profilePic accountStatus isDemo createdAt";
+const ROLE_ORDER = { superAdmin: 1, admin: 2, user: 3 };
 
 const getUsers = async (req, res) => {
   try {
-    // The user object has other details such as role as well but we will still verify it from the database for high security
-    const viewerEmail = req.user?.email;
-    // This is sent from the frontend (searching constraints)
-    const { currPage, searchQuery = "", role = "allUsers" } = req.query || {};
-    // Validate required parameters
-    if (!currPage)
-      return res.status(400).json({
-        message: "Current page is required!",
-      });
+    const { searchQuery = "", role = "allUsers" } = req.query || {};
+    const page = parsePage(req.query?.currPage);
+    const viewer = req.user;
 
+    if (!page)
+      return res.status(400).json({ success: false, message: "Current page must be a positive integer" });
     if (typeof searchQuery !== "string" || searchQuery.length > MAX_SEARCH_LENGTH)
-      return res.status(400).json({ message: `Search must be text of at most ${MAX_SEARCH_LENGTH} characters.` });
+      return res.status(400).json({ success: false, message: `Search must be text of at most ${MAX_SEARCH_LENGTH} characters.` });
     if (!USER_ROLE_FILTERS.includes(role))
-      return res.status(400).json({ message: "Invalid role filter." });
+      return res.status(400).json({ success: false, message: "Invalid role filter." });
+    // Search results would confirm whether an email has an account, even with the details masked
+    if (viewer?.isDemo && searchQuery.trim())
+      return res.status(403).json({ success: false, message: "Search is disabled for demo accounts." });
 
     await dbConnect();
-    // Check if the requesting user is an admin or superAdmin
-    const adminUser = await userModel.findOne({ email: viewerEmail });
-    if (
-      !adminUser ||
-      (adminUser.role !== "admin" && adminUser.role !== "superAdmin")
-    )
-      return res.status(403).json({ message: "User is not authorized!" });
 
-    // --- Pagination Logic ---
-    const usersPerPage = 20;
-    const page = parseInt(currPage, 10) || 1;
-    const startIndex = (page - 1) * usersPerPage;
-
-    // Build query filter
-    let query = {};
+    // requireAdmin has already checked the role from the database
+    const query = {};
     if (role !== "allUsers")
       query.role = role;
-    if (searchQuery && searchQuery.length > 0) {
-      if (searchQuery.includes("@") || searchQuery.includes("."))
+    const search = searchQuery.trim();
+    if (search) {
+      if (search.includes("@") || search.includes("."))
         // Escaped, so the search is plain text and can't be a slow or invalid regex
-        query.email = { $regex: escapeRegex(searchQuery), $options: "i" };
+        query.email = { $regex: escapeRegex(search), $options: "i" };
       else
-        // Use text search for username/email
-        query.$text = { $search: searchQuery };
+        query.$text = { $search: search };
     }
 
-    // Get total count of filtered users
-    const totalUsers = await userModel.countDocuments(query);
-    const totalPages = Math.ceil(totalUsers / usersPerPage);
+    const [totalUsers, users] = await Promise.all([
+      userModel.countDocuments(query),
+      userModel
+        .find(query)
+        .select(SAFE_USER_FIELDS)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * USERS_PER_PAGE)
+        .limit(USERS_PER_PAGE)
+        .lean(),
+    ]);
 
-    let requiredUsers;
-    requiredUsers = await userModel
-      .find(query)
-      .select("-password -otp -otpExpiry -otpAttempts")
-      .sort({ createdAt: -1 })
-      .skip(startIndex)
-      .limit(usersPerPage);
+    // superAdmin first, then admin, then user; newest first within a role
+    users.sort((a, b) => (ROLE_ORDER[a.role] || 4) - (ROLE_ORDER[b.role] || 4) || new Date(b.createdAt) - new Date(a.createdAt));
 
-    // Custom sort: superAdmin first, then admin, then user, then by creation date
-    requiredUsers.sort((a, b) => {
-      const roleOrder = { superAdmin: 1, admin: 2, user: 3 };
-      const roleA = roleOrder[a.role] || 4;
-      const roleB = roleOrder[b.role] || 4;
+    // Demo admins see other people's names and emails masked
+    const requiredUsers = viewer?.isDemo
+      ? users.map((user) =>
+        String(user._id) === viewer.id || user.isDemo
+          ? user
+          : { ...user, email: maskEmail(user.email), username: maskText(user.username) })
+      : users;
 
-      if (roleA !== roleB)
-        return roleA - roleB; // Sort by role first
-
-      // If roles are the same, sort by creation date (newest first)
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    });
-
-    // Respond with paginated user data
     res.status(200).json({
       success: true,
       message: "Users fetched successfully",
       requiredUsers,
       totalUsers,
-      totalPages,
+      totalPages: Math.ceil(totalUsers / USERS_PER_PAGE),
     });
   } catch (error) {
     console.error("Error fetching all users:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
 const deleteUser = async (req, res) => {
   try {
-    // Id of the user who is to be deleted
     const userId = req.params?.userId;
+    const editor = req.user;
 
-    // Validate required parameters
-    if (!userId)
-      return res.status(400).json({ message: "User ID is required." });
-
-    // Validata ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(userId))
-      return res.status(400).json({ message: "Invalid User ID format." });
+    if (!mongoose.isValidObjectId(userId))
+      return res.status(400).json({ success: false, message: "Invalid User ID format." });
+    if (userId === editor.id)
+      return res.status(403).json({ success: false, message: "You cannot delete yourself." });
 
     await dbConnect();
 
-    // Get editor info from verified token
-    const editorEmail = req.user?.email;
-    const editorId = req.user?.id;
-
-    // Find the editor (admin making the change)
-    const editor = await userModel.findOne({ email: editorEmail });
-    if (!editor)
-      return res.status(404).json({ message: "editor not found." });
-    // Get the user being deleted
-    const userToDelete = await userModel.findById(userId);
+    const userToDelete = await userModel.findById(userId).select("role profilePic profilePicPublicId").lean();
     if (!userToDelete)
-      return res.status(404).json({ message: "User not found." });
-    // Prevent self-deletion
-    if (userToDelete._id.toString() === editorId.toString())
-      return res.status(403).json({ message: "You cannot delete yourself." });
-    // Users cannot delete anyone
-    if (editor.role === "user")
-      return res
-        .status(403)
-        .json({ message: "Users are not authorized to delete anyone." });
-    // Admins can only delete users
+      return res.status(404).json({ success: false, message: "User not found." });
+    // Admins can only delete users; superAdmins can delete users and admins, never other superAdmins
     if (editor.role === "admin" && userToDelete.role !== "user")
-      return res
-        .status(403)
-        .json({ message: "Admins can only delete users." });
-    // SuperAdmin can delete users and admins, but not other superAdmins
-    if (editor.role === "superAdmin" && userToDelete.role === "superAdmin")
-      return res
-        .status(403)
-        .json({ message: "SuperAdmin cannot delete other superAdmins." });
-    // Prevent deletion of the last superAdmin
-    if (userToDelete.role === "superAdmin") {
-      const superAdminCount = await userModel.countDocuments({
-        role: "superAdmin",
-      });
-      if (superAdminCount <= 1)
-        return res
-          .status(403)
-          .json({ message: "Cannot delete the last superAdmin." });
-    }
-    // Proceed to delete the user (This returns the deleted document)
-    const isDeleted = await userModel.findByIdAndDelete(userId);
-    if (!isDeleted)
-      return res
-        .status(404)
-        .json({ message: "User not found or already deleted." });
-    await revokeUserSessions(userToDelete._id);
+      return res.status(403).json({ success: false, message: "Admins can only delete users." });
+    if (userToDelete.role === "superAdmin")
+      return res.status(403).json({ success: false, message: "SuperAdmins cannot be deleted." });
 
-    const publicId =
-      userToDelete.profilePicPublicId ||
-      extractPublicIdFromCloudinaryUrl(userToDelete.profilePic);
-    if (publicId)
-      await destroyCloudinaryImage(userToDelete.profilePic, publicId);
+    const deleted = await userModel.deleteOne({ _id: userId });
+    if (deleted.deletedCount === 0)
+      return res.status(404).json({ success: false, message: "User not found or already deleted." });
+    await revokeUserSessions(userId);
 
-    res.status(200).json({
-      success: true,
-      message: `User with ID: ${userId} has been deleted.`,
-    });
+    if (userToDelete.profilePicPublicId)
+      await destroyCloudinaryImage(userToDelete.profilePic, userToDelete.profilePicPublicId);
+
+    res.status(200).json({ success: true, message: "User has been deleted." });
   } catch (error) {
     console.error("Error deleting user:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
+};
+
+// Who may edit whom, and which fields. Returns an error message, or null when allowed.
+const editProblem = ({ editor, target, isSelf, role, email, password }) => {
+  if (isSelf)
+    return role && role !== target.role ? "You cannot change your own role." : null;
+  // Changing someone's login details would let an admin take over their account
+  if (email || password)
+    return "Admins can't change another user's email or password.";
+  if (editor.role === "admin") {
+    if (target.role !== "user")
+      return "Admins can only update users.";
+    return role && role !== target.role ? "Admins cannot change user roles." : null;
+  }
+  if (target.role === "superAdmin")
+    return "SuperAdmin cannot update other superAdmins.";
+  if (role && role !== target.role && role !== "user" && role !== "admin")
+    return "Roles can only be changed between user and admin.";
+  return null;
 };
 
 const updateUser = async (req, res) => {
   try {
-    // This is the id of the user to be updated
     const userId = req.params?.userId;
+    const editor = req.user;
+    const { username, role } = req.body || {};
+    const password = req.body?.password || "";
+    const email = req.body?.email ? normalizeEmail(req.body.email) : "";
 
-    if (!userId)
-      return res.status(400).json({ message: "User ID is required." });
+    if (!mongoose.isValidObjectId(userId))
+      return res.status(400).json({ success: false, message: "Invalid User ID format." });
+    if (![username, role, req.body?.email, req.body?.password].every(isOptionalString))
+      return res.status(400).json({ success: false, message: "Username, email, role and password must be strings." });
 
-    if (!mongoose.Types.ObjectId.isValid(userId))
-      return res.status(400).json({ message: "Invalid User ID format." });
-
-    // These are the fields of the user to be updated
-    const { username, email, role, password } = req.body || {};
-    if (![username, email, role, password].every(isOptionalString))
-      return res.status(400).json({ message: "Username, email, role and password must be strings." });
-
-    // An empty password means "keep the current one"; a new one must meet the same rules as signup
-    const invalidPassword = password ? passwordProblem(password) : null;
-    if (invalidPassword)
-      return res.status(400).json({ message: invalidPassword });
+    // An empty field means "keep the current value"
+    const invalidField =
+      (username && usernameProblem(username)) ||
+      (password && passwordProblem(password)) ||
+      (email && !isValidEmail(email) && "Enter a valid email address.");
+    if (invalidField)
+      return res.status(400).json({ success: false, message: invalidField });
 
     await dbConnect();
-    // This is the email of the editor (admin making the change) from the token
-    const editorEmail = req.user?.email;
-    const editorId = req.user?.id;
-    // Find the editor (admin making the change)
-    const editor = await userModel.findOne({ email: editorEmail });
 
-    if (!editor)
-      return res.status(404).json({ message: "Editor not found." });
-    if (editor.role !== "admin" && editor.role !== "superAdmin")
-      return res
-        .status(403)
-        .json({ message: "Not authorized to update users." });
+    const target = await userModel.findById(userId).select("role email profilePic profilePicPublicId").lean();
+    if (!target)
+      return res.status(404).json({ success: false, message: "User not found." });
 
-    // Get the user being updated
-    const userToUpdate = await userModel.findById(userId);
+    const isSelf = String(target._id) === editor.id;
+    const changedEmail = email && email !== target.email ? email : "";
+    const forbidden = editProblem({ editor, target, isSelf, role, email: changedEmail, password });
+    if (forbidden)
+      return res.status(403).json({ success: false, message: forbidden });
 
-    if (!userToUpdate)
-      return res.status(404).json({ message: "User not found." });
-
-    // Allow users to update themselves (except their own role)
-    if (editor._id.toString() === userToUpdate._id.toString()) {
-      if (role && role !== userToUpdate.role)
-        return res
-          .status(403)
-          .json({ message: "You cannot change your own role." });
-      // Proceed to update self (other fields)
-    } else {
-      // Users cannot update anyone
-      if (editor.role === "user")
-        return res
-          .status(403)
-          .json({ message: "Users are not authorized to update anyone." });
-      // Admins can only update users, and cannot change roles
-      if (editor.role === "admin") {
-        if (userToUpdate.role !== "user")
-          return res
-            .status(403)
-            .json({ message: "Admins can only update users." });
-        if (role && role !== userToUpdate.role)
-          return res
-            .status(403)
-            .json({ message: "Admins cannot change user roles." });
-      }
-      // SuperAdmin can update users and admins, but not other superAdmins
-      if (editor.role === "superAdmin") {
-        if (userToUpdate.role === "superAdmin")
-          return res
-            .status(403)
-            .json({ message: "SuperAdmin cannot update other superAdmins." });
-        // SuperAdmin can only change roles between user/admin, not to superAdmin
-        if (role && role !== userToUpdate.role) {
-          if (role === "superAdmin")
-            return res
-              .status(403)
-              .json({ message: "Cannot promote anyone to superAdmin." });
-          if (userToUpdate.role === "superAdmin")
-            return res
-              .status(403)
-              .json({ message: "Cannot change role of a superAdmin." });
-          if (role !== "user" && role !== "admin")
-            return res.status(400).json({ message: "Invalid role change." });
-        }
-      }
-    }
-    // Build update object
-    const updateObj = {};
-    if (username) updateObj.username = username;
-    if (email) updateObj.email = email;
-
-    if (req.file) {
-      updateObj.profilePic = req.file.path; // Use path for Cloudinary URL
-      updateObj.profilePicPublicId = extractPublicIdFromCloudinaryUrl(
-        req.file.path,
-      );
-    }
+    const update = {};
+    if (username)
+      update.username = username.trim();
+    if (changedEmail)
+      update.email = changedEmail;
     if (password)
-      updateObj.password = await bcrypt.hash(password, 10);
-    // Only allow role change if superAdmin and valid
-    if (
-      editor.role === "superAdmin" &&
-      role &&
-      role !== userToUpdate.role &&
-      role !== "superAdmin"
-    )
-      updateObj.role = role;
-    const updatedUser = await userModel.findByIdAndUpdate(userId, updateObj, {
-      new: true,
-      runValidators: true,
-    });
+      update.password = await bcrypt.hash(password, 10);
+    if (editor.role === "superAdmin" && !isSelf && role && role !== target.role)
+      update.role = role;
 
+    // Uploaded only now that the request is known to be valid
+    if (req.file) {
+      const uploaded = await uploadImage(req.file.buffer, { folder: `anime-alley-users/${userId}`, maxSize: 500 });
+      update.profilePic = uploaded.url;
+      update.profilePicPublicId = uploaded.publicId;
+    }
+
+    const updatedUser = await userModel
+      .findByIdAndUpdate(userId, update, { new: true, runValidators: true })
+      .select(SAFE_USER_FIELDS)
+      .lean();
     if (!updatedUser)
-      return res.status(404).json({ message: "User not found after update." });
+      return res.status(404).json({ success: false, message: "User not found after update." });
 
     // A new password logs the user out on every other device
     if (password)
-      await revokeUserSessions(updatedUser._id, req.user?.sessionId);
+      await revokeUserSessions(userId, isSelf ? editor.sessionId : undefined);
 
-    if (req.file) {
-      const oldPublicId =
-        userToUpdate.profilePicPublicId ||
-        extractPublicIdFromCloudinaryUrl(userToUpdate.profilePic);
+    if (req.file && target.profilePicPublicId)
+      await destroyCloudinaryImage(target.profilePic, target.profilePicPublicId);
 
-      const newPublicId = updateObj.profilePicPublicId;
-      if (oldPublicId && oldPublicId !== newPublicId)
-        await destroyCloudinaryImage(userToUpdate.profilePic, oldPublicId);
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "User updated successfully.",
-      user: updatedUser,
-    });
+    res.status(200).json({ success: true, message: "User updated successfully.", user: updatedUser });
   } catch (error) {
     // Duplicate or invalid data gets a safe 409/400 instead of the raw database error
     const known = clientError(error);
@@ -323,10 +219,7 @@ const updateUser = async (req, res) => {
       return res.status(known.status).json({ success: false, message: known.message });
 
     console.error("Error updating user:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
 

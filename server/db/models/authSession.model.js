@@ -8,6 +8,9 @@ const authSessionSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: "users", required: true, index: true },
     // SHA-256 of the refresh token; the token itself is never stored
     tokenHash: { type: String, required: true, unique: true },
+    // Every refresh issues a new token. The one before it is kept to spot a stolen copy being replayed.
+    previousTokenHash: { type: String, index: true },
+    rotatedAt: { type: Date },
     // Idle timeout, pushed back on every refresh. MongoDB deletes the document once it passes.
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
     // Hard limit: refreshing never extends a session past this

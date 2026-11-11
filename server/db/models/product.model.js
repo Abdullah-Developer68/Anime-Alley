@@ -47,4 +47,7 @@ productSchema.index(
   { weights: { name: 5, category: 4 }, name: "ProductSearchIndex" },
 );
 
+// Shop listing: one category, sorted by price
+productSchema.index({ category: 1, price: -1 });
+
 module.exports = mongoose.model("products", productSchema);

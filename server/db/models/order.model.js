@@ -16,6 +16,10 @@ const orderSchema = new Schema(
           ref: "products",
           required: true,
         },
+        // Size or volume label; with name and image, a snapshot that survives product edits and deletions
+        variant: { type: String },
+        name: { type: String },
+        image: { type: String },
         quantity: {
           type: Number,
           required: true,
@@ -87,5 +91,9 @@ const orderSchema = new Schema(
   },
   { timestamps: true }
 );
+
+// Order history (one user, newest first) and the admin list (everyone, newest first)
+orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("orders", orderSchema);

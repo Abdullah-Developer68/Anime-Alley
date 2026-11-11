@@ -4,35 +4,47 @@ const dotenv = require("dotenv");
 const { signLoginState, readLoginState } = require("../../../utils/googleHandoff.utils.js");
 dotenv.config();
 
+// Google sends email_verified as a boolean (older responses used the string "true")
+const isVerified = (entry) => entry?.verified === true || entry?.verified === "true";
+
 const findOrCreateUser = async (profile) => {
-  try {
-    // First, try to find by googleId
-    let user = await User.findOne({ googleId: profile.id });
-
-    if (!user) {
-      // If not found, try to find by email
-      user = await User.findOne({ email: profile.emails[0].value });
-      if (user) {
-        // Link Google account to existing user
-        user.googleId = profile.id;
-        user.profilePic = profile.photos[0].value; // Optionally update
-        await user.save();
-      } else
-        // Create new user
-        user = await User.create({
-          googleId: profile.id,
-          email: profile.emails[0].value,
-          username: profile.displayName,
-          profilePic: profile.photos[0].value,
-          accountStatus: "active",
-        });
-    }
-
+  const user = await User.findOne({ googleId: profile.id });
+  if (user)
     return user;
-  } catch (error) {
-    console.error("Google Strategy Error:", error);
-    throw error;
+
+  const emailEntry = profile.emails?.[0];
+  const email = typeof emailEntry?.value === "string" ? emailEntry.value.trim().toLowerCase() : "";
+  // Linking to an account by email is only safe when Google has confirmed the address belongs to this person
+  if (!email || !isVerified(emailEntry))
+    throw new Error("Google account has no verified email");
+
+  const photo = profile.photos?.[0]?.value;
+  const existing = await User.findOne({ email });
+  if (!existing)
+    return User.create({
+      googleId: profile.id,
+      email,
+      username: profile.displayName || email.split("@")[0],
+      profilePic: photo,
+      accountStatus: "active",
+    });
+
+  existing.googleId = profile.id;
+  if (!existing.profilePic)
+    existing.profilePic = photo;
+  // Anyone can start a signup with someone else's address. The verified owner signing in with
+  // Google takes that unfinished signup over instead of being locked out by it.
+  if (existing.accountStatus === "verifying") {
+    existing.accountStatus = "active";
+    existing.username = profile.displayName || existing.username;
+    existing.password = undefined;
+    existing.otp = undefined;
+    existing.otpExpiry = undefined;
+    existing.otpAttempts = undefined;
+    existing.isOtpVerified = false;
   }
+  await existing.save();
+  return existing;
 };
 
 // Stateless replacement for passport's session-based `state: true` (the app has no sessions).
@@ -62,11 +74,12 @@ const GoogleProvider = new GoogleStrategy(
     callbackURL,
     store: googleStateStore,
   },
-  async (accessToken, refershToken, profile, done) => {
+  async (accessToken, refreshToken, profile, done) => {
     try {
       const user = await findOrCreateUser(profile);
       return done(null, user);
     } catch (error) {
+      console.error("Google Strategy Error:", error.message);
       return done(error, null);
     }
   },
