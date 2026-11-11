@@ -63,7 +63,7 @@ const CardSlider = () => {
         <Slider {...settings}>
           {comics.map((comic, index) => (
             <div key={index} className="px-2">
-              <div className="group relative w-full max-w-[300px] mx-auto bg-black/60 backdrop-blur-sm border border-orange-500/40 rounded-lg shadow-lg overflow-hidden transition-all duration-300 hover:scale-100 hover:shadow-orange-500/20 hover:border-orange-500/60">
+              <div className="group relative w-full max-w-[300px] mx-auto bg-black/60 backdrop-blur-sm border border-white/10 rounded-lg shadow-lg overflow-hidden transition-all duration-300 hover:scale-100 hover:shadow-pink-500/20 hover:border-pink-400/60">
                 <div className="w-full aspect-[3/4] overflow-hidden">
                   <img
                     src={comic.img}
@@ -72,13 +72,13 @@ const CardSlider = () => {
                   />
                 </div>
 
-                <div className="absolute inset-x-0 bottom-0 p-2 text-center bg-gradient-to-t from-black/90 via-black/60 to-transparent">
-                  <h3 className="text-xs font-medium tracking-wide text-red-400 sm:text-sm">
+                <div className="absolute inset-x-0 bottom-0 p-2 text-center bg-ink-950/85">
+                  <h3 className="text-xs font-semibold tracking-wide text-ink-50 sm:text-sm">
                     {comic.label}
                   </h3>
                 </div>
 
-                <div className="absolute inset-0 transition-opacity duration-300 rounded-lg opacity-0 group-hover:opacity-100 bg-gradient-to-t from-orange-500/10 to-transparent"></div>
+                <div className="absolute inset-0 transition-opacity duration-300 rounded-lg opacity-0 group-hover:opacity-100 bg-pink-500/10"></div>
               </div>
             </div>
           ))}

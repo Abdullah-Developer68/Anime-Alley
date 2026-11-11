@@ -265,7 +265,7 @@ const Cart = () => {
   return (
     <>
       <div className="container p-2 mx-auto mt-16 sm:p-4 md:p-8 max-w-7xl">
-        <div className="relative flex flex-col bg-[#0b0b10] border border-white/10 shadow-2xl rounded-2xl overflow-hidden lg:flex-row">
+        <div className="relative flex flex-col bg-ink-900 border border-white/10 shadow-2xl rounded-2xl overflow-hidden lg:flex-row">
           {/* Loading Overlay */}
           {isLoading && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

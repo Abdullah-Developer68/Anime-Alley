@@ -155,7 +155,7 @@ const UserHistory = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+      <div className="min-h-screen bg-ink-950 flex items-center justify-center">
         <Loader size="lg" />
       </div>
     );
@@ -163,15 +163,14 @@ const UserHistory = () => {
 
   if (!purchaseHistory || purchaseHistory.length === 0) {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-ink-950 flex flex-col items-center justify-center p-4">
         <div className="relative w-full max-w-md p-8 border rounded-2xl border-white/10 bg-black/40 backdrop-blur-xl">
-          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-500/10 blur-3xl -z-10"></div>
           <img
             src={assets.emptyCart}
             alt="No History"
             className="w-32 h-32 mx-auto mb-6 opacity-70"
           />
-          <h2 className="mb-3 text-2xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">
+          <h2 className="mb-3 text-2xl font-bold text-center text-pink-400">
             No Purchase History
           </h2>
           <p className="text-center text-white/60">
@@ -184,7 +183,7 @@ const UserHistory = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0f172a] py-6 mt-20">
+    <div className="min-h-screen bg-ink-950 py-6 mt-20">
       <div className="px-4 mx-auto max-w-7xl">
         {/* Header with Navigation */}
         <div className="flex flex-wrap items-center justify-between gap-4 p-4 mb-6 rounded-lg bg-black/30">

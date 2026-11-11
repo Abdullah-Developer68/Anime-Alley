@@ -12,12 +12,12 @@ const ActionFigureSection = () => {
       style={{ backgroundImage: `url(${assets.battleGround})` }}
     >
       {/* Background overlay */}
-      <div className="absolute inset-0 bg-black opacity-70"></div>
+      <div className="absolute inset-0 bg-ink-950 opacity-75"></div>
 
       {/* Content section */}
       <div className="relative flex flex-col items-center justify-center h-full max-w-4xl p-8 mx-auto md:flex-row">
-        <div className="max-w-md p-8 text-center bg-gray-900 border-2 border-red-600 rounded-lg shadow-lg bg-opacity-80 md:text-left">
-          <h1 className="mb-4 text-4xl font-extrabold text-red-500">
+        <div className="max-w-md p-8 text-center bg-ink-900/90 border border-white/10 rounded-2xl shadow-2xl shadow-black/40 md:text-left">
+          <h1 className="mb-4 text-4xl font-extrabold text-pink-500">
             Action Heroes
           </h1>
           <p className="text-lg text-gray-300">
@@ -25,7 +25,7 @@ const ActionFigureSection = () => {
           </p>
           <Link to="/shop" className="z-40">
             <button
-              className="px-4 py-2 mt-6 font-bold text-white transition duration-300 bg-red-600 rounded-full hover:bg-red-700"
+              className="px-4 py-2 mt-6 font-bold text-ink-950 transition duration-300 bg-pink-500 rounded-full cursor-pointer hover:bg-pink-400"
               onClick={() => dispatch(setCategory("toys"))}
             >
               Explore Now

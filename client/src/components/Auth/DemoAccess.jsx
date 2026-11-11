@@ -11,7 +11,7 @@ const DEMO_ROLES = [
     role: "admin",
     label: "Demo Admin",
     icon: Crown,
-    className: "border-purple-400/30 bg-purple-500/15 text-purple-100 hover:border-purple-400/50 hover:bg-purple-500/25",
+    className: "border-yellow-400/30 bg-yellow-500/15 text-yellow-100 hover:border-yellow-400/50 hover:bg-yellow-500/25",
   },
   {
     role: "user",
@@ -55,8 +55,8 @@ const DemoAccess = () => {
   };
 
   return (
-    <div className="mt-8 rounded-xl border border-dashed border-purple-400/30 bg-purple-500/[0.06] p-4">
-      <p className="flex items-center gap-1.5 text-sm font-semibold text-purple-200">
+    <div className="mt-8 rounded-xl border border-dashed border-yellow-400/30 bg-yellow-500/[0.06] p-4">
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-yellow-200">
         <Sparkles aria-hidden="true" className="h-4 w-4" />
         Just exploring?
       </p>

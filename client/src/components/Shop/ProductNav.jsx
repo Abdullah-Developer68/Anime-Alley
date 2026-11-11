@@ -26,7 +26,7 @@ const ProductNav = () => {
               key={category.name}
               className={`group relative flex items-center justify-center p-2 rounded-xl cursor-pointer transition-all duration-300 ${
                 isActive
-                  ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-[0_0_14px_rgba(245,158,11,0.45)] border border-yellow-300/60 scale-[1.04]"
+                  ? "bg-yellow-400 text-black shadow-lg shadow-yellow-500/30 border border-yellow-300/60 scale-[1.04]"
                   : "bg-white/[0.05] hover:bg-white/[0.12] border border-white/5 hover:border-yellow-500/30 text-white/70 hover:text-white"
               }`}
               onClick={() => {

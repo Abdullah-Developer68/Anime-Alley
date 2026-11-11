@@ -182,7 +182,7 @@ const ProductDescription = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0b0133] to-black text-white">
+    <div className="min-h-screen bg-ink-950 text-white">
       {/* Back Navigation */}
       <Link to="/shop">
         <div className="fixed z-50 w-full border-b top-12 md:top-14 lg:top-16 bg-black/50 backdrop-blur-md border-white/10">
@@ -204,7 +204,7 @@ const ProductDescription = () => {
         {/* Product Details */}
         <div className="grid items-start grid-cols-1 gap-12 mb-16 lg:grid-cols-2">
           {/* Image Section - Made smaller and more compact */}
-          <div className="p-4 overflow-hidden border shadow-xl rounded-2xl border-purple-500/20 shadow-purple-500/5 bg-white/5 backdrop-blur-sm">
+          <div className="p-4 overflow-hidden border shadow-xl rounded-2xl border-white/10 shadow-black/30 bg-ink-900">
             <div className="max-w-md mx-auto aspect-square">
               <img
                 src={`${selectedProduct.image}`}
@@ -218,7 +218,7 @@ const ProductDescription = () => {
           <div className="space-y-8">
             {/* Title and Badges */}
             <div className="space-y-4">
-              <h1 className="text-4xl font-bold text-transparent bg-gradient-to-r from-white to-white/80 bg-clip-text">
+              <h1 className="text-4xl font-bold text-ink-50">
                 {selectedProduct.name}
               </h1>
               <div className="flex flex-wrap gap-2">
@@ -227,13 +227,13 @@ const ProductDescription = () => {
                   selectedProduct.genres.map((genre) => (
                     <span
                       key={genre}
-                      className="px-4 py-1.5 bg-gray-500 text-black text-sm font-medium rounded-md capitalize"
+                      className="px-4 py-1.5 bg-white/[0.06] text-ink-200 ring-1 ring-white/10 text-sm font-medium rounded-md capitalize"
                     >
                       {genre}
                     </span>
                   ))
                 ) : (
-                  <span className="px-4 py-1.5 bg-gray-500 text-black text-sm font-medium rounded-md">
+                  <span className="px-4 py-1.5 bg-white/[0.06] text-ink-200 ring-1 ring-white/10 text-sm font-medium rounded-md">
                     {selectedProduct.category?.toLowerCase() === "clothes"
                       ? selectedProduct.clothesType || "Clothing"
                       : selectedProduct.category?.toLowerCase() === "shoes"
@@ -321,10 +321,10 @@ const ProductDescription = () => {
               <button
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
-                className={`px-8 py-4 font-medium text-black transition-all duration-300 rounded-xl ${
+                className={`px-8 py-4 font-semibold text-black transition-all duration-300 rounded-xl ${
                   isAddingToCart
                     ? "bg-gray-400 cursor-not-allowed opacity-70"
-                    : "bg-gray-300 cursor-pointer hover:bg-white"
+                    : "bg-pink-500 cursor-pointer hover:bg-pink-400 shadow-lg shadow-pink-500/25"
                 }`}
               >
                 {isAddingToCart ? "Adding..." : "Add to Cart"}

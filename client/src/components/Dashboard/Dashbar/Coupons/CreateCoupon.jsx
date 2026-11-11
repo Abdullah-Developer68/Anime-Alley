@@ -48,7 +48,7 @@ const CreateCoupon = () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
       <form
         onSubmit={handleCreateCoupon}
-        className="bg-[#18181b] rounded-lg p-8 w-full max-w-md space-y-4 relative border border-white/10 shadow-xl"
+        className="bg-ink-900 rounded-lg p-8 w-full max-w-md space-y-4 relative border border-white/10 shadow-xl"
       >
         <button
           type="button"

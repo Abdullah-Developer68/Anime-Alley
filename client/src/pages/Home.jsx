@@ -16,7 +16,7 @@ const Home = () => {
         <Banner />
       </div>
 
-      <div className="w-screen h-1 bg-red-500" />
+      <div className="w-screen h-1 bg-pink-500" />
 
       <div className="sticky top-0 z-10" ref={comicsRef}>
         <ComicsSection />

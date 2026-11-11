@@ -142,14 +142,6 @@ const ProductSidebarFilters = () => {
     );
   };
 
-  const getBackgroundStyle = (val) => {
-    const max = productFilters.maxPrice || 100;
-    const percentage = (val / max) * 100;
-    return {
-      background: `linear-gradient(to right, #EC4899 ${percentage}%, rgba(255, 255, 255, 0.1) ${percentage}%)`,
-    };
-  };
-
   return (
     <form onSubmit={handleApply} className="space-y-5">
       {/* Search Input */}
@@ -225,8 +217,7 @@ const ProductSidebarFilters = () => {
             step="1"
             value={priceVal}
             onChange={(e) => setPriceVal(Number(e.target.value))}
-            style={getBackgroundStyle(priceVal)}
-            className="w-full h-1.5 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-pink-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-pink-500 [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/40"
+            className="w-full h-1.5 cursor-pointer accent-pink-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/40"
           />
           <div className="flex justify-between mt-2 text-[11px] tabular-nums text-white/60">
             <span>$0</span>
@@ -282,7 +273,7 @@ const ProductSidebarFilters = () => {
           className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-1.5 ${
             !hasUncommittedChanges
               ? "bg-white/5 text-white/35 border border-white/10 cursor-not-allowed select-none"
-              : "bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white shadow-lg hover:shadow-pink-500/25 cursor-pointer active:scale-[0.98]"
+              : "bg-pink-500 hover:bg-pink-600 text-white shadow-lg hover:shadow-pink-500/25 cursor-pointer active:scale-[0.98]"
           }`}
         >
           Apply Filters

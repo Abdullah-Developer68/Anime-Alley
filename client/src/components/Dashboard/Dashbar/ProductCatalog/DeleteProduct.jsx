@@ -62,7 +62,7 @@ const DeleteProduct = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-md p-6 bg-[#0b0b10] border rounded-2xl border-white/10 shadow-2xl">
+      <div className="relative w-full max-w-md p-6 bg-ink-900 border rounded-2xl border-white/10 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
           <h2 className="text-xl font-bold text-white">Delete Product</h2>

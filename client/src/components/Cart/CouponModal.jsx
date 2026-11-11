@@ -230,7 +230,7 @@ const CouponModal = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-md p-6 bg-[#0b0b10] border rounded-2xl border-white/10 shadow-2xl">
+      <div className="relative w-full max-w-md p-6 bg-ink-900 border rounded-2xl border-white/10 shadow-2xl">
         {/* Close Button */}
         <button
           onClick={() => dispatch(closeCouponModal())}

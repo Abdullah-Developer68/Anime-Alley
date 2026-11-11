@@ -1,5 +1,123 @@
 @import "tailwindcss";
 
+/* Design tokens: one violet-tinted "ink" neutral scale, sakura pink as the brand accent, warm gold as the secondary accent */
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-display: "Bricolage Grotesque", "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  --color-black: oklch(0.12 0.012 285);
+
+  --color-ink-50: oklch(0.985 0.003 285);
+  --color-ink-100: oklch(0.955 0.006 285);
+  --color-ink-200: oklch(0.905 0.01 285);
+  --color-ink-300: oklch(0.82 0.015 285);
+  --color-ink-400: oklch(0.69 0.02 285);
+  --color-ink-500: oklch(0.56 0.022 285);
+  --color-ink-600: oklch(0.45 0.022 285);
+  --color-ink-700: oklch(0.34 0.02 285);
+  --color-ink-800: oklch(0.25 0.018 285);
+  --color-ink-900: oklch(0.19 0.016 285);
+  --color-ink-950: oklch(0.145 0.013 285);
+
+  /* Map every built-in neutral onto the ink scale so all screens share one surface palette */
+  --color-gray-50: var(--color-ink-50);
+  --color-gray-100: var(--color-ink-100);
+  --color-gray-200: var(--color-ink-200);
+  --color-gray-300: var(--color-ink-300);
+  --color-gray-400: var(--color-ink-400);
+  --color-gray-500: var(--color-ink-500);
+  --color-gray-600: var(--color-ink-600);
+  --color-gray-700: var(--color-ink-700);
+  --color-gray-800: var(--color-ink-800);
+  --color-gray-900: var(--color-ink-900);
+  --color-gray-950: var(--color-ink-950);
+
+  --color-slate-50: var(--color-ink-50);
+  --color-slate-100: var(--color-ink-100);
+  --color-slate-200: var(--color-ink-200);
+  --color-slate-300: var(--color-ink-300);
+  --color-slate-400: var(--color-ink-400);
+  --color-slate-500: var(--color-ink-500);
+  --color-slate-600: var(--color-ink-600);
+  --color-slate-700: var(--color-ink-700);
+  --color-slate-800: var(--color-ink-800);
+  --color-slate-900: var(--color-ink-900);
+  --color-slate-950: var(--color-ink-950);
+
+  --color-zinc-50: var(--color-ink-50);
+  --color-zinc-100: var(--color-ink-100);
+  --color-zinc-200: var(--color-ink-200);
+  --color-zinc-300: var(--color-ink-300);
+  --color-zinc-400: var(--color-ink-400);
+  --color-zinc-500: var(--color-ink-500);
+  --color-zinc-600: var(--color-ink-600);
+  --color-zinc-700: var(--color-ink-700);
+  --color-zinc-800: var(--color-ink-800);
+  --color-zinc-900: var(--color-ink-900);
+  --color-zinc-950: var(--color-ink-950);
+
+  /* Sakura pink: a touch warmer and less neon than the stock pink */
+  --color-pink-50: oklch(0.975 0.016 355);
+  --color-pink-100: oklch(0.945 0.035 355);
+  --color-pink-200: oklch(0.895 0.07 355);
+  --color-pink-300: oklch(0.82 0.12 357);
+  --color-pink-400: oklch(0.74 0.17 358);
+  --color-pink-500: oklch(0.67 0.205 359);
+  --color-pink-600: oklch(0.6 0.21 2);
+  --color-pink-700: oklch(0.52 0.19 4);
+  --color-pink-800: oklch(0.44 0.16 5);
+  --color-pink-900: oklch(0.38 0.13 5);
+  --color-pink-950: oklch(0.26 0.09 5);
+
+  /* Gold: the stock yellow reads acidic on dark surfaces, so yellow shares the warmer amber scale */
+  --color-yellow-50: oklch(0.987 0.022 95.277);
+  --color-yellow-100: oklch(0.962 0.059 95.617);
+  --color-yellow-200: oklch(0.924 0.12 95.746);
+  --color-yellow-300: oklch(0.879 0.169 91.605);
+  --color-yellow-400: oklch(0.828 0.189 84.429);
+  --color-yellow-500: oklch(0.769 0.188 70.08);
+  --color-yellow-600: oklch(0.666 0.179 58.318);
+  --color-yellow-700: oklch(0.555 0.163 48.998);
+  --color-yellow-800: oklch(0.473 0.137 46.201);
+  --color-yellow-900: oklch(0.414 0.112 45.904);
+  --color-yellow-950: oklch(0.279 0.077 45.635);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-ink-950);
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-pink-500) 35%, transparent);
+    color: white;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-pink-400);
+    outline-offset: 2px;
+  }
+
+  hr {
+    border-color: color-mix(in oklab, white 10%, transparent);
+  }
+}
+
 /* Add these styles to hide the scrollbar */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
@@ -20,18 +138,43 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #4B5563;
-    /* Changed to a medium gray */
+    background: var(--color-ink-700);
     border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #6B7280;
-    /* Slightly lighter gray on hover */
+    background: var(--color-ink-600);
 }
 
 /* For Firefox */
 * {
     scrollbar-width: thin;
-    scrollbar-color: #4B5563 transparent;
+    scrollbar-color: var(--color-ink-700) transparent;
+}
+
+/* Carousel dots and arrows: slick's defaults are black and vanish on dark sections */
+.slick-slider .slick-dots li button:before {
+    color: white;
+    opacity: 0.35;
+    font-size: 8px;
+}
+
+.slick-slider .slick-dots li.slick-active button:before {
+    color: var(--color-pink-400);
+    opacity: 1;
+}
+
+.slick-slider .slick-prev:before,
+.slick-slider .slick-next:before {
+    color: white;
+    opacity: 0.6;
+}
+
+/* Toasts follow the app typography and palette */
+:root {
+    --toastify-font-family: var(--font-sans);
+    --toastify-color-success: oklch(0.6 0.15 160);
+    --toastify-color-error: var(--color-pink-600);
+    --toastify-color-warning: var(--color-yellow-500);
+    --toastify-color-info: var(--color-ink-700);
 }

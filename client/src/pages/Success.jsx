@@ -57,8 +57,8 @@ const Success = () => {
   }, [historyRedirect]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#18181b]">
-      <div className="bg-[#23232b] rounded-2xl shadow-2xl p-8 sm:p-12 flex flex-col items-center max-w-md w-full mx-4 border border-white/10">
+    <div className="min-h-screen flex items-center justify-center bg-ink-950">
+      <div className="bg-ink-900 rounded-2xl shadow-2xl p-8 sm:p-12 flex flex-col items-center max-w-md w-full mx-4 border border-white/10">
         {/* Checkmark Icon */}
         <div className="p-4 mb-6 bg-green-500 rounded-full shadow-lg animate-bounce">
           <img src={assets.tick} alt="Success" />

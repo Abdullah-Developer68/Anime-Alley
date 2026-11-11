@@ -41,7 +41,7 @@ const DashboardNavDock = () => {
               onClick={handleNavClick}
               className={`group relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all duration-300 ${
                 isActive
-                  ? "bg-gradient-to-br from-pink-500 to-rose-600 text-white shadow-[0_0_14px_rgba(236,72,153,0.45)] border border-pink-400/50 scale-[1.04]"
+                  ? "bg-pink-500 text-white shadow-lg shadow-pink-500/30 border border-pink-400/50 scale-[1.04]"
                   : "bg-white/[0.05] hover:bg-white/[0.12] border border-white/5 hover:border-pink-500/30 text-white/70 hover:text-white"
               }`}
             >

@@ -3,7 +3,7 @@ import assets from "../../assets/asset";
 
 const Footer = () => {
   return (
-    <footer className="relative z-30 w-full py-3.5 sm:py-4 bg-black border-t border-red-500/80 text-white/90">
+    <footer className="relative z-30 w-full py-3.5 sm:py-4 bg-ink-950 border-t border-white/[0.08] text-white/90">
       <div className="w-full px-4 sm:px-8 lg:px-12">
         {/* Main Footer Row: Brand on far left, Navigation links on far right */}
         <div className="flex flex-col items-center justify-between gap-3 sm:flex-row sm:gap-0">
@@ -12,7 +12,7 @@ const Footer = () => {
             <img
               src={assets.footerPic}
               alt="Anime Alley Logo"
-              className="object-contain w-9 h-9 border-2 border-red-500 rounded-full shadow-lg sm:w-10 sm:h-10"
+              className="object-contain w-9 h-9 border-2 border-pink-500 rounded-full shadow-lg sm:w-10 sm:h-10"
             />
             <div className="text-center sm:text-left">
               <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl leading-tight">
@@ -28,25 +28,25 @@ const Footer = () => {
           <nav className="flex flex-wrap items-center justify-center gap-4 sm:justify-end sm:gap-6">
             <Link
               to="/"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-pink-400"
             >
               Home
             </Link>
             <Link
               to="/about"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-pink-400"
             >
               About
             </Link>
             <Link
               to="/privacy"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-pink-400"
             >
               Privacy
             </Link>
             <Link
               to="/contact"
-              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-yellow-400"
+              className="text-xs sm:text-sm font-medium transition-colors text-white/80 hover:text-pink-400"
             >
               Contact
             </Link>

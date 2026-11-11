@@ -129,14 +129,6 @@ const FilterBar = () => {
       : 100;
   const isAllPrices = currentPrice >= 100;
 
-  // Custom background styling for range input based on current price
-  const getBackgroundStyle = (value) => {
-    const clamped = Math.min(Math.max(value, 0), 100);
-    return {
-      background: `linear-gradient(to right, #EAB308 ${clamped}%, rgba(255, 255, 255, 0.1) ${clamped}%)`,
-    };
-  };
-
   // Check if any filter is actively applied in Redux (used to show/hide Reset Filters)
   const hasActiveFilters = Boolean(
     (appliedFilters?.searchQuery && appliedFilters.searchQuery.trim() !== "") ||
@@ -351,8 +343,7 @@ const FilterBar = () => {
                   shouldTouch: true,
                 })
               }
-              style={getBackgroundStyle(currentPrice)}
-              className="w-full h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-500 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white"
+              className="w-full h-2 cursor-pointer accent-yellow-500"
             />
             <div className="flex justify-between mt-2 font-mono text-xs text-white/70">
               <span>$0</span>

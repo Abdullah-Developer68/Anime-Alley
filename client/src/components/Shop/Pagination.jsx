@@ -18,8 +18,8 @@ const Pagination = () => {
           key={i}
           className={`h-8 w-8 mx-1 flex items-center justify-center rounded-full ${
             currentPage === i
-              ? "bg-white text-black cursor-pointer"
-              : "bg-gray-600 text-white hover:bg-gray-500 cursor-pointer"
+              ? "bg-pink-500 text-ink-950 font-semibold cursor-pointer"
+              : "bg-white/[0.06] text-ink-200 ring-1 ring-white/10 hover:bg-white/15 cursor-pointer"
           } transition-colors duration-300 text-sm font-medium`}
           onClick={() => {
             dispatch(updateCurrPage(i));
