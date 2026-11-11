@@ -267,14 +267,19 @@ const UserHistory = () => {
                     key={idx}
                     className="flex items-center gap-3 p-3 hover:bg-white/5"
                   >
-                    <img
-                      src={product.productId.image}
-                      alt={product.productId.name}
-                      className="flex-shrink-0 object-cover w-16 h-16 rounded-lg"
-                    />
+                    {/* productId populates to null once the product is deleted from the catalog */}
+                    {product.productId?.image ? (
+                      <img
+                        src={product.productId.image}
+                        alt={product.productId.name}
+                        className="flex-shrink-0 object-cover w-16 h-16 rounded-lg"
+                      />
+                    ) : (
+                      <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-white/[0.06] ring-1 ring-white/10" />
+                    )}
                     <div className="flex-grow min-w-0">
                       <h3 className="text-sm text-white truncate">
-                        {product.productId.name}
+                        {product.productId?.name ?? "Product no longer available"}
                       </h3>
                       <p className="text-xs text-white/40">
                         Qty: {product.quantity} × {formatPrice(product.price)} $
