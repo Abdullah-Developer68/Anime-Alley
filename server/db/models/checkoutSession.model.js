@@ -14,6 +14,8 @@ const checkoutSessionSchema = new Schema(
         _id: false,
         productId: { type: Schema.Types.ObjectId, ref: "products", required: true },
         variant: { type: String },
+        name: { type: String },
+        image: { type: String },
         quantity: { type: Number, required: true, min: 1 },
         price: { type: Number, required: true, min: 0 }, // unit price at checkout time
       },

@@ -4,519 +4,234 @@ const mongoose = require("mongoose");
 const dbConnect = require("../db/dbConnect.js");
 const { formatPrice } = require("../utils/formatPrice.utils.js");
 const { isOptionalString } = require("../utils/validation.utils.js");
+const { RequestError, inTransaction, sendTransactionError } = require("../utils/transaction.utils.js");
+
+// Stock in a cart is held for everyone else, so one account can't hold the whole catalog
+const MAX_ITEM_QUANTITY = 10;
+const MAX_CART_LINES = 20;
+const MAX_VARIANT_LENGTH = 40;
+
+// Products with a single "Default" variant (toys) don't need the client to name it
+const resolveVariant = (product, variant) => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const isSingleDefault = variants.length === 1 && variants[0].label === "Default";
+  return variant || (isSingleDefault ? "Default" : null);
+};
+
+// Takes `quantity` units of one variant only if that same variant has them. $elemMatch makes the
+// label and the stock check apply to one array element; two separate conditions could each match
+// a different variant and take the stock from the wrong one.
+const takeStock = (productId, variant, quantity, session) =>
+  productModel.updateOne(
+    { _id: productId, variants: { $elemMatch: { label: variant, stock: { $gte: quantity } } } },
+    { $inc: { "variants.$.stock": -quantity } },
+    { session },
+  );
+
+const releaseStock = (productId, variant, quantity, session) =>
+  productModel.updateOne(
+    { _id: productId, "variants.label": variant },
+    { $inc: { "variants.$.stock": quantity } },
+    { session },
+  );
 
 const reserveStock = async (req, res) => {
-  let mongoSession = null;
+  const userId = req.user?.id;
+  const { productId, variant, quantity } = req.body || {};
+
+  if (!productId || quantity === undefined || quantity === null)
+    return res.status(400).json({ success: false, message: "Missing required fields" });
+
+  // Both end up in stock-update filters, so they must be plain values, not operator objects
+  if (typeof productId !== "string" || !mongoose.isValidObjectId(productId) || !isOptionalString(variant) || variant?.length > MAX_VARIANT_LENGTH)
+    return res.status(400).json({ success: false, message: "Invalid product or variant" });
+
+  if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1)
+    return res.status(400).json({ success: false, message: "Quantity must be a positive integer" });
+
   try {
-    const userId = req.user?.id; // Get userId from verified token
-
-    if (!userId)
-      return res.status(401).json({ success: false, message: "Invalid user session" });
-
-    const { productId, variant, quantity } = req.body || {};
-
-    // productId and quantity are required
-    if (!productId || quantity === undefined || quantity === null)
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields" });
-
-    // Both end up in stock-update filters, so they must be plain values, not operator objects
-    if (typeof productId !== "string" || !mongoose.isValidObjectId(productId) || !isOptionalString(variant))
-      return res.status(400).json({ success: false, message: "Invalid product or variant" });
-
-    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1)
-      return res
-        .status(400)
-        .json({ success: false, message: "Quantity must be a positive integer" });
-
     await dbConnect();
-    // Start a MongoDB session to track/record multiple operations as a single transaction.
-    // This allows us to commit all changes together or roll them back entirely if any operation fails.
-    mongoSession = await mongoose.startSession();
-    mongoSession.startTransaction();
+    const result = await inTransaction(async (session) => {
+      const product = await productModel.findById(productId).select("variants").lean().session(session);
+      if (!product)
+        throw new RequestError(404, { message: "Product not found" });
 
-    let requestedQuantity = quantity;
+      const targetVariant = resolveVariant(product, variant);
+      if (!targetVariant)
+        throw new RequestError(400, { message: "Variant required" });
 
-    // Find product
-    const product = await productModel
-      .findById(productId)
-      .session(mongoSession);
+      const available = product.variants.find((v) => v.label === targetVariant)?.stock || 0;
+      if (available === 0)
+        throw new RequestError(400, { stock: 0, message: "Stock not available" });
 
-    if (!product) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-    }
-
-    // Check and decrement stock
-    let stockAvailable;
-    let actualQuantity = requestedQuantity;
-    const MAX_RETRIES = 3; // used to restart verification of stock if it was changed in the middle of a transaction
-
-    const variants = Array.isArray(product.variants) ? product.variants : [];
-    const isSingleDefault = variants.length === 1 && variants[0].label === "Default";
-    const requiresVariant = !isSingleDefault;
-
-    if (requiresVariant && !variant) {
-      await mongoSession.abortTransaction();
-      return res
-        .status(400)
-        .json({ success: false, message: "Variant required" });
-    }
-
-    const targetVariant = variant || (isSingleDefault ? "Default" : null);
-
-    // Stock lookup strictly using unified variants array
-    const variantDoc = variants.find((v) => v.label === targetVariant);
-    stockAvailable = variantDoc ? variantDoc.stock : 0;
-
-    if (stockAvailable === 0) {
-      await mongoSession.abortTransaction();
-      return res.status(400).json({
-        success: false,
-        stock: 0,
-        message: "Stock not available",
-      });
-    }
-
-    if (stockAvailable < requestedQuantity)
-      actualQuantity = stockAvailable; // Give the max available stock to the user
-
-    // Retry logic for stock update
-    let updated = null;
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      // Re-check stock before each attempt
-      const freshProduct = await productModel
-        .findById(productId)
-        .session(mongoSession);
-
-      const freshVariants = Array.isArray(freshProduct?.variants) ? freshProduct.variants : [];
-      const currentVariantDoc = freshVariants.find((v) => v.label === targetVariant);
-      const currentStock = currentVariantDoc ? currentVariantDoc.stock : 0;
-
-      if (currentStock === 0) {
-        await mongoSession.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          stock: 0,
-          message: "Stock not available",
-        });
-      }
-
-      // Adjust quantity if needed
-      const availableQuantity = Math.min(actualQuantity, currentStock);
-
-      // Perform atomic decrement on variant stock
-      updated = await productModel.updateOne(
-        { _id: productId, "variants.label": targetVariant, "variants.stock": { $gte: availableQuantity } },
-        { $inc: { "variants.$.stock": -availableQuantity } },
-        { session: mongoSession },
+      const reservation =
+        (await reservationModel.findOne({ userId }).session(session)) ||
+        new reservationModel({ userId, products: [] });
+      const line = reservation.products.find(
+        (p) => p.productId.toString() === productId && p.variant === targetVariant,
       );
+      if (!line && reservation.products.length >= MAX_CART_LINES)
+        throw new RequestError(400, { message: `A cart can hold at most ${MAX_CART_LINES} different items.` });
 
-      // If 0 documents were modified, it means stock was changed by another user during a transaction
-      if (updated.modifiedCount > 0) {
-        actualQuantity = availableQuantity;
-        stockAvailable = currentStock;
-        break; // Success! Exit retry loop
-      }
+      const room = MAX_ITEM_QUANTITY - (line?.quantity || 0);
+      if (room <= 0)
+        throw new RequestError(400, { message: `You can hold at most ${MAX_ITEM_QUANTITY} of one item.` });
 
-      // If this was the last attempt, give up
-      if (attempt === MAX_RETRIES) {
-        await mongoSession.abortTransaction();
-        return res.status(409).json({
-          success: false,
-          stock: -1, // Special indicator for concurrent modification
-          message:
-            "Stock is being modified frequently. Please try again later.",
-          retryAfter: 2000, // Suggest client retry after 2 seconds
-        });
-      }
+      const reserved = Math.min(quantity, room, available);
+      const taken = await takeStock(productId, targetVariant, reserved, session);
+      if (taken.modifiedCount === 0)
+        throw new RequestError(409, { stock: -1, message: "Stock just changed. Please try again." });
 
-      // Wait a bit before retrying (exponential backoff)
-      await new Promise((resolve) => setTimeout(resolve, attempt * 100));
-    }
+      if (line)
+        line.quantity += reserved;
+      else
+        reservation.products.push({ productId, variant: targetVariant, quantity: reserved });
+      reservation.reservedAt = new Date();
+      await reservation.save({ session });
 
-    // Upsert reservation - authenticated users only
-    let reservation;
+      return { reserved, stockLeft: available - reserved };
+    });
 
-    reservation = await reservationModel
-      .findOne({ userId })
-      .session(mongoSession);
-
-    if (!reservation)
-      reservation = new reservationModel({
-        userId,
-        products: [],
-      });
-
-    // Find if product already reserved
-    const prodIdx = reservation.products.findIndex(
-      (p) => p.productId.toString() === productId && p.variant === targetVariant
-    );
-
-    // If index is found, increment quantity, else add new product
-    if (prodIdx !== -1)
-      reservation.products[prodIdx].quantity += actualQuantity;
-    else
-      reservation.products.push({
-        productId,
-        variant: targetVariant,
-        quantity: actualQuantity,
-      });
-
-    reservation.reservedAt = new Date();
-    await reservation.save({ session: mongoSession }); // attach the session to the save operation
-    // Commit the transaction
-    await mongoSession.commitTransaction();
-
-    if (stockAvailable < requestedQuantity)
-      return res.json({
-        success: true,
-        stock: stockAvailable - actualQuantity,
-        message: `Only ${actualQuantity} items reserved, stock was less than requested`,
-        reservedQuantity: actualQuantity,
-        requestedQuantity: requestedQuantity,
-      });
     return res.json({
       success: true,
-      stock: stockAvailable - actualQuantity,
-      message: "Stock reserved",
-      reservedQuantity: actualQuantity,
-      requestedQuantity: requestedQuantity,
+      stock: result.stockLeft,
+      message: result.reserved < quantity ? `Only ${result.reserved} reserved` : "Stock reserved",
+      reservedQuantity: result.reserved,
+      requestedQuantity: quantity,
     });
-  } catch (err) {
-    if (mongoSession && mongoSession.inTransaction()) {
-      try {
-        await mongoSession.abortTransaction();
-      } catch (abortErr) {
-        console.error("Error aborting transaction:", abortErr);
-      }
-    }
-    console.error("Error in reserveStock:", {
-      error: err.message,
-      stack: err.stack,
-      requestBody: req.body,
-      timestamp: new Date().toISOString(),
-    });
-    return res
-      .status(500)
-      .json({ success: false, message: "Internal server error" });
-  } finally {
-    // End the session
-    if (mongoSession) {
-      if (mongoSession.inTransaction()) {
-        try {
-          await mongoSession.abortTransaction();
-        } catch (abortErr) {
-          console.error("Error aborting transaction in finally:", abortErr);
-        }
-      }
-      try {
-        await mongoSession.endSession();
-      } catch (endErr) {
-        console.error("Error ending session:", endErr);
-      }
-    }
+  } catch (error) {
+    return sendTransactionError(res, error, "Error in reserveStock:");
   }
 };
 
 // Get user's cart items from server
 const getCart = async (req, res) => {
   try {
-    const userId = req.user?.id; // Get userId from verified token
-
-    if (!userId)
-      return res.status(401).json({ success: false, message: "Invalid user session" });
+    const userId = req.user?.id;
 
     await dbConnect();
 
-    // Find user's cart reservation
     const reservation = await reservationModel
       .findOne({ userId })
-      .populate("products.productId");
+      .populate({ path: "products.productId", select: "name price image category variants" })
+      .lean();
 
     if (!reservation)
-      return res.json({
-        success: true,
-        cartItems: [],
-        message: "Cart is empty",
+      return res.json({ success: true, cartItems: [], message: "Cart is empty" });
+
+    // Products deleted from the catalog since they were added are left out
+    const cartItems = (reservation.products || [])
+      .filter((item) => item.productId != null)
+      .map((item) => {
+        const product = item.productId;
+        return {
+          _id: product._id,
+          name: product.name,
+          price: formatPrice(product.price),
+          image: product.image,
+          category: product.category,
+          selectedVariant: item.variant,
+          itemQuantity: item.quantity,
+          variants: product.variants,
+        };
       });
 
-    // Transform reservation data to cart format, filtering out any products deleted from DB
-    const validProducts = (reservation.products || []).filter(
-      (item) => item.productId != null
-    );
-
-    const cartItems = validProducts.map((item) => {
-      const product = item.productId;
-      return {
-        _id: product._id,
-        name: product.name,
-        price: formatPrice(product.price),
-        image: product.image,
-        category: product.category,
-        selectedVariant: item.variant,
-        itemQuantity: item.quantity,
-        variants: product.variants,
-      };
-    });
-
-    res.json({
-      success: true,
-      cartItems,
-    });
+    res.json({ success: true, cartItems });
   } catch (error) {
     console.error("Error fetching cart:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch cart",
-    });
+    res.status(500).json({ success: false, message: "Failed to fetch cart" });
   }
 };
 
 // Update cart item quantity
 const updateCartItem = async (req, res) => {
-  let session = null;
+  const userId = req.user?.id;
+  const productId = req.params?.productId;
+  const { variant, quantity: newQuantity } = req.body || {};
+
+  if (!mongoose.isValidObjectId(productId))
+    return res.status(400).json({ success: false, message: "Invalid product id" });
+
+  if (!isOptionalString(variant) || variant?.length > MAX_VARIANT_LENGTH)
+    return res.status(400).json({ success: false, message: "Variant must be a string" });
+
+  if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0)
+    return res.status(400).json({ success: false, message: "quantity must be a non-negative integer" });
+
+  if (newQuantity > MAX_ITEM_QUANTITY)
+    return res.status(400).json({ success: false, message: `You can hold at most ${MAX_ITEM_QUANTITY} of one item.` });
 
   try {
-    const userId = req.user?.id;
-
-    if (!userId)
-      return res.status(401).json({ success: false, message: "Invalid user session" });
-
-    const productId = req.params?.productId;
-    const { variant, quantity: newQuantity } = req.body || {};
-
-    if (!mongoose.isValidObjectId(productId))
-      return res.status(400).json({ success: false, message: "Invalid product id" });
-
-    if (!isOptionalString(variant))
-      return res.status(400).json({ success: false, message: "Variant must be a string" });
-
-    if (typeof newQuantity !== "number" || !Number.isInteger(newQuantity) || newQuantity < 0)
-      return res.status(400).json({
-        success: false,
-        message: "quantity must be a non-negative integer",
-      });
-
     await dbConnect();
-    session = await mongoose.startSession();
-    session.startTransaction();
+    await inTransaction(async (session) => {
+      const reservation = await reservationModel.findOne({ userId }).session(session);
+      if (!reservation)
+        throw new RequestError(404, { message: "Cart not found" });
 
-    const reservation = await reservationModel
-      .findOne({ userId })
-      .session(session);
-
-    if (!reservation) {
-      await session.abortTransaction();
-      return res.status(404).json({
-        success: false,
-        message: "Cart not found",
-      });
-    }
-
-    const productIndex = reservation.products.findIndex(
-      (p) =>
-        p.productId.toString() === productId &&
-        (p.variant === variant || (!variant && p.variant === "Default") || (!p.variant && variant === "Default"))
-    );
-
-    if (productIndex === -1) {
-      await session.abortTransaction();
-      return res.status(404).json({
-        success: false,
-        message: "Product not found in cart",
-      });
-    }
-
-    const currentQuantity = reservation.products[productIndex].quantity;
-    const quantityDiff = newQuantity - currentQuantity;
-
-    // Handle stock adjustment
-    if (quantityDiff !== 0) {
-      const product = await productModel.findById(productId).session(session);
-
-      const productVariants = Array.isArray(product?.variants) ? product.variants : [];
-      const isSingleDefault = productVariants.length === 1 && productVariants[0]?.label === "Default";
-      const targetVariant = variant || (isSingleDefault ? "Default" : null);
-
-      if (!targetVariant) {
-        await session.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          message: "Variant required",
-        });
-      }
-
-      const variantDoc = productVariants.find((v) => v.label === targetVariant);
-      if (!variantDoc) {
-        await session.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          message: "Variant not found",
-        });
-      }
-
-      const availableStock = variantDoc.stock || 0;
-
-      if (quantityDiff > 0 && availableStock < quantityDiff) {
-        await session.abortTransaction();
-        return res.status(400).json({
-          success: false,
-          message: "Insufficient stock available",
-        });
-      }
-
-      // Update product stock atomically on variant
-      await productModel.updateOne(
-        { _id: productId, "variants.label": targetVariant },
-        { $inc: { "variants.$.stock": -quantityDiff } },
-        { session },
+      const index = reservation.products.findIndex(
+        (p) =>
+          p.productId.toString() === productId &&
+          (p.variant === variant || (!variant && p.variant === "Default") || (!p.variant && variant === "Default")),
       );
-    }
+      if (index === -1)
+        throw new RequestError(404, { message: "Product not found in cart" });
 
-    // Update reservation
-    if (newQuantity === 0)
-      reservation.products.splice(productIndex, 1);
-    else
-      reservation.products[productIndex].quantity = newQuantity;
+      const line = reservation.products[index];
+      const difference = newQuantity - line.quantity;
+      const lineVariant = line.variant || "Default";
 
-    reservation.reservedAt = new Date();
+      if (difference > 0) {
+        const taken = await takeStock(productId, lineVariant, difference, session);
+        if (taken.modifiedCount === 0)
+          throw new RequestError(400, { message: "Insufficient stock available" });
+      } else if (difference < 0)
+        await releaseStock(productId, lineVariant, -difference, session);
 
-    if (reservation.products.length === 0)
-      await reservationModel
-        .deleteOne({ _id: reservation._id })
-        .session(session);
-    else
-      await reservation.save({ session });
+      if (newQuantity === 0)
+        reservation.products.splice(index, 1);
+      else
+        line.quantity = newQuantity;
+      reservation.reservedAt = new Date();
 
-    await session.commitTransaction();
-
-    res.json({
-      success: true,
-      message: "Cart updated successfully",
+      if (reservation.products.length === 0)
+        await reservationModel.deleteOne({ _id: reservation._id }).session(session);
+      else
+        await reservation.save({ session });
     });
+
+    res.json({ success: true, message: "Cart updated successfully" });
   } catch (error) {
-    if (session && session.inTransaction()) {
-      try {
-        await session.abortTransaction();
-      } catch (abortErr) {
-        console.error("Error aborting transaction:", abortErr);
-      }
-    }
-    console.error("Error updating cart:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update cart",
-    });
-  } finally {
-    if (session) {
-      if (session.inTransaction()) {
-        try {
-          await session.abortTransaction();
-        } catch (abortErr) {
-          console.error("Error aborting transaction in finally:", abortErr);
-        }
-      }
-      try {
-        await session.endSession();
-      } catch (endErr) {
-        console.error("Error ending session:", endErr);
-      }
-    }
+    return sendTransactionError(res, error, "Error updating cart:");
   }
 };
 
-// Clear entire cart
+// Clear entire cart and give its stock back
 const clearCart = async (req, res) => {
-  let session = null;
+  const userId = req.user?.id;
 
   try {
-    const userId = req.user?.id;
-
-    if (!userId)
-      return res.status(401).json({ success: false, message: "Invalid user session" });
-
     await dbConnect();
-    session = await mongoose.startSession();
-    session.startTransaction();
+    await inTransaction(async (session) => {
+      const reservation = await reservationModel.findOne({ userId }).lean().session(session);
+      if (!reservation)
+        return;
 
-    const reservation = await reservationModel
-      .findOne({ userId })
-      .session(session);
+      // One round trip for all items; a product deleted since then simply matches nothing
+      const restores = (reservation.products || []).map((item) => ({
+        updateOne: {
+          filter: { _id: item.productId, "variants.label": item.variant || "Default" },
+          update: { $inc: { "variants.$.stock": item.quantity } },
+        },
+      }));
+      if (restores.length > 0)
+        await productModel.bulkWrite(restores, { session });
 
-    if (!reservation) {
-      await session.abortTransaction();
-      return res.json({
-        success: true,
-        message: "Cart is already empty",
-      });
-    }
-
-    // Release all stock back to products
-    for (const item of reservation.products) {
-      const product = await productModel
-        .findById(item.productId)
-        .session(session);
-      if (!product)
-        continue;
-
-      const variants = Array.isArray(product.variants) ? product.variants : [];
-      const isSingleDefault = variants.length === 1 && variants[0]?.label === "Default";
-      const targetVariant = item.variant || (isSingleDefault ? "Default" : null);
-      if (!targetVariant)
-        continue;
-
-      const variantDoc = variants.find((v) => v.label === targetVariant);
-      if (!variantDoc)
-        continue;
-
-      await productModel.updateOne(
-        { _id: item.productId, "variants.label": targetVariant },
-        { $inc: { "variants.$.stock": item.quantity } },
-        { session },
-      );
-    }
-
-    // Delete reservation
-    await reservationModel.deleteOne({ _id: reservation._id }).session(session);
-
-    await session.commitTransaction();
-
-    res.json({
-      success: true,
-      message: "Cart cleared successfully",
+      await reservationModel.deleteOne({ _id: reservation._id }).session(session);
     });
+
+    res.json({ success: true, message: "Cart cleared successfully" });
   } catch (error) {
-    if (session && session.inTransaction()) {
-      try {
-        await session.abortTransaction();
-      } catch (abortErr) {
-        console.error("Error aborting transaction:", abortErr);
-      }
-    }
-    console.error("Error clearing cart:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to clear cart",
-    });
-  } finally {
-    if (session) {
-      if (session.inTransaction()) {
-        try {
-          await session.abortTransaction();
-        } catch (abortErr) {
-          console.error("Error aborting transaction in finally:", abortErr);
-        }
-      }
-      try {
-        await session.endSession();
-      } catch (endErr) {
-        console.error("Error ending session:", endErr);
-      }
-    }
+    return sendTransactionError(res, error, "Error clearing cart:");
   }
 };
 

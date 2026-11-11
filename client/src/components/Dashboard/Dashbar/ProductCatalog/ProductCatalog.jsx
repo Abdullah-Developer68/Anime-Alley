@@ -1,321 +1,176 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  setReloadData,
-  openProductDeleteModal,
-  openProductForm,
-  openExportModal,
-} from "../../../../redux/Slice/DashboardSlice";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
+import { openExportModal, openProductDeleteModal, openProductForm, setReloadData } from "../../../../redux/Slice/DashboardSlice";
 import api from "../../../../api/api";
-import assets from "../../../../assets/asset";
+import { categoryLabel } from "../../../../utils/catalog";
+import { formatMoney } from "../../../../utils/money";
+import { productImage } from "../../../../utils/images";
 import ProductForm from "./ProductForm";
 import DeleteProduct from "./DeleteProduct";
-import { formatPrice } from "../../../../utils/formatPrice";
-import { Plus, Download } from "lucide-react";
-import DashboardPagination from "../../DashboardPagination";
+import PageHeader from "../../shared/PageHeader";
+import DemoNotice from "../../shared/DemoNotice";
+import { READ_ONLY_TITLE, useReadOnly } from "../../shared/readOnly";
+import { emptyCellClass, rowClass, tableClass, tableWrapClass, tdClass, thClass } from "../../shared/tableStyles";
+import Button from "../../../ui/Button";
+import Pagination from "../../../ui/Pagination";
+import { cx } from "../../../ui/styles";
 
 // The API returns 24 products per page unless a limit is sent
 const PRODUCTS_PER_PAGE = 24;
 
+const StockCell = ({ product }) => {
+  const variants = product.variants || [];
+  if (variants.length === 1 && variants[0].label === "Default")
+    return (
+      <span className={variants[0].stock > 0 ? "text-ink-soft" : "text-danger"}>
+        {variants[0].stock > 0 ? `${variants[0].stock} in stock` : "Out of stock"}
+      </span>
+    );
+  return (
+    <div className="flex max-w-xs flex-wrap gap-1">
+      {variants.map((variant) => (
+        <span
+          key={variant.label}
+          className={cx(
+            "rounded-md px-1.5 py-0.5 text-[11.5px] tabular-nums",
+            variant.stock > 0 ? "bg-sunken text-ink-soft" : "bg-danger-soft text-danger",
+          )}
+        >
+          {variant.label} · {variant.stock}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 const ProductCatalog = () => {
-  // states
+  const dispatch = useDispatch();
+  const readOnly = useReadOnly();
+  const { reloadData, productFormState, productFilters } = useSelector((state) => state.dashboard);
   const [products, setProducts] = useState([]);
   const [currPage, setCurrPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // redux
-  const {
-    reloadData,
-    productDeleteModalState,
-    productFormState,
-    productFilters,
-  } = useSelector((state) => state.dashboard);
-
-  const dispatch = useDispatch();
-
-  // Load products based on Redux productFilters and current page
   const loadProducts = useCallback(async () => {
     setLoading(true);
-    const activeFilters = productFilters || {};
-    const payload = {
-      category: (activeFilters.category || "comics").toLowerCase(),
-      productTypes:
-        activeFilters.productTypes && activeFilters.productTypes.length
-          ? activeFilters.productTypes.map((type) => type.toLowerCase())
-          : ["all"],
-      price: Number(activeFilters.price) || 0,
-      sortBy: activeFilters.sortBy || "popular",
-      page: currPage,
-      searchQuery: (activeFilters.searchQuery || "").trim(),
-    };
-
     try {
-      const response = await api.getProducts(payload);
-      if (response.data.success) {
-        setProducts(response.data.currPageProducts);
-        setTotalPages(response.data.totalPages);
-        setTotalProducts(response.data.totalProducts);
-      }
-    } catch (error) {
-      console.error("Error loading products:", {
-        message: error.message,
-        response: error.response?.data,
-        payload,
+      const { data } = await api.getAdminProducts({
+        category: productFilters.category || "comics",
+        productTypes: productFilters.productTypes?.length ? productFilters.productTypes : ["all"],
+        price: Number(productFilters.price) || 0,
+        sortBy: productFilters.sortBy || "popular",
+        page: currPage,
+        searchQuery: (productFilters.searchQuery || "").trim(),
       });
+      setProducts(data.currPageProducts);
+      setTotalPages(data.totalPages);
+      setTotalProducts(data.totalProducts);
+    } catch (error) {
+      console.error("Error loading products:", error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   }, [productFilters, currPage]);
 
-  // Reset page to 1 whenever filters change
+  // New filters start from the first page
   useEffect(() => {
     setCurrPage(1);
-  }, [
-    productFilters?.category,
-    productFilters?.searchQuery,
-    productFilters?.price,
-    productFilters?.productTypes,
-    productFilters?.filterVersion,
-  ]);
+  }, [productFilters]);
 
-  // Fetch products on mount and when loadProducts changes
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  // Reloads products when productReload is triggered via Redux
+  // Saves and deletes ask for a reload through Redux
   useEffect(() => {
-    if (reloadData === "products") {
-      loadProducts().then(() => {
-        dispatch(setReloadData(null));
-      });
-    }
+    if (reloadData === "products")
+      loadProducts().then(() => dispatch(setReloadData(null)));
   }, [reloadData, dispatch, loadProducts]);
 
-  // Pagination handler
-  const handlePg = (value) => {
-    let newPage;
-    if (value === "next" && currPage < totalPages) {
-      newPage = currPage + 1;
-    } else if (value === "prev" && currPage > 1) {
-      newPage = currPage - 1;
-    } else if (typeof value === "number") {
-      newPage = value;
-    } else {
-      return;
-    }
-    setCurrPage(newPage);
-  };
-
-  const handleDeleteModal = (product) => {
-    dispatch(openProductDeleteModal(product));
-  };
-
-  const openForm = (product) => {
-    dispatch(openProductForm(product ? product : null));
-  };
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {productFormState.isOpen && <ProductForm />}
+      <DeleteProduct />
 
-      <div className="flex items-center justify-between gap-4 max-[1120px]:pl-14">
-        <h1 className="text-2xl font-bold text-white">Products</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("products"))}
-            title="Export Products"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => openForm()}
-            title="Add New Product"
-            className="flex items-center justify-center p-2 text-white transition-colors bg-pink-500 rounded-lg cursor-pointer hover:bg-pink-600"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader title="Products" description={`${totalProducts} in ${categoryLabel(productFilters.category || "comics").toLowerCase()}`}>
+        <Button variant="secondary" size="sm" onClick={() => dispatch(openExportModal("products"))}>
+          <Download aria-hidden="true" className="size-3.5" />
+          Export
+        </Button>
+        <Button size="sm" onClick={() => dispatch(openProductForm(null))} disabled={readOnly} title={readOnly ? READ_ONLY_TITLE : undefined}>
+          <Plus aria-hidden="true" className="size-3.5" />
+          Add product
+        </Button>
+      </PageHeader>
 
-      <div className="border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-auto max-h-[calc(100vh-15rem)]">
-          <table className="w-full min-w-[800px]">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th
-                  scope="col"
-                  className="w-[15%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Actions
-                </th>
-                <th
-                  scope="col"
-                  className="w-[25%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Product
-                </th>
-                <th
-                  scope="col"
-                  className="w-[15%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Category
-                </th>
-                <th
-                  scope="col"
-                  className="w-[15%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Price
-                </th>
-                <th
-                  scope="col"
-                  className="w-[30%] px-6 py-4 text-left text-sm font-medium text-gray-400"
-                >
-                  Stock Status
-                </th>
+      <DemoNotice />
+
+      <div className={tableWrapClass}>
+        <table className={tableClass}>
+          <thead>
+            <tr>
+              <th className={thClass}>Product</th>
+              <th className={thClass}>Category</th>
+              <th className={thClass}>Price</th>
+              <th className={thClass}>Stock</th>
+              <th className={cx(thClass, "text-right")}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className={emptyCellClass}>Loading products…</td>
               </tr>
-            </thead>
-
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    Loading...
+            ) : products.length === 0 ? (
+              <tr>
+                <td colSpan={5} className={emptyCellClass}>No products match these filters.</td>
+              </tr>
+            ) : (
+              products.map((product) => (
+                <tr key={product._id} className={rowClass}>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-3">
+                      <img src={productImage(product.image, 96)} alt="" loading="lazy" className="size-10 shrink-0 rounded-md border border-line object-cover" />
+                      <div className="min-w-0">
+                        <p className="max-w-[240px] truncate font-medium text-ink">{product.name}</p>
+                        <p className="text-xs text-subtle">#{product.productID}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={tdClass}>{categoryLabel(product.category)}</td>
+                  <td className={cx(tdClass, "tabular-nums text-ink")}>{formatMoney(product.price)}</td>
+                  <td className={tdClass}>
+                    <StockCell product={product} />
+                  </td>
+                  <td className={cx(tdClass, "text-right")}>
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${product.name}`} title={readOnly ? READ_ONLY_TITLE : "Edit"} disabled={readOnly} onClick={() => dispatch(openProductForm(product))}>
+                        <Pencil aria-hidden="true" className="size-3.5" />
+                      </Button>
+                      <Button variant="danger-ghost" size="icon-sm" aria-label={`Delete ${product.name}`} title={readOnly ? READ_ONLY_TITLE : "Delete"} disabled={readOnly} onClick={() => dispatch(openProductDeleteModal(product))}>
+                        <Trash2 aria-hidden="true" className="size-3.5" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    No products found
-                  </td>
-                </tr>
-              ) : (
-                products.map((product, index) => (
-                  <tr
-                    key={index}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white group"
-                          title="Edit"
-                          onClick={() => {
-                            openForm(product);
-                          }}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white group"
-                          title="Delete"
-                          onClick={() => {
-                            handleDeleteModal(product);
-                          }}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Delete"
-                          />
-                        </button>
-
-                        {productDeleteModalState.isOpen && <DeleteProduct />}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="object-cover w-10 h-10 rounded-lg bg-white/5"
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-white truncate max-w-[200px]">
-                            {product.name}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            ID: #{product.productID}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 text-xs font-medium text-pink-500 rounded-full bg-pink-500/20">
-                        {product.category.charAt(0).toUpperCase() +
-                          product.category.slice(1)}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-white">
-                        {formatPrice(product.price)} $
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-4">
-                      <div className="flex max-h-[60px] flex-wrap items-start gap-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        {Array.isArray(product.variants) &&
-                        product.variants.length === 1 &&
-                        product.variants[0].label === "Default" ? (
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium inline-flex items-center ${
-                              product.variants[0].stock > 0
-                                ? "bg-green-500/20 text-green-500"
-                                : "bg-red-500/20 text-red-500"
-                            }`}
-                          >
-                            {product.variants[0].stock > 0
-                              ? `${product.variants[0].stock} available`
-                              : "Out of Stock"}
-                          </span>
-                        ) : (
-                          (product.variants || []).map((v) => (
-                            <span
-                              key={v.label}
-                              className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap tabular-nums ${
-                                v.stock > 0
-                                  ? "bg-green-500/20 text-green-500"
-                                  : "bg-red-500/20 text-red-500"
-                              }`}
-                            >
-                              {product.category === "comics" &&
-                              !v.label.startsWith("V")
-                                ? "Vol. "
-                                : ""}
-                              {v.label}: {v.stock > 0 ? v.stock : "Out"}
-                            </span>
-                          ))
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <DashboardPagination
-        currPage={currPage}
-        totalPages={totalPages}
-        totalItems={totalProducts}
-        itemCount={products.length}
-        pageSize={PRODUCTS_PER_PAGE}
-        label="products"
-        onPageChange={handlePg}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px] text-muted">
+          {products.length > 0 && `Showing ${(currPage - 1) * PRODUCTS_PER_PAGE + 1}–${(currPage - 1) * PRODUCTS_PER_PAGE + products.length} of ${totalProducts}`}
+        </p>
+        <Pagination page={currPage} totalPages={totalPages} onPageChange={setCurrPage} label="Product pages" />
+      </div>
     </div>
   );
 };

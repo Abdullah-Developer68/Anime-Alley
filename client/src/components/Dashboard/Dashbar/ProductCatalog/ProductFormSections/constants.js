@@ -3,12 +3,16 @@ export const GENRES = ["Action", "Adventure", "Comedy", "Drama", "Fantasy"];
 // Categories whose stock is entered per variant instead of as a single number
 export const VARIANT_CATEGORIES = ["clothes", "shoes", "comics"];
 
-export const LABEL_CLASS = "block mb-1 text-sm font-medium text-gray-400";
-export const SELECT_CLASS =
-  "w-full px-3 py-2 text-sm text-white border rounded-lg sm:px-4 bg-white/5 border-white/10 focus:outline-none focus:border-pink-500 sm:text-base";
-export const INPUT_CLASS = `${SELECT_CLASS} placeholder:text-white/50`;
-export const CHIP_CLASS =
-  "inline-flex items-center px-3 py-1 rounded-full border border-white/10 cursor-pointer hover:bg-white hover:text-black transition-colors text-sm";
+import { inputClass, labelClass, textareaClass } from "../../../../ui/styles";
+
+export const LABEL_CLASS = labelClass;
+export const SELECT_CLASS = inputClass;
+export const INPUT_CLASS = inputClass;
+export const TEXTAREA_CLASS = textareaClass;
+// Toggle chips for sizes and genres; the checked look comes from CHIP_ON / CHIP_OFF
+export const CHIP_CLASS = "inline-flex h-8 cursor-pointer items-center rounded-full border px-3 text-[13px] transition-colors";
+export const CHIP_ON = "border-ink bg-ink text-white";
+export const CHIP_OFF = "border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink";
 
 // "V1, V2, " -> ["V1", "V2"]
 export const splitList = (value) =>

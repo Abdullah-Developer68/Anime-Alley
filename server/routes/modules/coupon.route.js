@@ -12,6 +12,7 @@ const {
   createCoupon,
   getCouponStats,
 } = require("../../controllers/coupon.controller.js");
+const { blockDemoWrites } = require("../../middlewares/custom/demo.middleware.js");
 const {
   couponCheckLimiter,
   adminWriteLimiter,
@@ -26,8 +27,8 @@ router.get("/eligibility", couponCheckLimiter, checkCoupon);
 // Admin-only routes
 router.get("/", requireAdmin, getAllCoupons);
 router.get("/stats", requireAdmin, getCouponStats);
-router.post("/", requireAdmin, adminWriteLimiter, createCoupon);
-router.patch("/:couponId", requireAdmin, adminWriteLimiter, updateCoupon);
-router.delete("/:couponId", requireAdmin, adminWriteLimiter, deleteCoupon);
+router.post("/", requireAdmin, blockDemoWrites, adminWriteLimiter, createCoupon);
+router.patch("/:couponId", requireAdmin, blockDemoWrites, adminWriteLimiter, updateCoupon);
+router.delete("/:couponId", requireAdmin, blockDemoWrites, adminWriteLimiter, deleteCoupon);
 
 module.exports = router;

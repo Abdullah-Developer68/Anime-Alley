@@ -1,404 +1,233 @@
+const crypto = require("crypto");
+const mongoose = require("mongoose");
 const orderModel = require("../db/models/order.model.js");
 const userModel = require("../db/models/user.model.js");
 const productModel = require("../db/models/product.model.js");
 const couponModel = require("../db/models/coupon.model.js");
 const Reservation = require("../db/models/reservation.model.js");
-const mongoose = require("mongoose");
 const dbConnect = require("../db/dbConnect.js");
 const { formatPrice } = require("../utils/formatPrice.utils.js");
 const { validateCouponForUser } = require("../utils/coupon.utils.js");
+const { addressProblem, isOptionalString, parsePage } = require("../utils/validation.utils.js");
+const { RequestError, inTransaction, sendTransactionError } = require("../utils/transaction.utils.js");
+const { maskEmail, maskText, HIDDEN_ADDRESS } = require("../utils/privacy.utils.js");
 const { expireOpenSessions } = require("../services/stripe.js");
 
+const SHIPPING_COST = 5;
+const ORDER_STATUSES = ["pending", "processing", "shipped", "delivered"];
+
+const newOrderID = () => `ORD-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+
+// Cash on delivery. Card payments become orders in the Stripe webhook, never here.
 const placeOrder = async (req, res) => {
-  let session = null;
+  const userId = req.user?.id;
+  const { couponCode, deliveryAddress, paymentMethod } = req.body || {};
+
+  if (paymentMethod !== "cod")
+    return res.status(400).json({ success: false, message: "This endpoint only takes cash on delivery orders" });
+
+  const invalidAddress = addressProblem(deliveryAddress);
+  if (invalidAddress)
+    return res.status(400).json({ success: false, message: invalidAddress });
+
+  if (!isOptionalString(couponCode))
+    return res.status(400).json({ success: false, message: "Coupon code must be text" });
 
   try {
-    // The user is identified ONLY by the verified token, never by request body data,
-    // so a client cannot place orders (or bypass coupon checks) as another user
-    const userId = req.user?.id;
-    const { couponCode, deliveryAddress, paymentMethod } = req.body || {};
-
-    if (!userId)
-      return res.status(401).json({ success: false, message: "Invalid user session" });
-
-    // Validate essential order information
-    if (!deliveryAddress || !paymentMethod)
-      return res.status(400).json({
-        success: false,
-        message: "Delivery address and payment method are required",
-      });
-
-    const VALID_PAYMENT_METHODS = ["cod", "stripe"];
-    if (!VALID_PAYMENT_METHODS.includes(paymentMethod))
-      return res.status(400).json({
-        success: false,
-        message: `Invalid payment method. Must be one of: ${VALID_PAYMENT_METHODS.join(", ")}`,
-      });
-
     await dbConnect();
-    session = await mongoose.startSession();
-    session.startTransaction();
+    const order = await inTransaction(async (session) => {
+      const user = await userModel.findById(userId).select("couponCodeUsed").session(session);
+      if (!user)
+        throw new RequestError(404, { message: "User not found" });
 
-    // Pricing validation removed - all calculations done server-side for security
-
-    // Verify the authenticated user still exists in database
-    const user = await userModel.findById(userId).session(session);
-    if (!user) {
-      await session.abortTransaction();
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    // If a coupon is provided, apply the shared rules: exists, not expired, not already used by this user
-    let couponDoc = null;
-    if (couponCode) {
-      const couponCheck = await validateCouponForUser(couponCode, user, { session });
-      if (!couponCheck.valid) {
-        await session.abortTransaction();
-        return res.status(couponCheck.status).json({
-          success: false,
-          message: couponCheck.message,
-        });
+      // Shared rules: exists, not expired, not already used by this user
+      let coupon = null;
+      if (couponCode && couponCode.trim()) {
+        const couponCheck = await validateCouponForUser(couponCode, user, { session });
+        if (!couponCheck.valid)
+          throw new RequestError(couponCheck.status, { message: couponCheck.message });
+        coupon = couponCheck.coupon;
       }
-      couponDoc = couponCheck.coupon;
-    }
 
-    // Define shipping cost (server-controlled)
-    const SHIPPING_COST = 5;
+      const reservation = await Reservation.findOne({ userId }).lean().session(session);
+      if (!reservation?.products?.length)
+        throw new RequestError(400, { message: "No reserved products found for this cart." });
 
-    // === RESERVATION PROCESSING ===
-    // Find reservation by userId from verified token
-    const reservation = await Reservation.findOne({ userId }).session(session);
+      // Current prices for every cart item in one query
+      const ids = reservation.products.map((item) => item.productId);
+      const products = await productModel.find({ _id: { $in: ids } }).select("name price image").lean().session(session);
+      const byId = new Map(products.map((product) => [String(product._id), product]));
+      if (reservation.products.some((item) => !byId.has(String(item.productId))))
+        throw new RequestError(409, { message: "Some products in your cart are no longer available. Please review your cart." });
 
-    if (
-      !reservation ||
-      !reservation.products ||
-      reservation.products.length === 0
-    ) {
-      await session.abortTransaction();
-      return res.status(400).json({
-        success: false,
-        message: "No reserved products found for this cart.",
+      const lines = reservation.products.map((item) => {
+        const product = byId.get(String(item.productId));
+        return {
+          productId: item.productId,
+          variant: item.variant,
+          name: product.name,
+          image: product.image,
+          quantity: item.quantity,
+          price: formatPrice(product.price),
+        };
       });
-    }
 
-    // Extract product data from reservation (productId, variant, quantity)
-    const productsArray = reservation.products.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      price: null, // will populate below
-      selectedVariant: item.variant,
-    }));
+      const subtotal = formatPrice(lines.reduce((total, line) => total + line.price * line.quantity, 0));
+      const discount = coupon ? formatPrice(subtotal * (coupon.discountPercentage / 100)) : 0;
 
-    // === ORDER DATA PREPARATION ===
-
-    // Loop through reservation products and fetch product prices (with session)
-    for (let item of productsArray) {
-      const product = await productModel
-        .findById(item.productId)
-        .session(session);
-
-      // Fail entire order if any product is not found
-      if (!product)
-        throw new Error(
-          `Product not found for ID: ${item.productId}. Order cannot be processed.`
-        );
-
-      item.price = formatPrice(product.price);
-    }
-
-    // Calculate subtotal from actual database prices
-    const subtotal = formatPrice(
-      productsArray.reduce((total, item) => {
-        return total + item.price * item.quantity;
-      }, 0)
-    );
-
-    // Calculate discount if coupon is provided
-    let discount = 0;
-    let discountedPrice = subtotal;
-
-    if (couponDoc) {
-      discount = formatPrice(subtotal * (couponDoc.discountPercentage / 100));
-      discountedPrice = formatPrice(subtotal - discount);
-    }
-
-    // Calculate final cost
-    const finalCost = formatPrice(discountedPrice + SHIPPING_COST);
-
-    // Generate unique orderID
-    const orderID = "ORD" + Date.now() + Math.floor(Math.random() * 1000);
-
-    // Create complete order object with server-calculated values (SECURITY)
-    const orderData = {
-      orderID,
-      products: productsArray, // Mapped reservation data with prices
-      user: user._id,
-      shippingAddress: deliveryAddress,
-      paymentMethod,
-      subtotal: subtotal, // Server-calculated subtotal
-      shippingCost: SHIPPING_COST, // Server-controlled shipping cost
-      discount: discount, // Server-calculated discount
-      finalAmount: finalCost, // Server-calculated final cost
-      couponCode: couponDoc ? couponDoc.couponCode : null, // Only the validated code is stored
-    };
-
-    const newOrder = await orderModel.create([orderData], { session });
-
-    // === COUPON PROCESSING  ===
-
-    // Update coupon statistics and user coupon usage (if a validated coupon was applied).
-    // The coupon is marked as used even if the discount rounds to 0 so it cannot be reused.
-    if (couponDoc) {
-      // Update coupon statistics (totalUsage, lifeTimeDiscount) with session
-      await couponModel.findByIdAndUpdate(
-        couponDoc._id,
-        {
-          $inc: {
-            totalUsage: 1,
-            lifeTimeDiscount: discount, // Use server-calculated discount
+      const [created] = await orderModel.create(
+        [
+          {
+            orderID: newOrderID(),
+            products: lines,
+            user: userId,
+            shippingAddress: deliveryAddress.trim(),
+            paymentMethod: "cod",
+            subtotal,
+            shippingCost: SHIPPING_COST,
+            discount,
+            finalAmount: formatPrice(subtotal - discount + SHIPPING_COST),
+            couponCode: coupon ? coupon.couponCode : null,
           },
-        },
-        { session }
+        ],
+        { session },
       );
 
-      // Add coupon to user's couponCodeUsed array with session ($addToSet prevents duplicates)
-      await userModel.findByIdAndUpdate(
-        user._id,
-        {
-          $addToSet: { couponCodeUsed: couponDoc._id },
-        },
-        { session }
+      // The coupon is marked as used even if the discount rounds to 0, so it can't be reused
+      if (coupon)
+        await couponModel.updateOne(
+          { _id: coupon._id },
+          { $inc: { totalUsage: 1, lifeTimeDiscount: discount } },
+          { session },
+        );
+      await userModel.updateOne(
+        { _id: userId },
+        { $push: { orders: created._id }, ...(coupon && { $addToSet: { couponCodeUsed: coupon._id } }) },
+        { session },
       );
-    }
+      await Reservation.deleteOne({ _id: reservation._id }).session(session);
 
-    // === USER ORDER HISTORY UPDATE  ===
-
-    // Add order reference to user's orders array using session
-    await userModel.findByIdAndUpdate(
-      user._id,
-      {
-        $push: { orders: newOrder[0]._id },
-      },
-      { session }
-    );
-
-    // === RESERVATION CLEANUP  ===
-
-    await Reservation.deleteOne({ userId }).session(session);
-
-    // Get populated order details for response
-    const populatedOrder = await orderModel
-      .findById(newOrder[0]._id)
-      .populate({ path: "products.productId" }) // is there is no select then evey thing is selected
-      .populate({ path: "user", select: "email username" })
-      .session(session);
-
-    // Commit transaction on success BEFORE sending response
-    await session.commitTransaction();
-
-    // The cart (and any coupon) is now consumed, so open Stripe sessions for the old cart
-    // must not be payable anymore. Best effort: never fail an already-committed order.
-    try {
-      await expireOpenSessions(user._id);
-    } catch (expireErr) {
-      console.error("Failed to expire open checkout sessions:", expireErr);
-    }
-
-    res.status(201).json({
-      success: true,
-      message: "Order placed successfully",
-      order: populatedOrder,
+      return created;
     });
+
+    // The cart (and any coupon) is now consumed, so open Stripe sessions for the old cart must not
+    // be payable anymore. Best effort: never fail an already-committed order.
+    await expireOpenSessions(userId).catch((error) => console.error("Failed to expire open checkout sessions:", error));
+
+    res.status(201).json({ success: true, message: "Order placed successfully", order });
   } catch (error) {
-    // Rollback transaction on any error
-    if (session && session.inTransaction()) {
-      try {
-        await session.abortTransaction();
-      } catch (abortErr) {
-        console.error("Error aborting transaction:", abortErr);
-      }
-    }
-    console.error("Error placing order:", error);
-    if (!res.headersSent)
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
-  } finally {
-    // Always clean up session and abort if still in transaction
-    if (session) {
-      if (session.inTransaction()) {
-        try {
-          await session.abortTransaction();
-        } catch (abortErr) {
-          console.error("Error aborting transaction in finally:", abortErr);
-        }
-      }
-      try {
-        await session.endSession();
-      } catch (endErr) {
-        console.error("Error ending session:", endErr);
-      }
-    }
+    return sendTransactionError(res, error, "Error placing order:");
   }
 };
 
+// Item details for orders made before orders stored their own snapshot
+const LEGACY_PRODUCT_FIELDS = "name price image category";
+
 const getOrderHistory = async (req, res) => {
   try {
-    // Orders are always fetched for the authenticated user from the verified token;
-    // any email/user identifier in the query is ignored to prevent reading other users' orders
+    // Orders are always fetched for the authenticated user from the verified token
     const userId = req.user?.id;
-    const currPage = req.query?.currPage;
-
-    if (!userId)
-      return res.status(401).json({ success: false, message: "Invalid user session" });
-
-    if (!currPage)
-      return res.status(400).json({
-        success: false,
-        message: "Current page is required",
-      });
+    const page = parsePage(req.query?.currPage);
+    if (!page)
+      return res.status(400).json({ success: false, message: "Current page must be a positive integer" });
 
     await dbConnect();
-    // Verify user exists
-    const user = await userModel.findById(userId);
 
-    if (!user)
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-
-    const ordersPerPage = 2;
-    const page = parseInt(currPage, 10) || 1;
-    const startIndex = (page - 1) * ordersPerPage;
-
-    // Get the total count of orders for this specific user
-    const totalOrders = await orderModel.countDocuments({ user: user._id });
-
-    if (totalOrders === 0)
-      return res.status(200).json({
-        success: true,
-        message: "No orders found for this user",
-        paginatedOrders: [],
-        totalPages: 0,
-        totalOrders: 0,
-      });
-
-    const totalPages = Math.ceil(totalOrders / ordersPerPage);
-
-    // Fetch and populate orders with product and user details using pagination
-    const paginatedOrders = await orderModel
-      .find({ user: user._id })
-      .populate({
-        path: "products.productId",
-        select: "name price image description",
-      })
-      .populate({ path: "user", select: "email username" })
-      .sort({ createdAt: -1 })
-      .skip(startIndex)
-      .limit(ordersPerPage);
+    const ordersPerPage = 5;
+    const filter = { user: userId };
+    const [totalOrders, paginatedOrders] = await Promise.all([
+      orderModel.countDocuments(filter),
+      orderModel
+        .find(filter)
+        .select("-user")
+        .populate({ path: "products.productId", select: LEGACY_PRODUCT_FIELDS })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * ordersPerPage)
+        .limit(ordersPerPage)
+        .lean(),
+    ]);
 
     res.status(200).json({
       success: true,
       message: "Orders fetched successfully",
       paginatedOrders,
-      totalPages,
+      totalPages: Math.ceil(totalOrders / ordersPerPage),
       totalOrders,
     });
   } catch (error) {
     console.error("Error fetching order:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
+};
+
+// Demo admins see orders without the customer's contact details or address
+const maskOrderForDemo = (order, viewerId) => {
+  if (String(order.user?._id) === viewerId)
+    return order;
+  return {
+    ...order,
+    shippingAddress: HIDDEN_ADDRESS,
+    user: order.user && {
+      ...order.user,
+      email: maskEmail(order.user.email),
+      username: maskText(order.user.username),
+    },
+  };
 };
 
 const allOrdersList = async (req, res) => {
   try {
-    const currPage = req.query?.currPage;
-    const email = req.user?.email; // Get email from authenticated user token
-
-    if (!currPage)
-      return res.status(400).json({ message: "Current page is required!" });
+    const page = parsePage(req.query?.currPage);
+    if (!page)
+      return res.status(400).json({ success: false, message: "Current page must be a positive integer" });
 
     await dbConnect();
 
-    const user = await userModel.findOne({ email });
-    // Check if user exists and is either admin or superAdmin
-    if (!user || (user.role !== "admin" && user.role !== "superAdmin"))
-      return res.status(403).json("User is not authorized!");
-
+    // requireAdmin has already checked the role from the database
     const ordersPerPage = 20;
-    // Parse the current page number, default to 1 if invalid
-    const page = parseInt(currPage, 10) || 1;
+    const [totalOrders, orders] = await Promise.all([
+      orderModel.estimatedDocumentCount(),
+      orderModel
+        .find()
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * ordersPerPage)
+        .limit(ordersPerPage)
+        .populate({ path: "products.productId", select: LEGACY_PRODUCT_FIELDS })
+        .populate({ path: "user", select: "email username profilePic" })
+        .lean(),
+    ]);
 
-    const startIndex = (page - 1) * ordersPerPage;
-    const totalOrders = await orderModel.countDocuments();
-
-    const totalPages = Math.ceil(totalOrders / ordersPerPage);
-
-    // Fetch only the orders for the current page using skip and limit
-    const currPageOrders = await orderModel
-      .find()
-      .sort({ createdAt: -1 }) // Sort orders by creation date, newest first
-      .skip(startIndex) // Skip orders from previous pages
-      .limit(ordersPerPage) // Limit to ordersPerPage results
-      .populate({
-        path: "products.productId",
-        select: "name price image description",
-      })
-      .populate({ path: "user", select: "email username profilePic" });
-
-    // Respond with paginated orders and pagination info
     res.status(200).json({
       success: true,
       message: "Orders fetched successfully",
-      currPageOrders, // Orders for the current page
-      totalOrders, // Total number of orders (for frontend pagination)
-      totalPages,
+      currPageOrders: req.user?.isDemo ? orders.map((order) => maskOrderForDemo(order, req.user.id)) : orders,
+      totalOrders,
+      totalPages: Math.ceil(totalOrders / ordersPerPage),
     });
   } catch (error) {
-    // Handle and log any errors
     console.error("Error fetching all orders:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
 const deleteOrder = async (req, res) => {
   try {
     const orderId = req.params?.orderId;
-
-    if (!orderId)
-      return res.status(400).json({ message: "Order ID is required." });
+    if (!mongoose.isValidObjectId(orderId))
+      return res.status(400).json({ success: false, message: "Invalid order id" });
 
     await dbConnect();
 
     const result = await orderModel.findByIdAndDelete(orderId);
-
     if (!result)
-      return res.status(404).json({ message: "Order not found." });
+      return res.status(404).json({ success: false, message: "Order not found." });
 
-    // Optional: You might want to remove the order reference from the user's order history as well.
-    // await userModel.updateMany({}, { $pull: { orders: orderId } });
+    await userModel.updateOne({ _id: result.user }, { $pull: { orders: result._id } });
 
-    res.status(200).json({
-      success: true,
-      message: `Order with ID: ${orderId} has been deleted.`,
-    });
+    res.status(200).json({ success: true, message: `Order ${result.orderID} has been deleted.` });
   } catch (error) {
     console.error("Error deleting order:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
 
@@ -407,82 +236,59 @@ const updateOrder = async (req, res) => {
     const orderId = req.params?.orderId;
     const status = req.body?.status;
 
-    if (!orderId)
-      return res.status(400).json({ message: "Order ID is required." });
+    if (!mongoose.isValidObjectId(orderId))
+      return res.status(400).json({ success: false, message: "Invalid order id" });
 
-    const VALID_STATUSES = ["pending", "processing", "shipped", "delivered"];
-    if (!status || !VALID_STATUSES.includes(status))
+    if (!ORDER_STATUSES.includes(status))
       return res.status(400).json({
-        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
+        success: false,
+        message: `Invalid status. Must be one of: ${ORDER_STATUSES.join(", ")}`,
       });
 
     await dbConnect();
 
-    const updatedOrder = await orderModel.findByIdAndUpdate(
-      orderId,
-      { status },
-      { new: true, runValidators: true }
-    );
-
+    const updatedOrder = await orderModel.findByIdAndUpdate(orderId, { status }, { new: true, runValidators: true }).lean();
     if (!updatedOrder)
-      return res.status(404).json({ message: "Order not found." });
+      return res.status(404).json({ success: false, message: "Order not found." });
 
-    res.status(200).json({
-      success: true,
-      message: "Order status updated successfully.",
-      order: updatedOrder,
-    });
+    res.status(200).json({ success: true, message: "Order status updated successfully.", order: updatedOrder });
   } catch (error) {
     console.error("Error updating order:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
 
-// Controller to get order stats by status
+// Order counts by status
 const getOrderStats = async (req, res) => {
   try {
     await dbConnect();
-    const stats = await orderModel.aggregate([
-      { $group: { _id: "$status", count: { $sum: 1 } } },
-    ]);
+    const stats = await orderModel.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]);
     const result = {};
     stats.forEach((s) => {
       result[s._id] = s.count;
     });
     res.json({ success: true, stats: result });
-  } catch (err) {
+  } catch (error) {
+    console.error("Error getting order stats:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
-// This is used when the payment is made through stripe
+// The success page polls this after a Stripe redirect until the webhook has created the order
 const verifyOrder = async (req, res) => {
   try {
     const stripeSessionID = req.params?.sessionId;
 
-    if (!stripeSessionID || typeof stripeSessionID !== "string" || !stripeSessionID.trim())
-      return res.status(400).json({
-        success: false,
-        message: "Stripe session ID is required.",
-      });
+    if (typeof stripeSessionID !== "string" || !stripeSessionID.trim() || stripeSessionID.length > 200)
+      return res.status(400).json({ success: false, message: "Stripe session ID is required." });
 
     await dbConnect();
-    // Find if the recent order has been saved to the database
-    const order = await orderModel.findOne({ stripeSessionID: stripeSessionID.trim() });
+    const exists = await orderModel.exists({ stripeSessionID: stripeSessionID.trim() });
 
-    if (order)
-      return res.json({ success: true });
-    else
-      return res.json({ success: false });
+    return res.json({ success: Boolean(exists) });
   } catch (error) {
     console.error("Error verifying order:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 

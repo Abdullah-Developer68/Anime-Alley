@@ -267,115 +267,6 @@ const validateCouponFields = ({ discountPercentage, expiryDate } = {}) => {
   return { valid: true };
 };
 
-// Validates essential order parameters before session acquisition
-const validateOrderData = (body) => {
-  // The ordering user comes from the verified token, not the request body
-  const { couponCode, deliveryAddress, paymentMethod } = body || {};
-
-  if (!deliveryAddress || !paymentMethod)
-    return {
-      valid: false,
-      status: 400,
-      message: "Delivery address and payment method are required",
-    };
-
-  const VALID_PAYMENT_METHODS = ["cod", "stripe"];
-  if (!VALID_PAYMENT_METHODS.includes(paymentMethod))
-    return {
-      valid: false,
-      status: 400,
-      message: `Invalid payment method. Must be one of: ${VALID_PAYMENT_METHODS.join(", ")}`,
-    };
-
-  return {
-    valid: true,
-    data: { couponCode, deliveryAddress, paymentMethod },
-  };
-};
-
-// Validates stock reservation parameters
-const validateReservationData = (body) => {
-  const { productId, variant, quantity } = body || {};
-
-  if (!productId || quantity === undefined || quantity === null)
-    return {
-      valid: false,
-      status: 400,
-      message: "Missing required fields",
-    };
-
-  if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1)
-    return {
-      valid: false,
-      status: 400,
-      message: "Quantity must be a positive integer",
-    };
-
-  return {
-    valid: true,
-    data: { productId, variant, quantity },
-  };
-};
-
-// Validates export route parameters
-const validateExportData = (params) => {
-  const { format, dataType } = params || {};
-
-  if (!format || !dataType)
-    return {
-      valid: false,
-      status: 400,
-      message: "Format and data type are required!",
-    };
-
-  const validFormats = ["excel", "pdf"];
-  const validDataTypes = ["products", "orders", "users", "coupons"];
-
-  if (!validFormats.includes(format.toLowerCase()))
-    return {
-      valid: false,
-      status: 400,
-      message: "Invalid format! Allowed formats are: excel, pdf",
-    };
-
-  if (!validDataTypes.includes(dataType.toLowerCase()))
-    return {
-      valid: false,
-      status: 400,
-      message: "Invalid data type! Allowed types are: products, orders, users, coupons",
-    };
-
-  return {
-    valid: true,
-    data: { format: format.toLowerCase(), dataType: dataType.toLowerCase() },
-  };
-};
-
-// Validates pagination query parameters
-const validatePagination = (query) => {
-  const currPage = query?.currPage;
-
-  if (!currPage)
-    return {
-      valid: false,
-      status: 400,
-      message: "Current page is required!",
-    };
-
-  const parsedPage = parseInt(currPage, 10);
-  if (isNaN(parsedPage) || parsedPage < 1)
-    return {
-      valid: false,
-      status: 400,
-      message: "Current page must be a positive integer",
-    };
-
-  return {
-    valid: true,
-    page: parsedPage,
-  };
-};
-
 // Values that go into Mongoose filters must be plain strings, never objects like {"$ne": null}
 const isNonEmptyString = (value) => typeof value === "string" && value.trim() !== "";
 const isOptionalString = (value) => value === undefined || value === null || typeof value === "string";
@@ -398,16 +289,55 @@ const passwordProblem = (password) => {
 // Makes user text match literally inside a RegExp, so it can't be a slow or invalid pattern
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// Emails are stored lower-case, so "Casey@x.com" and "casey@x.com" are one account
+const normalizeEmail = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
+const isValidEmail = (email) => email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+const USERNAME_MIN_LENGTH = 2;
+const USERNAME_MAX_LENGTH = 40;
+
+// Returns why a username is not allowed, or null if it is fine
+const usernameProblem = (username) => {
+  if (typeof username !== "string")
+    return "Username must be text.";
+  const length = username.trim().length;
+  if (length < USERNAME_MIN_LENGTH || length > USERNAME_MAX_LENGTH)
+    return `Username must be ${USERNAME_MIN_LENGTH} to ${USERNAME_MAX_LENGTH} characters.`;
+  return null;
+};
+
+const MAX_ADDRESS_LENGTH = 300;
+
+// A delivery address is free text, but it has to be text and of a sane length
+const addressProblem = (address) => {
+  if (typeof address !== "string" || !address.trim())
+    return "Delivery address is required.";
+  if (address.trim().length > MAX_ADDRESS_LENGTH)
+    return `Delivery address must be at most ${MAX_ADDRESS_LENGTH} characters.`;
+  return null;
+};
+
+const MAX_PAGE = 10000;
+
+// Page numbers from the query string; anything that isn't a whole number from 1 to MAX_PAGE is null
+const parsePage = (value) => {
+  if (typeof value !== "string" && typeof value !== "number")
+    return null;
+  const page = Number(value);
+  return Number.isInteger(page) && page >= 1 && page <= MAX_PAGE ? page : null;
+};
+
 module.exports = {
   isNonEmptyString,
   isOptionalString,
   escapeRegex,
+  normalizeEmail,
+  isValidEmail,
   passwordProblem,
+  usernameProblem,
+  addressProblem,
+  parsePage,
   validateProductData,
   validateCouponFields,
-  validateOrderData,
-  validateReservationData,
-  validateExportData,
-  validatePagination,
 };
 

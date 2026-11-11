@@ -1,7 +1,3 @@
-// Import required libraries for Excel and PDF generation
-const excel = require("exceljs");
-const PDFDocument = require("pdfkit");
-
 // Import database models for different entities
 const userModel = require("../db/models/user.model.js");
 const productModel = require("../db/models/product.model.js");
@@ -104,8 +100,11 @@ const dataConfigs = {
 // @param {Object} res - Express response object
 // @param {Object} config - Configuration object containing model and field definitions (dataConfig)
 const generateExcel = async (res, config) => {
+  // Loaded on first use: exports are rare, and these libraries slow every cold start
+  const excel = require("exceljs");
+
   // Build database query with optional population
-  let query = config.model.find(); // ← This becomes userModel/productModel/couponModel/orderModel.find()
+  let query = config.model.find().lean(); // ← This becomes userModel/productModel/couponModel/orderModel.find()
 
   if (config.populate)
     query = query.populate(config.populate); // populate loads data for referenced fields
@@ -162,8 +161,11 @@ const generateExcel = async (res, config) => {
 // @param {Object} res - Express response object
 // @param {Object} config - Configuration object containing model and field definitions
 const generatePdf = async (res, config) => {
+  // Loaded on first use: exports are rare, and this library slows every cold start
+  const PDFDocument = require("pdfkit");
+
   // Build database query with population just for referenced fields
-  let query = config.model.find();
+  let query = config.model.find().lean();
   if (config.populate)
     query = query.populate(config.populate);
 

@@ -1,120 +1,26 @@
-import logo from "./img/logo.webp";
-import search from "./img/search.svg";
-import banner from "./img/homePics/banner.webp";
-import menu from "./img/menu.webp";
-import genos from "./img/genos.webp";
-import comicBackground from "./img/homePics/comicBackground.webp";
-import halloweenBackground from "./img/homePics/halloweenBackground.webp";
-import jin from "./img/homePics/jin.webp";
-import battleGround from "./img/homePics/battleGround.webp";
-import footerPic from "./img/homePics/footerPic.webp";
-import comics from "./img/shopPics/comics.webp";
-import actionfigure from "./img/shopPics/actionfigure.webp";
-import clothes from "./img/shopPics/clothes.webp";
-import shoes from "./img/shopPics/shoes.webp";
-import google from "./img/SignUpPics/google.svg";
-import house from "./img/shopPics/house.png";
-import prevBtn from "./img/shopPics/prev.svg";
-import nextBtn from "./img/shopPics/next.svg";
-import filter from "./img/shopPics/filter.webp";
-import close from "./img/shopPics/close.webp";
-import funnel from "./img/shopPics/funnel.svg";
-import bag from "./img/shopPics/bag.png";
-import defaultProfile from "./img/defaultProfile.webp";
-import plus from "./img/Dashboard/plus.svg";
-import edit from "./img/Dashboard/edit.svg";
-import deleteIcon from "./img/Dashboard/deleteIcon.svg";
-import cross from "./img/Dashboard/cross.svg";
-import file from "./img/Dashboard/file.svg";
-import product from "./img/Dashboard/product.svg";
-import orders from "./img/Dashboard/orders.svg";
-import users from "./img/Dashboard/users.svg";
-import coupons from "./img/Dashboard/coupons.svg";
-import excel from "./img/Dashboard/excel.png";
-import pdf from "./img/Dashboard/pdf.png";
-import emptyCart from "./img/emptyCart.png";
-import narutoShoes from "./img/NARUTO-SHOES.webp";
-import jjkPants from "./img/JJK-PANTS.webp";
-import aotHoddie from "./img/AOT-HOODIE-2.webp";
-import pokemonComic from "./img/pokemonComic.webp";
-import narutoComic from "./img/narutoComic.jpg";
-import saoComic from "./img/saoComic.webp";
-import dragonBallComic from "./img/dragonBallComic.webp";
-import dashbar from "./img/dashboard.webp";
-import cart from "./img/cart.svg";
-import history from "./img/history.svg";
-import shop from "./img/shop.svg";
-import homeIcon from "./img/homePics/homeIcon.svg";
-import settings from "./img/settings.svg";
-import tick from "./img/tick.svg";
-import processing from "./img/Dashboard/processing.svg";
-import pending from "./img/Dashboard/pending.svg";
-import shipped from "./img/Dashboard/shipped.svg";
-import delivered from "./img/Dashboard/delivered.svg";
-import loader from "./img/loader.svg";
-import activeCoupons from "./img/Dashboard/activeCoupons.svg";
-import couponUsage from "./img/Dashboard/couponUsage.svg";
-import couponDiscount from "./img/Dashboard/couponDiscount.svg";
+import comicNaruto from "./img/products/comic-naruto.webp";
+import comicDragonBall from "./img/products/comic-dragon-ball.webp";
+import comicPokemon from "./img/products/comic-pokemon.webp";
+import comicSao from "./img/products/comic-sao.webp";
+import hoodieSurveyCorps from "./img/products/hoodie-survey-corps.webp";
+import pantsJujutsu from "./img/products/pants-jujutsu.webp";
+import sneakersAkatsuki from "./img/products/sneakers-akatsuki.webp";
+import sneakersSolo from "./img/products/sneakers-solo.webp";
+import figureFighter from "./img/products/figure-fighter.webp";
+import posterGenos from "./img/products/poster-genos.webp";
 
+// Marketing imagery for the home and auth pages. Icons come from lucide-react, not image files.
 const assets = {
-  logo,
-  search,
-  banner,
-  menu,
-  genos,
-
-  comicBackground,
-  halloweenBackground,
-  jin,
-  battleGround,
-  footerPic,
-  comics,
-  clothes,
-  actionfigure,
-  shoes,
-  google,
-  house,
-  prevBtn,
-  nextBtn,
-  filter,
-  close,
-  funnel,
-  bag,
-  defaultProfile,
-  plus,
-  edit,
-  deleteIcon,
-  cross,
-  file,
-  product,
-  orders,
-  users,
-  coupons,
-  excel,
-  pdf,
-  emptyCart,
-  narutoShoes,
-  jjkPants,
-  aotHoddie,
-  pokemonComic,
-  narutoComic,
-  saoComic,
-  dragonBallComic,
-  dashbar,
-  cart,
-  history,
-  shop,
-  homeIcon,
-  settings,
-  tick,
-  processing,
-  delivered,
-  pending,
-  shipped,
-  loader,
-  activeCoupons,
-  couponUsage,
-  couponDiscount,
+  comicNaruto,
+  comicDragonBall,
+  comicPokemon,
+  comicSao,
+  hoodieSurveyCorps,
+  pantsJujutsu,
+  sneakersAkatsuki,
+  sneakersSolo,
+  figureFighter,
+  posterGenos,
 };
 
 export default assets;

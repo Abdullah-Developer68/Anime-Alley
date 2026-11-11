@@ -5,131 +5,97 @@ const {
   validateCouponFields,
   validateCouponForUser,
 } = require("../utils/coupon.utils.js");
-const { isNonEmptyString } = require("../utils/validation.utils.js");
+const mongoose = require("mongoose");
+const { parsePage } = require("../utils/validation.utils.js");
+const { maskText } = require("../utils/privacy.utils.js");
 const { clientError } = require("../utils/errors.utils.js");
+
+const COUPONS_PER_PAGE = 20;
+// Letters, digits, dashes and underscores; what fits on a promo banner
+const COUPON_CODE_PATTERN = /^[A-Za-z0-9_-]{3,40}$/;
 
 const checkCoupon = async (req, res) => {
   try {
-    // User is identified from the verified token
-    const userId = req.user?.id;
     const couponCode = req.query?.code;
 
-    if (!couponCode || typeof couponCode !== "string")
-      return res.status(400).json({
-        success: false,
-        message: "Coupon code is required",
-      });
+    if (typeof couponCode !== "string" || !couponCode.trim() || couponCode.length > 40)
+      return res.status(400).json({ success: false, message: "Coupon code is required" });
 
     await dbConnect();
 
-    const user = await userModel.findById(userId).populate("couponCodeUsed");
+    const user = await userModel.findById(req.user?.id).select("couponCodeUsed").lean();
 
     // Shared rules: exists, not expired, not already used by this user
     const couponCheck = await validateCouponForUser(couponCode, user);
     if (!couponCheck.valid)
-      return res.status(couponCheck.status).json({
-        success: false,
-        message: couponCheck.message,
-      });
+      return res.status(couponCheck.status).json({ success: false, message: couponCheck.message });
     const { coupon } = couponCheck;
 
     return res.status(200).json({
       success: true,
       message: "Coupon applied successfully",
       coupondata: {
-        coupon,
-        userCoupons: user.couponCodeUsed,
+        coupon: {
+          couponCode: coupon.couponCode,
+          discountPercentage: coupon.discountPercentage,
+          expiryDate: coupon.expiryDate,
+        },
       },
     });
   } catch (error) {
     console.error("Error checking coupon:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error while checking coupon",
-    });
+    return res.status(500).json({ success: false, message: "Internal server error while checking coupon" });
   }
 };
 
 const getAllCoupons = async (req, res) => {
   try {
-    // Get email from verified token
-    const viewerEmail = req.user?.email;
-    const currPage = req.query?.currPage;
-
-    // Validate required parameters
-    if (!currPage)
-      return res.status(400).json({
-        message: "Current page is required!",
-      });
+    const page = parsePage(req.query?.currPage);
+    if (!page)
+      return res.status(400).json({ success: false, message: "Current page must be a positive integer" });
 
     await dbConnect();
-    // Verify admin role from database (ultra-secure)
-    const adminUser = await userModel.findOne({ email: viewerEmail });
-    if (
-      !adminUser ||
-      (adminUser.role !== "admin" && adminUser.role !== "superAdmin")
-    )
-      return res.status(403).json({ message: "User is not authorized!" });
 
-    // --- Pagination Logic ---
-    const couponsPerPage = 20;
-    const page = parseInt(currPage, 10) || 1;
-    const startIndex = (page - 1) * couponsPerPage;
+    // requireAdmin has already checked the role from the database. _id order is creation order.
+    const [totalCoupons, coupons] = await Promise.all([
+      couponModel.estimatedDocumentCount(),
+      couponModel.find().sort({ _id: -1 }).skip((page - 1) * COUPONS_PER_PAGE).limit(COUPONS_PER_PAGE).lean(),
+    ]);
 
-    // Get the total count of all coupons
-    const totalCoupons = await couponModel.countDocuments();
+    // A demo admin could otherwise read every live code and use it on a real order
+    const allCoupons = req.user?.isDemo
+      ? coupons.map((coupon) => ({ ...coupon, couponCode: maskText(coupon.couponCode, 2) }))
+      : coupons;
 
-    // Calculate total pages
-    const totalPages = Math.ceil(totalCoupons / couponsPerPage);
-
-    // Fetch paginated coupons, sorting by most recent
-    const allCoupons = await couponModel
-      .find()
-      .sort({ createdAt: -1 }) // Sort by most recently created
-      .skip(startIndex)
-      .limit(couponsPerPage);
-
-    // Respond with paginated coupon data
     res.status(200).json({
       success: true,
       message: "Coupons fetched successfully",
       allCoupons,
       totalCoupons,
-      totalPages,
+      totalPages: Math.ceil(totalCoupons / COUPONS_PER_PAGE),
     });
   } catch (error) {
     console.error("Error fetching all coupons:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
 const deleteCoupon = async (req, res) => {
   try {
     const couponId = req.params?.couponId;
-
-    if (!couponId)
-      return res.status(400).json({ message: "Coupon ID is required." });
+    if (!mongoose.isValidObjectId(couponId))
+      return res.status(400).json({ success: false, message: "Invalid coupon id" });
 
     await dbConnect();
 
     const result = await couponModel.findByIdAndDelete(couponId);
-
     if (!result)
-      return res.status(404).json({ message: "Coupon not found." });
+      return res.status(404).json({ success: false, message: "Coupon not found." });
 
-    res.status(200).json({
-      success: true,
-      message: `Coupon with ID: ${couponId} has been deleted.`,
-    });
+    res.status(200).json({ success: true, message: `Coupon ${result.couponCode} has been deleted.` });
   } catch (error) {
     console.error("Error deleting coupon:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
 
@@ -138,32 +104,27 @@ const updateCoupon = async (req, res) => {
     const couponId = req.params?.couponId;
     const { discountPercentage, expiryDate } = req.body || {};
 
-    if (!couponId)
-      return res.status(400).json({ message: "Coupon ID is required." });
+    if (!mongoose.isValidObjectId(couponId))
+      return res.status(400).json({ success: false, message: "Invalid coupon id" });
 
     const fieldValidation = validateCouponFields({ discountPercentage, expiryDate });
     if (!fieldValidation.valid)
-      return res.status(fieldValidation.status).json({
-        success: false,
-        message: fieldValidation.message,
-      });
+      return res.status(fieldValidation.status).json({ success: false, message: fieldValidation.message });
 
     await dbConnect();
 
-    const updatedCoupon = await couponModel.findByIdAndUpdate(
-      couponId,
-      { discountPercentage, expiryDate },
-      { new: true, runValidators: true },
-    );
+    // Only the fields that were sent change
+    const update = {};
+    if (discountPercentage !== undefined)
+      update.discountPercentage = discountPercentage;
+    if (expiryDate !== undefined)
+      update.expiryDate = expiryDate;
 
+    const updatedCoupon = await couponModel.findByIdAndUpdate(couponId, update, { new: true, runValidators: true }).lean();
     if (!updatedCoupon)
-      return res.status(404).json({ message: "Coupon not found." });
+      return res.status(404).json({ success: false, message: "Coupon not found." });
 
-    res.status(200).json({
-      success: true,
-      message: "Coupon updated successfully.",
-      coupon: updatedCoupon,
-    });
+    res.status(200).json({ success: true, message: "Coupon updated successfully.", coupon: updatedCoupon });
   } catch (error) {
     // Duplicate or invalid data gets a safe 409/400 instead of the raw database error
     const known = clientError(error);
@@ -171,64 +132,39 @@ const updateCoupon = async (req, res) => {
       return res.status(known.status).json({ success: false, message: known.message });
 
     console.error("Error updating coupon:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
 
 const createCoupon = async (req, res) => {
   try {
-    // Get email from verified token
-    const email = req.user?.email;
-    const { couponCode, discountPercentage, expiryDate } = req.body || {};
+    const { discountPercentage, expiryDate } = req.body || {};
+    const couponCode = typeof req.body?.couponCode === "string" ? req.body.couponCode.trim() : "";
 
-    if (!isNonEmptyString(couponCode) || !discountPercentage)
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing required fields." });
+    if (!COUPON_CODE_PATTERN.test(couponCode))
+      return res.status(400).json({
+        success: false,
+        message: "Coupon codes are 3 to 40 letters, digits, dashes or underscores.",
+      });
+    if (discountPercentage === undefined)
+      return res.status(400).json({ success: false, message: "Missing required fields." });
 
     const fieldValidation = validateCouponFields({ discountPercentage, expiryDate });
     if (!fieldValidation.valid)
-      return res.status(fieldValidation.status).json({
-        success: false,
-        message: fieldValidation.message,
-      });
+      return res.status(fieldValidation.status).json({ success: false, message: fieldValidation.message });
 
     await dbConnect();
 
-    // Verify admin role from database (ultra-secure)
-    const user = await userModel.findOne({ email });
-    if (!user || (user.role !== "admin" && user.role !== "superAdmin"))
-      return res
-        .status(403)
-        .json({ success: false, message: "User is not authorized!" });
-
-    // Check for existing coupon with same code
-    const existing = await couponModel.findOne({ couponCode });
+    // requireAdmin has already checked the role. An expired coupon with the same code is replaced.
+    const existing = await couponModel.findOne({ couponCode }).select("expiryDate").lean();
     if (existing) {
       if (existing.expiryDate > new Date())
-        return res.status(400).json({
-          success: false,
-          message: "Coupon with this code already exists and is still active.",
-        });
-      else
-        // Remove expired coupon
-        await couponModel.deleteOne({ _id: existing._id });
+        return res.status(400).json({ success: false, message: "Coupon with this code already exists and is still active." });
+      await couponModel.deleteOne({ _id: existing._id });
     }
 
-    // Create new coupon
-    const newCoupon = await couponModel.create({
-      couponCode,
-      discountPercentage,
-      expiryDate,
-    });
-    res.status(201).json({
-      success: true,
-      message: "Coupon created successfully.",
-      coupon: newCoupon,
-    });
+    const newCoupon = await couponModel.create({ couponCode, discountPercentage, expiryDate });
+    res.status(201).json({ success: true, message: "Coupon created successfully.", coupon: newCoupon });
   } catch (error) {
     // Duplicate or invalid data gets a safe 409/400 instead of the raw database error
     const known = clientError(error);
@@ -236,54 +172,35 @@ const createCoupon = async (req, res) => {
       return res.status(known.status).json({ success: false, message: known.message });
 
     console.error("Error creating coupon:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-    });
+    res.status(500).json({ success: false, message: "Internal server error." });
   }
 };
 
 const getCouponStats = async (req, res) => {
   try {
-    // Get email from verified token
-    const email = req.user?.email;
-
-    if (!email)
-      return res.status(401).json({ message: "User is not authorized!" });
-
     await dbConnect();
 
-    // Verify admin role from database (ultra-secure)
-    const user = await userModel.findOne({ email });
-    if (!user || (user.role !== "admin" && user.role !== "superAdmin"))
-      return res.status(403).json({ message: "User is not authorized!" });
-
-    const now = new Date();
-    const activeCoupons = await couponModel.countDocuments({
-      expiryDate: { $gt: now },
-    });
-    const allCoupons = await couponModel.find();
-    const totalUsage = allCoupons.reduce(
-      (sum, c) => sum + (c.totalUsage || 0),
-      0,
-    );
-    const totalDiscount = allCoupons.reduce(
-      (sum, c) => sum + (c.lifeTimeDiscount || 0),
-      0,
-    );
+    // Totals are summed in the database instead of loading every coupon
+    const [stats] = await couponModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          activeCoupons: { $sum: { $cond: [{ $gt: ["$expiryDate", new Date()] }, 1, 0] } },
+          totalUsage: { $sum: { $ifNull: ["$totalUsage", 0] } },
+          totalDiscount: { $sum: { $ifNull: ["$lifeTimeDiscount", 0] } },
+        },
+      },
+    ]);
 
     res.status(200).json({
       success: true,
-      activeCoupons,
-      totalUsage,
-      totalDiscount,
+      activeCoupons: stats?.activeCoupons || 0,
+      totalUsage: stats?.totalUsage || 0,
+      totalDiscount: stats?.totalDiscount || 0,
     });
   } catch (error) {
     console.error("Error getting coupon stats:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 

@@ -5,7 +5,8 @@ const userSchema = new mongoose.Schema(
     username: { type: String, required: true },
 
     // `email` is unique, meaning no two users can have the same email address
-    email: { type: String, unique: true, required: true },
+    // Stored lower-case (Mongoose also lower-cases query values), so letter case can't split one mailbox in two
+    email: { type: String, unique: true, required: true, lowercase: true, trim: true },
 
     role: {
       type: String,

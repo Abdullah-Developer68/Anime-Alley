@@ -1,13 +1,13 @@
 import { useLayoutEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Lock, Mail } from "lucide-react";
 import useAuth from "../Hooks/UseAuth";
 import { setAuthLoading, setAuthMode } from "../redux/Slice/authSlice";
 import api from "../api/api";
-import { checkAndHandleUserChange, saveAuthTokens } from "../utils/userSessionManager";
+import { startUserSession } from "../utils/userSessionManager";
 import AuthLayout from "../components/Auth/AuthLayout";
 import AuthField from "../components/Auth/AuthField";
 import DemoAccess from "../components/Auth/DemoAccess";
@@ -16,6 +16,7 @@ import { GoogleSignIn, SubmitButton } from "../components/Auth/AuthButtons";
 const Login = () => {
   const { setUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
 
   const {
@@ -34,24 +35,13 @@ const Login = () => {
     try {
       const res = await api.login(data);
 
-      if (res.data.success) {
-        // Only clear if the user didn't change, to avoid clearing twice
-        if (!checkAndHandleUserChange(res.data.user))
-          localStorage.clear();
-
-        // Access token for the Authorization header, refresh token to renew it
-        saveAuthTokens(res.data);
-
-        setUser(res.data.user);
-        localStorage.setItem("userInfo", JSON.stringify(res.data.user));
-        navigate("/");
-      }
+      // Access token for the Authorization header, refresh token to renew it
+      startUserSession(res.data.user, res.data);
+      setUser(res.data.user);
+      // Back to the page that asked for a login, if any
+      navigate(location.state?.from?.pathname || "/", { replace: true });
     } catch (error) {
-      toast.error(error.response?.data?.message || "Try again something went wrong!");
-      console.error("Login error:", {
-        message: error.response?.data?.message,
-        status: error.response?.status,
-      });
+      toast.error(error.response?.data?.message || "Something went wrong. Please try again.");
     } finally {
       dispatch(setAuthLoading(false));
     }
@@ -85,9 +75,9 @@ const Login = () => {
         <SubmitButton />
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-400">
+      <p className="mt-6 text-center text-sm text-muted">
         New to Anime Alley?{" "}
-        <Link to="/signup" className="font-semibold text-pink-400 transition hover:text-pink-300">
+        <Link to="/signup" className="font-medium text-ink underline-offset-4 hover:underline">
           Create an account
         </Link>
       </p>

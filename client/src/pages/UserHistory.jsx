@@ -1,333 +1,182 @@
-import { useEffect, useState, useCallback } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import {
-  setHistoryLoading,
-  cachePurchaseHistory,
-  setTotalPages,
-} from "../redux/Slice/userHistorySlice";
-import api from "../api/api";
-import assets from "../assets/asset.js";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { m } from "motion/react";
+import { Banknote, CreditCard, PackageOpen } from "lucide-react";
 import { toast } from "react-toastify";
-import Loader from "../components/Global/Loader";
-import { formatPrice } from "../utils/formatPrice";
+import api from "../api/api";
+import { cachePurchaseHistory, setHistoryLoading, setTotalPages } from "../redux/Slice/userHistorySlice";
+import { variantName } from "../utils/catalog";
+import { formatDate, formatMoney } from "../utils/money";
+import { productImage } from "../utils/images";
+import Frame from "../components/ui/Frame";
+import Badge from "../components/ui/Badge";
+import EmptyState from "../components/ui/EmptyState";
+import Pagination from "../components/ui/Pagination";
+import { ButtonLink } from "../components/ui/Button";
+import { PageSpinner } from "../components/ui/Spinner";
+import { ORDER_STATUS_TONES, panelClass } from "../components/ui/styles";
 
-const UserHistory = () => {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
+const STEPS = ["pending", "processing", "shipped", "delivered"];
 
-  // Local state only for pagination and UI status
-  const [currentPage, setCurrentPage] = useState(1);
-  const [dataLoading, setDataLoading] = useState(false);
+// Orders store their own name/image/variant; older orders fall back to the linked product
+const lineDetails = (line) => ({
+  name: line.name || line.productId?.name || "Product no longer available",
+  image: line.image || line.productId?.image,
+});
 
-  // Redux state for cached data and shared status
-  const isLoading = useSelector((state) => state.userHistory.isLoading);
-  const getNewHistoryCounter = useSelector(
-    (state) => state.userHistory.getNewHistoryCounter,
-  );
-  const purchaseHistory = useSelector(
-    (state) => state.userHistory.purchaseHistory,
-  );
-  const totalPages = useSelector((state) => state.userHistory.totalPages);
-
-  const getUserInfo = useCallback(() => {
-    try {
-      const userInfo = JSON.parse(localStorage.getItem("userInfo"));
-      if (!userInfo) return null;
-
-      // Both local and Google login store user info in the same format
-      // with id, email, and other user details
-      return {
-        id: userInfo.id,
-        email: userInfo.email,
-        // Include any other fields that your backend expects
-      };
-    } catch (error) {
-      console.error("Error parsing userInfo:", error);
-      return null;
-    }
-  }, []);
-
-  const fetchOrders = useCallback(async () => {
-    let loadingTimer;
-    try {
-      // Only show the full-page loader if we don't have any cached data yet
-      // This makes returning visits feel instant (SWR Pattern)
-      if (purchaseHistory.length === 0) {
-        loadingTimer = dispatch(setHistoryLoading(true));
-      }
-
-      const userInfo = getUserInfo();
-
-      if (!userInfo) {
-        if (loadingTimer) clearTimeout(loadingTimer);
-        dispatch(setHistoryLoading(false));
-        toast.error("Please login to view your order history");
-        navigate("/login");
-        return;
-      }
-
-      const res = await api.getOrderHistory(currentPage);
-
-      if (res.status === 200) {
-        // Save to Redux (which also saves to localStorage)
-        dispatch(cachePurchaseHistory(res.data.paginatedOrders));
-        dispatch(setTotalPages(res.data.totalPages));
-      } else {
-        console.error("Failed to fetch orders:", res.data.message);
-      }
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-      if (error.response?.status === 401) {
-        toast.error("Please login to view your order history");
-        navigate("/login");
-      }
-    } finally {
-      if (loadingTimer) clearTimeout(loadingTimer);
-      dispatch(setHistoryLoading(false));
-    }
-  }, [
-    dispatch,
-    getUserInfo,
-    navigate,
-    currentPage,
-    purchaseHistory.length, // Add to dependencies
-  ]);
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const handleNextPage = async () => {
-    try {
-      setDataLoading(true);
-      const userInfo = getUserInfo();
-      if (!userInfo) {
-        toast.error("Please login to view your order history");
-        navigate("/login");
-        setDataLoading(false);
-        return;
-      }
-
-      // triggers usecallback of fetch order which in turn triggers useEffect to get new Data
-      setCurrentPage((prev) => prev + 1);
-    } catch (error) {
-      console.error("Error fetching next page:", error);
-      if (error.response?.status === 401) {
-        toast.error("Please login to view your order history");
-        navigate("/login");
-      }
-    } finally {
-      setDataLoading(false);
-    }
-  };
-
-  const handlePrevPage = async () => {
-    try {
-      setDataLoading(true);
-      const userInfo = getUserInfo();
-      if (!userInfo) {
-        toast.error("Please login to view your order history");
-        navigate("/login");
-        setDataLoading(false);
-        return;
-      }
-      // triggers usecallback of fetch order which in turn triggers useEffect to get new Data
-      setCurrentPage((prev) => prev - 1);
-    } catch (error) {
-      console.error("Error fetching previous page:", error);
-      if (error.response?.status === 401) {
-        toast.error("Please login to view your order history");
-        navigate("/login");
-      }
-    } finally {
-      setDataLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders, getNewHistoryCounter]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
-        <Loader size="lg" />
-      </div>
-    );
-  }
-
-  if (!purchaseHistory || purchaseHistory.length === 0) {
-    return (
-      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-4">
-        <div className="relative w-full max-w-md p-8 border rounded-2xl border-white/10 bg-black/40 backdrop-blur-xl">
-          <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-500/10 blur-3xl -z-10"></div>
-          <img
-            src={assets.emptyCart}
-            alt="No History"
-            className="w-32 h-32 mx-auto mb-6 opacity-70"
-          />
-          <h2 className="mb-3 text-2xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">
-            No Purchase History
-          </h2>
-          <p className="text-center text-white/60">
-            Looks like you have not made any purchases yet. Start shopping to
-            see your order history here!
-          </p>
-        </div>
-      </div>
-    );
-  }
+const OrderCard = ({ order, index }) => {
+  const reached = STEPS.indexOf(order.status);
+  const PaymentIcon = order.paymentMethod === "stripe" ? CreditCard : Banknote;
 
   return (
-    <div className="min-h-screen bg-[#0f172a] py-6 mt-20">
-      <div className="px-4 mx-auto max-w-7xl">
-        {/* Header with Navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-4 p-4 mb-6 rounded-lg bg-black/30">
-          <h1 className="text-2xl font-bold text-white">Purchase History</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-white/60">
-              Page {currentPage} of {totalPages}
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={handlePrevPage}
-                disabled={currentPage === 1 || dataLoading}
-                className={`px-3 py-1.5 rounded text-sm ${
-                  currentPage === 1 || dataLoading
-                    ? "bg-white/5 text-white/30"
-                    : "bg-pink-500/10 text-white hover:bg-pink-500/20"
-                }`}
-              >
-                Previous
-              </button>
-              <button
-                onClick={handleNextPage}
-                disabled={currentPage >= totalPages || dataLoading}
-                className={`px-3 py-1.5 rounded text-sm ${
-                  currentPage >= totalPages || dataLoading
-                    ? "bg-white/5 text-white/30"
-                    : "bg-pink-500/10 text-white hover:bg-pink-500/20"
-                }`}
-              >
-                Next
-              </button>
-            </div>
-          </div>
+    <m.article
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: index * 0.06, ease: [0.22, 1, 0.36, 1] }}
+      className={`${panelClass} overflow-hidden`}
+    >
+      <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-line bg-canvas/60 px-5 py-3.5 text-[13px]">
+        <div>
+          <p className="text-subtle">Order</p>
+          <p className="font-medium text-ink">{order.orderID}</p>
         </div>
+        <div>
+          <p className="text-subtle">Placed</p>
+          <p className="text-ink">{formatDate(order.createdAt || order.orderDate)}</p>
+        </div>
+        <div>
+          <p className="text-subtle">Total</p>
+          <p className="tabular-nums text-ink">{formatMoney(order.finalAmount)}</p>
+        </div>
+        <div className="ml-auto">
+          <Badge tone={ORDER_STATUS_TONES[order.status]}>{order.status}</Badge>
+        </div>
+      </header>
 
-        {/* Orders Grid */}
-        <div className="grid gap-4">
-          {purchaseHistory.map((order, index) => (
-            <div
-              key={index}
-              className="overflow-hidden border rounded-lg bg-black/30 border-white/10"
-            >
-              {/* Order Header */}
-              <div className="grid grid-cols-2 gap-2 p-3 text-sm md:grid-cols-4 bg-black/20">
-                <div>
-                  <span className="block text-xs text-pink-400/70">
-                    Order ID
-                  </span>
-                  <span className="text-white">{order.orderID}</span>
-                </div>
-                <div>
-                  <span className="block text-xs text-pink-400/70">Date</span>
-                  <span className="text-white">
-                    {formatDate(order.orderDate)}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-xs text-pink-400/70">
-                    Payment
-                  </span>
-                  <span className="text-white">{order.paymentMethod}</span>
-                </div>
-                <div className="text-right md:text-left">
-                  <span className="block text-xs text-pink-400/70">Status</span>
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded-full text-xs ${
-                      order.status === "pending"
-                        ? "bg-yellow-500/20 text-yellow-300"
-                        : "bg-green-500/20 text-green-300"
-                    }`}
-                  >
-                    {order.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* Products List - Scrollable */}
-              <div className="max-h-[300px] overflow-y-auto divide-y divide-white/5 custom-scrollbar">
-                {order.products.map((product, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 p-3 hover:bg-white/5"
-                  >
-                    <img
-                      src={product.productId.image}
-                      alt={product.productId.name}
-                      className="flex-shrink-0 object-cover w-16 h-16 rounded-lg"
-                    />
-                    <div className="flex-grow min-w-0">
-                      <h3 className="text-sm text-white truncate">
-                        {product.productId.name}
-                      </h3>
-                      <p className="text-xs text-white/40">
-                        Qty: {product.quantity} × {formatPrice(product.price)} $
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <p className="font-medium text-pink-400">
-                        {formatPrice(product.price * product.quantity)} $
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Order Summary - Compact */}
-              <div className="grid grid-cols-1 gap-4 p-3 text-sm bg-black/20 sm:grid-cols-2">
-                <div>
-                  <p className="mb-1 text-xs text-pink-400/70">
-                    Shipping Address
-                  </p>
-                  <p className="text-xs leading-relaxed text-white/70">
-                    {order.shippingAddress}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-white/60">
-                    <span>Subtotal:</span>
-                    <span>{formatPrice(order.subtotal)}$</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-white/60">
-                    <span>Shipping:</span>
-                    <span>{formatPrice(order.shippingCost)}$</span>
-                  </div>
-                  {order.discount > 0 && (
-                    <div className="flex justify-between text-xs text-green-400">
-                      <span>Discount:</span>
-                      <span>-{formatPrice(order.discount)}$</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-2 text-white border-t border-white/10">
-                    <span className="font-medium">Total</span>
-                    <span className="font-bold text-pink-400">
-                      {formatPrice(order.finalAmount)}$
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <div className="px-5 pt-4">
+        <div className="grid grid-cols-4 gap-1" aria-hidden="true">
+          {STEPS.map((step, i) => (
+            <span key={step} className={`h-1 rounded-full ${i <= reached ? "bg-ink" : "bg-sunken"}`} />
+          ))}
+        </div>
+        <div className="mt-1.5 grid grid-cols-4 text-[11px] capitalize text-subtle">
+          {STEPS.map((step, i) => (
+            <span key={step} className={i <= reached ? "text-ink-soft" : ""}>{step}</span>
           ))}
         </div>
       </div>
-    </div>
+
+      <ul className="px-5">
+        {order.products.map((line, i) => {
+          const { name, image } = lineDetails(line);
+          return (
+            <li key={i} className="flex items-center gap-3.5 border-b border-line py-3.5 last:border-b-0">
+              <div className="size-14 shrink-0 overflow-hidden rounded-lg border border-line bg-surface">
+                {image && <img src={productImage(image, 120)} alt="" loading="lazy" className="size-full object-cover" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-ink">{name}</p>
+                <p className="text-xs text-muted">
+                  {line.variant && line.variant !== "Default" && `${variantName(line.productId?.category)} ${line.variant} · `}
+                  Qty {line.quantity} × {formatMoney(line.price)}
+                </p>
+              </div>
+              <p className="text-sm tabular-nums text-ink">{formatMoney(line.price * line.quantity)}</p>
+            </li>
+          );
+        })}
+      </ul>
+
+      <footer className="grid gap-4 border-t border-line px-5 py-4 text-[13px] sm:grid-cols-2">
+        <div className="space-y-1 text-muted">
+          <p className="flex items-center gap-1.5 text-ink-soft">
+            <PaymentIcon aria-hidden="true" className="size-3.5" />
+            {order.paymentMethod === "stripe" ? "Paid by card" : "Cash on delivery"}
+          </p>
+          <p className="line-clamp-2">{order.shippingAddress}</p>
+        </div>
+        <dl className="space-y-1 sm:text-right">
+          <div className="flex justify-between gap-6 text-muted sm:justify-end">
+            <dt>Subtotal</dt>
+            <dd className="tabular-nums text-ink-soft">{formatMoney(order.subtotal)}</dd>
+          </div>
+          <div className="flex justify-between gap-6 text-muted sm:justify-end">
+            <dt>Shipping</dt>
+            <dd className="tabular-nums text-ink-soft">{formatMoney(order.shippingCost)}</dd>
+          </div>
+          {order.discount > 0 && (
+            <div className="flex justify-between gap-6 text-success sm:justify-end">
+              <dt>{order.couponCode || "Discount"}</dt>
+              <dd className="tabular-nums">−{formatMoney(order.discount)}</dd>
+            </div>
+          )}
+        </dl>
+      </footer>
+    </m.article>
+  );
+};
+
+const UserHistory = () => {
+  const dispatch = useDispatch();
+  const [page, setPage] = useState(1);
+  const { isLoading, purchaseHistory, totalPages, getNewHistoryCounter } = useSelector((state) => state.userHistory);
+
+  // Cached orders show at once; the fresh list replaces them when it arrives
+  useEffect(() => {
+    let active = true;
+    if (purchaseHistory.length === 0)
+      dispatch(setHistoryLoading(true));
+    api
+      .getOrderHistory(page)
+      .then(({ data }) => {
+        if (!active)
+          return;
+        dispatch(cachePurchaseHistory(data.paginatedOrders));
+        dispatch(setTotalPages(data.totalPages));
+      })
+      .catch((error) => active && toast.error(error.response?.data?.message || "Couldn't load your orders."))
+      .finally(() => active && dispatch(setHistoryLoading(false)));
+    return () => {
+      active = false;
+    };
+    // purchaseHistory is read only to decide whether to show the spinner
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, getNewHistoryCounter, dispatch]);
+
+  if (isLoading)
+    return <PageSpinner />;
+
+  if (purchaseHistory.length === 0)
+    return (
+      <Frame className="flex flex-1 items-center justify-center">
+        <EmptyState icon={PackageOpen} title="No orders yet" action={<ButtonLink to="/shop">Start shopping</ButtonLink>}>
+          When you place an order, you can follow it here from pending to delivered.
+        </EmptyState>
+      </Frame>
+    );
+
+  return (
+    <Frame className="flex-1 px-4 pb-20 pt-8 sm:px-6">
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">Account</p>
+      <h1 className="mt-1.5 text-3xl font-medium tracking-[-0.03em] text-ink">Order history</h1>
+
+      <div className="mt-8 grid gap-4">
+        {purchaseHistory.map((order, index) => (
+          <OrderCard key={order._id} order={order} index={index} />
+        ))}
+      </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={(next) => {
+          setPage(next);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        label="Order pages"
+        className="mt-10 justify-center"
+      />
+    </Frame>
   );
 };
 

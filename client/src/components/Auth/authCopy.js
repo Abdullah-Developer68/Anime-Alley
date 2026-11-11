@@ -2,8 +2,8 @@
 const AUTH_COPY = {
   login: {
     title: "Welcome back",
-    brandTitle: "Your anime gear, all in one place.",
-    brandText: "Comics, figures, apparel and sneakers from the series you love, shipped to your door.",
+    brandTitle: "Your shelf",
+    brandText: "missed you.",
     google: "Continue with Google",
     steps: {
       1: { subtitle: "Log in to check out faster and track your orders.", submit: "Log in", submitting: "Logging in..." },
@@ -12,7 +12,7 @@ const AUTH_COPY = {
   signup: {
     title: "Create your account",
     brandTitle: "Join the alley.",
-    brandText: "Save your cart, check out with Stripe or cash on delivery, and keep every order in one place.",
+    brandText: "Your collection starts here.",
     google: "Sign up with Google",
     steps: {
       1: { subtitle: "Start with your email and we'll send you a 6-digit code.", submit: "Continue", submitting: "Sending code..." },

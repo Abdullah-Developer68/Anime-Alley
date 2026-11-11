@@ -1,350 +1,200 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-
+import { Download, Pencil, Search, Trash2 } from "lucide-react";
 import useAuth from "../../../../Hooks/UseAuth";
 import api from "../../../../api/api";
-import assets from "../../../../assets/asset";
-
-import {
-  openExportModal,
-  openUserEditModal,
-  openUserDeleteModal,
-} from "../../../../redux/Slice/DashboardSlice";
-
+import { openExportModal, openUserDeleteModal, openUserEditModal, setReloadData } from "../../../../redux/Slice/DashboardSlice";
+import { formatDate } from "../../../../utils/money";
 import EditUser from "./EditUser";
 import DeleteUser from "./DeleteUser";
-import { toast } from "react-toastify";
-import { Download, Search } from "lucide-react";
-import DashboardPagination from "../../DashboardPagination";
+import { canDeleteUser, canEditUser, ROLE_LABELS, ROLE_TONES } from "./permissions";
+import PageHeader from "../../shared/PageHeader";
+import DemoNotice from "../../shared/DemoNotice";
+import { READ_ONLY_TITLE, useReadOnly } from "../../shared/readOnly";
+import { emptyCellClass, rowClass, tableClass, tableWrapClass, tdClass, thClass } from "../../shared/tableStyles";
+import Avatar from "../../../ui/Avatar";
+import Badge from "../../../ui/Badge";
+import Button from "../../../ui/Button";
+import Pagination from "../../../ui/Pagination";
+import { cx, inputClass } from "../../../ui/styles";
+
+const ROLE_FILTERS = [
+  { value: "allUsers", label: "All roles" },
+  { value: "user", label: "Customers" },
+  { value: "admin", label: "Admins" },
+  { value: "superAdmin", label: "Super admins" },
+];
 
 const Users = () => {
-  const { user } = useAuth();
   const dispatch = useDispatch();
+  const { user: editor } = useAuth();
+  const readOnly = useReadOnly();
+  const reloadData = useSelector((state) => state.dashboard.reloadData);
   const [users, setUsers] = useState([]);
   const [currPage, setCurrPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [role, setRole] = useState("allUsers");
-  const [submittedSearch, setSubmittedSearch] = useState("");
-  const [submittedRole, setSubmittedRole] = useState("allUsers");
   const [error, setError] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [query, setQuery] = useState({ search: "", role: "allUsers" });
 
-  // Redux reload trigger
-  const reloadDataType = useSelector((state) => state.dashboard.reloadData);
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "N/A";
-
-    const date = new Date(dateStr);
-
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      return "N/A";
-    }
-
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  const canEditUser = (targetUser) => {
-    if (!user?.role || !targetUser?.role) return false;
-    // Allow editing self
-    if (user.email && targetUser.email && user.email === targetUser.email)
-      return true;
-    const roleHierarchy = {
-      superAdmin: 3,
-      admin: 2,
-      user: 1,
-    };
-    const editorRank = roleHierarchy[user.role] || 0;
-    const targetRank = roleHierarchy[targetUser.role] || 0;
-    return editorRank > targetRank;
-  };
-
-  const handleEditClick = (targetUser) => {
-    if (user.role === "user") {
-      toast.error("You do not have the authority to edit users.");
-      return;
-    }
-    if (!canEditUser(targetUser)) {
-      toast.error("You do not have the authority to edit this user.");
-      return;
-    }
-    dispatch(openUserEditModal(targetUser));
-  };
-
-  const loadUsers = async (
-    page = 1,
-    search = submittedSearch,
-    roleVal = submittedRole,
-  ) => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.getUsers(page, search, roleVal);
-      if (res.data.success) {
-        setUsers(res.data.requiredUsers);
-        setTotalPages(res.data.totalPages);
-        setTotalUsers(res.data.totalUsers);
-      } else {
-        setError(res.data.message || "Failed to fetch users.");
-      }
+      const { data } = await api.getUsers(currPage, query.search, query.role);
+      setUsers(data.requiredUsers);
+      setTotalPages(data.totalPages);
+      setTotalUsers(data.totalUsers);
     } catch (err) {
-      setError(err.response?.data?.message || "An error occurred.");
+      setUsers([]);
+      setError(err.response?.data?.message || "Failed to fetch users.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [currPage, query]);
 
-  // Load users on page/search/role change or when reload is triggered
   useEffect(() => {
-    loadUsers(currPage, submittedSearch, submittedRole);
+    loadUsers();
+  }, [loadUsers]);
 
-    // Reset reloadDataType if it was 'users'
-    if (reloadDataType === "users") {
-      dispatch({ type: "dashboard/setReloadData", payload: null });
-    }
-  }, [currPage, submittedSearch, submittedRole, user?.email, reloadDataType]);
-
-  const handlePg = (value) => {
-    let newPage;
-    if (value === "next" && currPage < totalPages) newPage = currPage + 1;
-    else if (value === "prev" && currPage > 1) newPage = currPage - 1;
-    else if (typeof value === "number") newPage = value;
-    else return;
-    setCurrPage(newPage);
-  };
-
-  const handleDelete = (userToDelete) => {
-    if (user.email && userToDelete.email && user.email === userToDelete.email) {
-      toast.error("You cannot delete yourself.");
+  // Edits and deletes ask for a reload through Redux
+  useEffect(() => {
+    if (reloadData !== "users")
       return;
-    }
-    if (!canEditUser(userToDelete)) {
-      toast.error("You do not have the authority to delete this user.");
-      return;
-    }
-    dispatch(openUserDeleteModal(userToDelete));
+    loadUsers();
+    dispatch(setReloadData(null));
+  }, [reloadData, loadUsers, dispatch]);
+
+  const search = (e) => {
+    e.preventDefault();
+    setCurrPage(1);
+    setQuery({ ...query, search: searchInput.trim() });
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <EditUser />
       <DeleteUser />
 
-      {/* Header Section */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Users</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("users"))}
-            title="Export Users"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+      <PageHeader title="Users" description={`${totalUsers} accounts`}>
+        <Button variant="secondary" size="sm" onClick={() => dispatch(openExportModal("users"))} disabled={readOnly} title={readOnly ? READ_ONLY_TITLE : undefined}>
+          <Download aria-hidden="true" className="size-3.5" />
+          Export
+        </Button>
+      </PageHeader>
 
-      {/* Search and Filter Section */}
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex-1">
+      <DemoNotice />
+
+      <div className="flex flex-wrap gap-2">
+        <form onSubmit={search} className="relative min-w-60 flex-1 sm:max-w-sm">
+          <label htmlFor="user-search" className="sr-only">
+            Search users
+          </label>
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-subtle" />
           <input
-            type="text"
-            placeholder="Search users..."
-            className="w-full px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 placeholder:text-white/50 focus:outline-none focus:border-pink-500"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            id="user-search"
+            type="search"
+            value={searchInput}
+            maxLength={100}
+            onChange={(e) => setSearchInput(e.target.value)}
+            disabled={readOnly}
+            placeholder={readOnly ? "Search is off for demo accounts" : "Search by name or email, then press Enter"}
+            className={cx(inputClass, "h-9! pl-9! text-[13px]")}
           />
-        </div>
+        </form>
+        <label htmlFor="role-filter" className="sr-only">
+          Role
+        </label>
         <select
-          className="px-4 py-2 text-white border rounded-lg bg-white/5 border-white/10 focus:outline-none focus:border-pink-500"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        >
-          <option value="allUsers" className="text-black bg-gray-400">
-            All Users
-          </option>
-          <option value="user" className="text-black bg-gray-400">
-            Users
-          </option>
-          <option value="admin" className="text-black bg-gray-400">
-            Admin
-          </option>
-          <option value="superAdmin" className="text-black bg-gray-400">
-            Super Admin
-          </option>
-        </select>
-        <button
-          type="button"
-          title="Search Users"
-          className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white shrink-0"
-          onClick={() => {
-            setSubmittedSearch(searchQuery);
-            setSubmittedRole(role);
-            setCurrPage(1); // Reset to first page on new search/filter
+          id="role-filter"
+          value={query.role}
+          onChange={(e) => {
+            setCurrPage(1);
+            setQuery({ ...query, role: e.target.value });
           }}
+          className={cx(inputClass, "h-9! w-auto! text-[13px]")}
         >
-          <Search className="w-5 h-5" />
-        </button>
+          {ROLE_FILTERS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Users Table */}
-      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-x-auto max-h-[600px]">
-          <table className="w-full min-w-[800px]">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Actions
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  User
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Email
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Role
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Joined
-                </th>
+      <div className={tableWrapClass}>
+        <table className={tableClass}>
+          <thead>
+            <tr>
+              <th className={thClass}>User</th>
+              <th className={thClass}>Role</th>
+              <th className={thClass}>Status</th>
+              <th className={thClass}>Joined</th>
+              <th className={cx(thClass, "text-right")}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} className={emptyCellClass}>Loading users…</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    Loading...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-red-400">
-                    {error}
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                users.map((u) => (
-                  <tr
-                    key={u._id}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Edit"
-                          onClick={() => handleEditClick(u)}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Delete"
-                          onClick={() => handleDelete(u)}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5"
-                            alt="Delete"
-                          />
-                        </button>
+            ) : error ? (
+              <tr>
+                <td colSpan={5} className={cx(emptyCellClass, "text-danger")}>{error}</td>
+              </tr>
+            ) : users.length === 0 ? (
+              <tr>
+                <td colSpan={5} className={emptyCellClass}>No users match.</td>
+              </tr>
+            ) : (
+              users.map((u) => (
+                <tr key={u._id} className={rowClass}>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar src={u.profilePic} name={u.username} />
+                      <div className="min-w-0">
+                        <p className="max-w-[220px] truncate font-medium text-ink">
+                          {u.username}
+                          {editor?.id === u._id && <span className="ml-1.5 text-xs font-normal text-subtle">(you)</span>}
+                        </p>
+                        <p className="max-w-[220px] truncate text-xs text-subtle">{u.email}</p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-10 h-10 overflow-hidden rounded-full bg-pink-500/20">
-                          {u.profilePic ? (
-                            <img
-                              src={
-                                u.profilePic.startsWith("http")
-                                  ? u.profilePic
-                                  : u.profilePic // Cloudinary URLs are complete
-                              }
-                              alt={u.username}
-                              className="object-cover w-10 h-10 rounded-full"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = assets.defaultProfile;
-                              }}
-                            />
-                          ) : (
-                            <img
-                              src={assets.defaultProfile}
-                              alt={u.username}
-                              className="object-cover w-10 h-10 rounded-full"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                // Fallback to initials if default image fails
-                                e.target.style.display = "none";
-                                e.target.nextElementSibling.style.display =
-                                  "block";
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-white">
-                            {u.username}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">{u.email}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          u.role === "superAdmin"
-                            ? "bg-green-500/20 text-green-500"
-                            : u.role === "admin"
-                              ? "bg-purple-500/20 text-purple-500"
-                              : "bg-blue-500/20 text-blue-500"
-                        }`}
-                      >
-                        {u.role === "superAdmin"
-                          ? "Super Admin"
-                          : u.role === "admin"
-                            ? "Admin"
-                            : "User"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {formatDate(u.createdAt)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </td>
+                  <td className={tdClass}>
+                    <Badge tone={ROLE_TONES[u.role]}>{ROLE_LABELS[u.role]}</Badge>
+                  </td>
+                  <td className={tdClass}>
+                    <span className="flex flex-wrap gap-1">
+                      <Badge tone={u.accountStatus === "active" ? "success" : "warning"}>{u.accountStatus === "active" ? "Active" : "Verifying"}</Badge>
+                      {u.isDemo && <Badge tone="violet">Demo</Badge>}
+                    </span>
+                  </td>
+                  <td className={cx(tdClass, "whitespace-nowrap")}>{formatDate(u.createdAt)}</td>
+                  <td className={cx(tdClass, "text-right")}>
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${u.username}`} title={readOnly ? READ_ONLY_TITLE : "Edit"} disabled={!canEditUser(editor, u)} onClick={() => dispatch(openUserEditModal(u))}>
+                        <Pencil aria-hidden="true" className="size-3.5" />
+                      </Button>
+                      <Button variant="danger-ghost" size="icon-sm" aria-label={`Delete ${u.username}`} title={readOnly ? READ_ONLY_TITLE : "Delete"} disabled={!canDeleteUser(editor, u)} onClick={() => dispatch(openUserDeleteModal(u))}>
+                        <Trash2 aria-hidden="true" className="size-3.5" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <DashboardPagination
-        currPage={currPage}
-        totalPages={totalPages}
-        totalItems={totalUsers}
-        itemCount={users.length}
-        pageSize={20}
-        label="users"
-        onPageChange={handlePg}
-      />
+      <div className="flex justify-end">
+        <Pagination page={currPage} totalPages={totalPages} onPageChange={setCurrPage} label="User pages" />
+      </div>
     </div>
   );
 };

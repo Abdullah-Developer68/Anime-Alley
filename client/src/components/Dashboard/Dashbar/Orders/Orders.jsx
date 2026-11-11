@@ -1,387 +1,195 @@
-import { useState, useEffect, useCallback } from "react";
-import { useDispatch } from "react-redux";
-import useAuth from "../../../../Hooks/UseAuth";
+import { useCallback, useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Clock, Download, PackageCheck, Pencil, RefreshCw, Trash2, Truck, Loader } from "lucide-react";
 import api from "../../../../api/api";
-import assets from "../../../../assets/asset";
-import {
-  openExportModal,
-  openOrderEditModal,
-  openOrderDeleteModal,
-  setReloadData,
-} from "../../../../redux/Slice/DashboardSlice";
-import { useSelector } from "react-redux";
+import { openExportModal, openOrderDeleteModal, openOrderEditModal, setReloadData } from "../../../../redux/Slice/DashboardSlice";
+import { formatDate, formatMoney } from "../../../../utils/money";
 import EditOrder from "./EditOrder";
 import DeleteOrder from "./DeleteOrder";
-import { Download, RefreshCw } from "lucide-react";
-import DashboardPagination from "../../DashboardPagination";
+import PageHeader from "../../shared/PageHeader";
+import StatCard from "../../shared/StatCard";
+import DemoNotice from "../../shared/DemoNotice";
+import { READ_ONLY_TITLE, useReadOnly } from "../../shared/readOnly";
+import { emptyCellClass, rowClass, tableClass, tableWrapClass, tdClass, thClass } from "../../shared/tableStyles";
+import Avatar from "../../../ui/Avatar";
+import Badge from "../../../ui/Badge";
+import Button from "../../../ui/Button";
+import Pagination from "../../../ui/Pagination";
+import { ORDER_STATUS_TONES, cx } from "../../../ui/styles";
+
+const STATS = [
+  { key: "pending", label: "Pending", icon: Clock, tone: "warning" },
+  { key: "processing", label: "Processing", icon: Loader, tone: "info" },
+  { key: "shipped", label: "Shipped", icon: Truck, tone: "violet" },
+  { key: "delivered", label: "Delivered", icon: PackageCheck, tone: "success" },
+];
+
+// "Survey Corps hoodie (M) ×2, +1 more"
+const itemsSummary = (products = []) => {
+  const [first, ...rest] = products;
+  if (!first)
+    return "—";
+  const name = first.name || first.productId?.name || "Removed product";
+  const variant = first.variant && first.variant !== "Default" ? ` (${first.variant})` : "";
+  return `${name}${variant} ×${first.quantity}${rest.length ? `, +${rest.length} more` : ""}`;
+};
 
 const Orders = () => {
-  const { user } = useAuth();
   const dispatch = useDispatch();
+  const readOnly = useReadOnly();
+  const reloadData = useSelector((state) => state.dashboard.reloadData);
   const [orders, setOrders] = useState([]);
   const [currPage, setCurrPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [orderStats, setOrderStats] = useState({});
+  const [stats, setStats] = useState({});
   const [statsLoading, setStatsLoading] = useState(false);
-  const [statsError, setStatsError] = useState("");
 
-  // selectes where to reload data or not
-  const reloadDataType = useSelector((state) => state.dashboard.reloadData);
-
-  // Helper to format date as DD-MM-YYYY
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  // Fetch orders for the current page
-  const loadOrders = useCallback(
-    async (page = 1) => {
-      if (!user?.email) return;
-      setLoading(true);
-      setError("");
-      try {
-        const res = await api.getAllOrdersList(page);
-        if (res.data.success) {
-          setOrders(res.data.currPageOrders);
-          setTotalPages(res.data.totalPages);
-          setTotalOrders(res.data.totalOrders);
-        } else {
-          setOrders([]);
-          setTotalPages(1);
-          setTotalOrders(0);
-          setError(res.data.message || "Failed to fetch orders");
-        }
-      } catch (err) {
-        setOrders([]);
-        setTotalPages(1);
-        setTotalOrders(0);
-        setError(err.response?.data?.message || "Failed to fetch orders");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [user?.email],
-  );
-
-  // Fetch order status stats
-  const fetchOrderStats = async () => {
-    setStatsLoading(true);
-    setStatsError("");
+  const loadOrders = useCallback(async (page) => {
+    setLoading(true);
+    setError("");
     try {
-      const res = await api.getOrderStats();
-      if (res.data.success) {
-        setOrderStats(res.data.stats);
-      } else {
-        setOrderStats({});
-        setStatsError(res.data.message || "Failed to fetch stats");
-      }
+      const { data } = await api.getAllOrdersList(page);
+      setOrders(data.currPageOrders);
+      setTotalPages(data.totalPages);
+      setTotalOrders(data.totalOrders);
     } catch (err) {
-      setOrderStats({});
-      setStatsError(err.response?.data?.message || "Failed to fetch stats");
+      setOrders([]);
+      setError(err.response?.data?.message || "Failed to fetch orders");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const { data } = await api.getOrderStats();
+      setStats(data.stats || {});
+    } catch (err) {
+      console.error("Failed to fetch order stats:", err);
     } finally {
       setStatsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadOrders(currPage);
-    fetchOrderStats();
-    const interval = setInterval(fetchOrderStats, 600000); // 10 minutes
-    return () => clearInterval(interval);
   }, [currPage, loadOrders]);
 
   useEffect(() => {
-    if (reloadDataType === "orders") {
-      loadOrders(currPage);
-      fetchOrderStats();
-      dispatch(setReloadData(null)); // tells the dashboardSlice to mark the reload as done and not trigger any more reloads
-    }
-  });
+    loadStats();
+  }, [loadStats]);
 
-  // Pagination handler
-  const handlePg = (value) => {
-    let newPage;
-    if (value === "next" && currPage < totalPages) {
-      newPage = currPage + 1;
-    } else if (value === "prev" && currPage > 1) {
-      newPage = currPage - 1;
-    } else if (typeof value === "number") {
-      newPage = value;
-    } else {
+  // Edits and deletes ask for a reload through Redux
+  useEffect(() => {
+    if (reloadData !== "orders")
       return;
-    }
-    setCurrPage(newPage);
-  };
+    loadOrders(currPage);
+    loadStats();
+    dispatch(setReloadData(null));
+  }, [reloadData, currPage, loadOrders, loadStats, dispatch]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <EditOrder />
       <DeleteOrder />
-      {/* Header Section */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white max-[1120px]:pl-14">Orders</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={fetchOrderStats}
-            disabled={statsLoading}
-            title="Refresh Stats"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white disabled:opacity-50"
-          >
-            <RefreshCw className={`w-5 h-5 ${statsLoading ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatch(openExportModal("orders"))}
-            title="Export Orders"
-            className="flex items-center justify-center p-2 text-black transition-colors bg-gray-300 rounded-lg cursor-pointer hover:bg-white"
-          >
-            <Download className="w-5 h-5" />
-          </button>
-        </div>
+
+      <PageHeader title="Orders" description={`${totalOrders} orders, newest first`}>
+        <Button variant="secondary" size="sm" onClick={loadStats} disabled={statsLoading}>
+          <RefreshCw aria-hidden="true" className={cx("size-3.5", statsLoading && "animate-spin")} />
+          Refresh
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => dispatch(openExportModal("orders"))} disabled={readOnly} title={readOnly ? READ_ONLY_TITLE : undefined}>
+          <Download aria-hidden="true" className="size-3.5" />
+          Export
+        </Button>
+      </PageHeader>
+
+      <DemoNotice />
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {STATS.map(({ key, label, icon, tone }, index) => (
+          <StatCard key={key} label={label} value={stats[key] || 0} icon={icon} tone={tone} index={index} />
+        ))}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-        {/* Pending Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Pending Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.pending || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-yellow-500/20">
-              <img src={assets.pending} />
-            </div>
-          </div>
-        </div>
-        {/* Processing Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Processing Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.processing || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-blue-500/20">
-              <img src={assets.processing} />
-            </div>
-          </div>
-        </div>
-        {/* Shipped Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Shipped Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.shipped || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-purple-500/20">
-              <img src={assets.shipped} />
-            </div>
-          </div>
-        </div>
-        {/* Delivered Orders */}
-        <div className="p-6 border bg-white/5 rounded-xl border-white/10">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-400">Delivered Orders</p>
-              <h3 className="mt-1 text-2xl font-bold text-white">
-                {orderStats.delivered || 0}
-              </h3>
-            </div>
-            <div className="p-3 rounded-lg bg-green-500/20">
-              <img src={assets.delivered} />
-            </div>
-          </div>
-        </div>
-      </div>
-      {statsError && (
-        <div className="mt-2 text-sm text-red-400">{statsError}</div>
-      )}
-
-      {/* Orders Table */}
-      <div className="overflow-hidden border bg-white/5 rounded-xl border-white/10">
-        <div className="relative overflow-x-auto max-h-[400px]">
-          <table className="w-full min-w-[900px] whitespace-nowrap">
-            <thead className="sticky top-0 z-10 bg-black/50 backdrop-blur-sm">
-              <tr className="border-b border-white/10">
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Actions
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Order ID
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Customer
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Date
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Amount
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Coupon Code
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Discount
-                </th>
-                <th className="px-6 py-4 text-sm font-medium text-left text-gray-400">
-                  Status
-                </th>
+      <div className={tableWrapClass}>
+        <table className={cx(tableClass, "min-w-[980px]")}>
+          <thead>
+            <tr>
+              <th className={thClass}>Order</th>
+              <th className={thClass}>Customer</th>
+              <th className={thClass}>Items</th>
+              <th className={thClass}>Date</th>
+              <th className={thClass}>Payment</th>
+              <th className={thClass}>Total</th>
+              <th className={thClass}>Status</th>
+              <th className={cx(thClass, "text-right")}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={8} className={emptyCellClass}>Loading orders…</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-8 text-center text-gray-400"
-                  >
-                    Loading orders...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-8 text-center text-red-400"
-                  >
-                    {error}
-                  </td>
-                </tr>
-              ) : orders.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-6 py-8 text-center text-gray-400"
-                  >
-                    No orders found.
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => (
-                  <tr
-                    key={order._id}
-                    className="transition-colors hover:bg-white/5"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex justify-start gap-2">
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Edit"
-                          onClick={() => dispatch(openOrderEditModal(order))}
-                        >
-                          <img
-                            src={assets.edit}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Edit"
-                          />
-                        </button>
-                        <button
-                          className="flex items-center justify-center w-10 h-10 p-2 transition-colors bg-gray-300 rounded-lg hover:bg-white"
-                          title="Delete"
-                          onClick={() => dispatch(openOrderDeleteModal(order))}
-                        >
-                          <img
-                            src={assets.deleteIcon}
-                            className="w-5 h-5 cursor-pointer"
-                            alt="Delete"
-                          />
-                        </button>
+            ) : error ? (
+              <tr>
+                <td colSpan={8} className={cx(emptyCellClass, "text-danger")}>{error}</td>
+              </tr>
+            ) : orders.length === 0 ? (
+              <tr>
+                <td colSpan={8} className={emptyCellClass}>No orders yet.</td>
+              </tr>
+            ) : (
+              orders.map((order) => (
+                <tr key={order._id} className={rowClass}>
+                  <td className={cx(tdClass, "font-medium whitespace-nowrap text-ink")}>{order.orderID}</td>
+                  <td className={tdClass}>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar src={order.user?.profilePic} name={order.user?.username} className="size-7" />
+                      <div className="min-w-0">
+                        <p className="max-w-[160px] truncate text-ink">{order.user?.username || "Deleted account"}</p>
+                        <p className="max-w-[160px] truncate text-xs text-subtle">{order.user?.email || "—"}</p>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-white">
-                      {order.orderID}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 overflow-hidden rounded-full bg-pink-500/20">
-                          <img
-                            src={
-                              order.user?.profilePic
-                                ? order.user.profilePic.startsWith("http")
-                                  ? order.user.profilePic
-                                  : order.user.profilePic
-                                : assets.defaultProfile
-                            }
-                            alt={order.user?.username}
-                            className="object-cover w-8 h-8 rounded-full"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = assets.defaultProfile;
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-white">
-                            {order.user?.username || "Unknown"}
-                          </p>
-                          <p className="text-xs text-gray-400">
-                            {order.user?.email || "-"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {formatDate(order.createdAt || order.orderDate)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      ${order.finalAmount}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      {order.couponCode || "-"}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-white">
-                      ${order.discount || 0}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium inline-flex items-center ${
-                          order.status === "pending"
-                            ? "bg-yellow-500/20 text-yellow-500"
-                            : order.status === "processing"
-                              ? "bg-blue-500/20 text-blue-500"
-                              : order.status === "shipped"
-                                ? "bg-purple-500/20 text-purple-500"
-                                : order.status === "delivered"
-                                  ? "bg-green-500/20 text-green-500"
-                                  : "bg-gray-500/20 text-gray-500"
-                        }`}
-                      >
-                        {order.status?.charAt(0).toUpperCase() +
-                          order.status?.slice(1)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </td>
+                  <td className={cx(tdClass, "max-w-[220px] truncate")} title={itemsSummary(order.products)}>
+                    {itemsSummary(order.products)}
+                  </td>
+                  <td className={cx(tdClass, "whitespace-nowrap")}>{formatDate(order.createdAt || order.orderDate)}</td>
+                  <td className={cx(tdClass, "whitespace-nowrap")}>{order.paymentMethod === "stripe" ? "Card" : "Cash"}</td>
+                  <td className={cx(tdClass, "whitespace-nowrap tabular-nums text-ink")}>
+                    {formatMoney(order.finalAmount)}
+                    {order.couponCode && <span className="block text-xs text-success">{order.couponCode}</span>}
+                  </td>
+                  <td className={tdClass}>
+                    <Badge tone={ORDER_STATUS_TONES[order.status]}>{order.status}</Badge>
+                  </td>
+                  <td className={cx(tdClass, "text-right")}>
+                    <div className="inline-flex gap-1">
+                      <Button variant="ghost" size="icon-sm" aria-label={`Edit ${order.orderID}`} title={readOnly ? READ_ONLY_TITLE : "Change status"} disabled={readOnly} onClick={() => dispatch(openOrderEditModal(order))}>
+                        <Pencil aria-hidden="true" className="size-3.5" />
+                      </Button>
+                      <Button variant="danger-ghost" size="icon-sm" aria-label={`Delete ${order.orderID}`} title={readOnly ? READ_ONLY_TITLE : "Delete"} disabled={readOnly} onClick={() => dispatch(openOrderDeleteModal(order))}>
+                        <Trash2 aria-hidden="true" className="size-3.5" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <DashboardPagination
-        currPage={currPage}
-        totalPages={totalPages}
-        totalItems={totalOrders}
-        itemCount={orders.length}
-        pageSize={20}
-        label="orders"
-        onPageChange={handlePg}
-      />
+      <div className="flex justify-end">
+        <Pagination page={currPage} totalPages={totalPages} onPageChange={setCurrPage} label="Order pages" />
+      </div>
     </div>
   );
 };

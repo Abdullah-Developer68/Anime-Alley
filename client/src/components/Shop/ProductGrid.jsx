@@ -1,106 +1,86 @@
-import { useSelector, useDispatch } from "react-redux";
-import {
-  updateTotalPages,
-  updateCurrPage,
-  setLoading,
-  setProductsCache,
-} from "../../redux/Slice/shopSlice";
 import { useEffect } from "react";
-import Cards from "../Global/Card";
-import Loader from "../Global/Loader";
+import { useDispatch, useSelector } from "react-redux";
+import { AnimatePresence, m } from "motion/react";
+import { PackageSearch } from "lucide-react";
 import api from "../../api/api";
+import { resetFilters, setLoading, setPage, setResults } from "../../redux/Slice/shopSlice";
+import ProductCard from "./ProductCard";
+import EmptyState from "../ui/EmptyState";
+import Button from "../ui/Button";
 
+const PAGE_SIZE = 24;
+
+// Fetches the page for the current category, filters and page number, then shows it
 const ProductGrid = () => {
   const dispatch = useDispatch();
-  // Access the category state and filters of that category from the redux store
-  const products = useSelector((state) => state.shop.productsCache);
-  const currCategory = useSelector((state) => state.shop.currCategory);
-  const appliedFilters = useSelector((state) => state.shop.productTypes);
-  const currPage = useSelector((state) => state.shop.currPage);
-  const isLoading = useSelector((state) => state.shop.isLoading);
+  const { currCategory, filters, currPage, products, productsKey, isLoading } = useSelector((state) => state.shop);
+  const query = { category: currCategory, ...filters, page: currPage, limit: PAGE_SIZE };
+  const key = JSON.stringify(query);
 
   useEffect(() => {
-    if (products.length > 0) {
-      dispatch(setLoading(false));
+    if (productsKey === key)
       return;
-    }
-
-    let isMounted = true;
+    let active = true;
     dispatch(setLoading(true));
-
-    const fetchProducts = async () => {
-      try {
-        const { productTypes, price, sortBy, searchQuery } = appliedFilters;
-
-        // Create a single object with all constraints
-        const apiPayload = {
-          category: currCategory.toLowerCase(),
-          productTypes: productTypes || ["all"],
-          price: typeof price === "number" ? price : Number(price) || 0,
-          sortBy: sortBy || "popular",
-          page: currPage,
-          searchQuery: searchQuery || "",
-        };
-
-        const response = await api.getProducts(apiPayload);
-        if (!isMounted) return;
-
-        dispatch(setLoading(false));
-
-        if (response.data.success) {
-          const { totalPages, currPageProducts } = response.data;
-
-          dispatch(updateTotalPages(totalPages));
-
-          // If we restored an out-of-range page from persistence, clamp to the last valid page
-          if (totalPages > 0 && currPage > totalPages) {
-            dispatch(updateCurrPage(totalPages));
-            dispatch(setProductsCache([]));
-            return;
-          }
-
-          dispatch(setProductsCache(currPageProducts));
-        } else {
-          console.error("Failed to fetch products:", response.data.message);
-          dispatch(setProductsCache([]));
-        }
-      } catch (error) {
-        if (!isMounted) return;
+    api
+      .getProducts(JSON.parse(key))
+      .then(({ data }) => {
+        if (!active)
+          return;
+        // A page restored from an older visit may be past the end now
+        if (data.totalPages > 0 && JSON.parse(key).page > data.totalPages)
+          return dispatch(setPage(data.totalPages));
+        dispatch(setResults({ products: data.currPageProducts, totalPages: data.totalPages, totalProducts: data.totalProducts, key }));
+      })
+      .catch((error) => {
         console.error("Error fetching products:", error);
-        dispatch(setLoading(false));
-        dispatch(setProductsCache([]));
-      }
-    };
-
-    fetchProducts();
-
+        if (active)
+          dispatch(setResults({ products: [], totalPages: 1, totalProducts: 0, key }));
+      });
     return () => {
-      isMounted = false;
+      active = false;
     };
-  }, [products.length, currCategory, appliedFilters, currPage, dispatch]);
+  }, [key, productsKey, dispatch]);
+
+  if (isLoading && productsKey !== key)
+    return (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="aspect-[4/5.6] animate-pulse rounded-panel border border-line bg-surface" />
+        ))}
+      </div>
+    );
+
+  if (products.length === 0)
+    return (
+      <EmptyState
+        icon={PackageSearch}
+        title="No products match"
+        action={
+          <Button variant="secondary" size="sm" onClick={() => dispatch(resetFilters())}>
+            Clear filters
+          </Button>
+        }
+      >
+        Try a different search, type or price.
+      </EmptyState>
+    );
 
   return (
-    <div className="flex flex-col flex-1 w-full min-h-0">
-      {/* Product Grid */}
-      <div className="w-full flex-1 min-h-[350px] lg:h-full overflow-y-auto flex flex-col">
-        {isLoading ? (
-          <div className="flex items-center justify-center flex-1 min-h-[350px]">
-            <Loader size="lg" />
-          </div>
-        ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-[350px] text-white/60">
-            <p className="text-lg font-medium">No products found</p>
-            <p className="text-sm text-white/40">Try adjusting your filters or search query</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-            {products.map((product) => (
-              <Cards key={product._id} product={product} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+    <AnimatePresence mode="wait">
+      <m.div
+        key={productsKey}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
+      >
+        {products.map((product, index) => (
+          <ProductCard key={product._id} product={product} priority={index < 4} />
+        ))}
+      </m.div>
+    </AnimatePresence>
   );
 };
 

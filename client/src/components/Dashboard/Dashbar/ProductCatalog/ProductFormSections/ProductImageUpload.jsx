@@ -1,64 +1,61 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { useSelector } from "react-redux";
-import assets from "../../../../../assets/asset";
+import { ImagePlus } from "lucide-react";
+import { LABEL_CLASS } from "./constants";
+
+const MAX_BYTES = 4 * 1024 * 1024;
+const TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 // Image picker with preview; the chosen File is stored in the form as `imageFile` for submit
 const ProductImageUpload = () => {
-  const { register, setValue, formState: { errors } } = useFormContext();
+  const { register, setValue, setError, clearErrors, formState: { errors } } = useFormContext();
   const editProduct = useSelector((state) => state.dashboard.productFormState.selectedProduct);
-  const [previewImage, setPreviewImage] = useState(editProduct?.image || null);
+  const [preview, setPreview] = useState(editProduct?.image || null);
+
+  // Object URLs hold the file in memory until revoked
+  useEffect(() => () => preview?.startsWith("blob:") && URL.revokeObjectURL(preview), [preview]);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
+    // The server takes JPG, PNG or WebP up to 4 MB; checking here saves a failed upload
+    if (file && (!TYPES.includes(file.type) || file.size > MAX_BYTES)) {
+      e.target.value = "";
+      return setError("image", { message: "Use a JPG, PNG or WebP image of 4 MB or less." });
+    }
+    clearErrors("image");
     setValue("imageFile", file || null);
-    // With no file selected, fall back to the product's current image in edit mode
-    if (file)
-      setPreviewImage(URL.createObjectURL(file));
-    else
-      setPreviewImage(editProduct?.image || null);
+    setPreview(file ? URL.createObjectURL(file) : editProduct?.image || null);
   };
 
   return (
-    <div className="sticky space-y-4 top-24">
-      <h3 className="text-lg font-medium text-white">Product Image</h3>
-      <div className="p-4 text-center border-2 border-dashed rounded-lg border-white/10 sm:p-6">
-        <div className="space-y-2">
-          <img src={assets.file} alt="file icon" className="mx-auto mb-2" />
-          <div className="text-sm text-gray-400">
-            <label
-              htmlFor="file-upload"
-              className="relative flex flex-col items-center justify-center text-pink-500 cursor-pointer hover:text-pink-400"
-            >
-              <span className="w-full p-2 text-sm text-black transition-colors bg-pink-500 rounded-full sm:w-32 hover:bg-pink-600">
-                Upload a file
-              </span>
-              <input
-                id="file-upload"
-                type="file"
-                className="sr-only"
-                accept="image/*"
-                // Optional in edit mode, where the current image is kept
-                {...register("image", { required: !editProduct ? "Image is required!" : false })}
-                onChange={handleImageUpload}
-              />
-              {errors.image && <span className="block mt-2 text-xs text-red-500">{errors.image.message}</span>}
-            </label>
-          </div>
-          <p className="mt-2 text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-
-          {previewImage && (
-            <div className="mt-4">
-              <img
-                src={previewImage}
-                className="object-contain w-full border rounded-lg max-h-48 border-white/20"
-                alt="Preview"
-              />
-              <p className="mt-2 text-xs text-green-400">✓ Image selected</p>
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="lg:sticky lg:top-0">
+      <span className={LABEL_CLASS}>Product image</span>
+      <label
+        htmlFor="file-upload"
+        className="flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-panel border border-dashed border-line-strong bg-canvas text-center transition-colors hover:border-ink"
+      >
+        {preview ? (
+          <img src={preview} alt="Preview" className="size-full object-contain p-3" />
+        ) : (
+          <span className="flex flex-col items-center gap-2 px-6 text-[13px] text-muted">
+            <ImagePlus aria-hidden="true" className="size-6 text-subtle" />
+            Click to choose an image
+            <span className="text-xs text-subtle">JPG, PNG or WebP, up to 4 MB</span>
+          </span>
+        )}
+        <input
+          id="file-upload"
+          type="file"
+          className="sr-only"
+          accept="image/jpeg,image/png,image/webp"
+          // Optional when editing, where the current image is kept
+          {...register("image", { required: !editProduct ? "An image is required." : false })}
+          onChange={handleImageUpload}
+        />
+      </label>
+      {preview && <p className="mt-2 text-xs text-muted">Click the image to replace it.</p>}
+      {errors.image && <p role="alert" className="mt-1.5 text-xs text-danger">{errors.image.message}</p>}
     </div>
   );
 };

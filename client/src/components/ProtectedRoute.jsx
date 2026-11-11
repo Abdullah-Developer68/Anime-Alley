@@ -1,40 +1,20 @@
 import { Navigate, useLocation } from "react-router-dom";
 import useAuth from "../Hooks/UseAuth";
-import PropTypes from "prop-types";
+import { PageSpinner } from "./ui/Spinner";
 
+// Pages for signed-in people; /dashboard is for admins only. The server enforces the same rules,
+// this only keeps people from landing on pages that would refuse them.
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
-  // Show loading state while checking auth
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center w-full h-screen bg-transparent">
-        <div className="w-16 h-16 border-4 border-pink-500 rounded-full border-t-transparent animate-spin"></div>
-      </div>
-    );
-  }
-
-  // Only redirect to login if not authenticated
-  if (!user) {
+  if (loading)
+    return <PageSpinner />;
+  if (!user)
     return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // Restrict /dashboard to admin and superAdmin only
-  const allowedRoles = ["superAdmin", "admin"];
-  if (
-    location.pathname.startsWith("/dashboard") &&
-    !allowedRoles.includes(user.role)
-  ) {
+  if (location.pathname.startsWith("/dashboard") && !["admin", "superAdmin"].includes(user.role))
     return <Navigate to="/" replace />;
-  }
-
-  // Render children if authenticated
   return children;
-};
-
-ProtectedRoute.propTypes = {
-  children: PropTypes.node.isRequired,
 };
 
 export default ProtectedRoute;

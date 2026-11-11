@@ -1,4 +1,3 @@
-const Stripe = require("stripe");
 const dotenv = require("dotenv");
 const reservationModel = require("../db/models/reservation.model.js");
 const userModel = require("../db/models/user.model.js");
@@ -7,10 +6,9 @@ const dbConnect = require("../db/dbConnect.js");
 const { resolveTrustedClientOrigin } = require("../utils/origin.utils.js");
 const { validateCouponForUser } = require("../utils/coupon.utils.js");
 const { formatPrice } = require("../utils/formatPrice.utils.js");
+const { addressProblem } = require("../utils/validation.utils.js");
+const { getStripe } = require("../config/stripe/stripe.config.js");
 dotenv.config();
-
-// Initialized Stripe instance for backends
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 const SHIPPING_COST = 5;
 const CURRENCY = "usd";
@@ -25,7 +23,7 @@ const expireOpenSessions = async (userId) => {
 
   for (const open of openSessions) {
     try {
-      await stripe.checkout.sessions.expire(open.stripeSessionID);
+      await getStripe().checkout.sessions.expire(open.stripeSessionID);
       await checkoutSessionModel.updateOne(
         { _id: open._id, status: "pending" },
         { status: "expired" },
@@ -43,8 +41,9 @@ const createCheckoutSession = async (req, res) => {
       return res.status(400).json({ error: "Payment data is required" });
 
     const { couponCode, deliveryAddress } = paymentData || {};
-    if (!deliveryAddress || typeof deliveryAddress !== "string" || !deliveryAddress.trim())
-      return res.status(400).json({ error: "Delivery address is required and must be a string" });
+    const invalidAddress = addressProblem(deliveryAddress);
+    if (invalidAddress)
+      return res.status(400).json({ error: invalidAddress });
 
     if (couponCode != null && typeof couponCode !== "string")
       return res.status(400).json({ error: "Coupon code must be a string" });
@@ -59,14 +58,12 @@ const createCheckoutSession = async (req, res) => {
 
     await dbConnect();
 
-    const user = await userModel.findById(userId);
+    const [user, reservation] = await Promise.all([
+      userModel.findById(userId).select("couponCodeUsed").lean(),
+      reservationModel.findOne({ userId }).populate({ path: "products.productId", select: "name price image" }).lean(),
+    ]);
     if (!user)
       return res.status(404).json({ error: "User not found" });
-
-    // Find reservation by userId from verified token
-    const reservation = await reservationModel
-      .findOne({ userId })
-      .populate("products.productId");
 
     if (!reservation || !reservation.products || reservation.products.length === 0)
       return res.status(404).json({ error: "No reservations found for this cart" });
@@ -135,7 +132,7 @@ const createCheckoutSession = async (req, res) => {
     // Resolve trusted client base URL to return user to their originating deployment domain
     const clientBaseUrl = resolveTrustedClientOrigin(req);
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
@@ -159,12 +156,7 @@ const createCheckoutSession = async (req, res) => {
       await checkoutSessionModel.create({
         stripeSessionID: session.id,
         userId,
-        products: snapshotProducts.map(({ productId, variant, quantity, price }) => ({
-          productId,
-          variant,
-          quantity,
-          price,
-        })),
+        products: snapshotProducts,
         couponId: coupon ? coupon._id : null,
         couponCode: coupon ? coupon.couponCode : null,
         subtotal,
@@ -175,12 +167,14 @@ const createCheckoutSession = async (req, res) => {
         shippingAddress: deliveryAddress.trim(),
       });
     } catch (snapshotErr) {
-      await stripe.checkout.sessions.expire(session.id).catch(() => {});
+      await getStripe().checkout.sessions.expire(session.id).catch(() => {});
       throw snapshotErr;
     }
 
     res.status(201).json({
       sessionId: session.id,
+      // The client navigates here; it no longer needs Stripe.js just to redirect
+      url: session.url,
       subtotal: subtotal.toFixed(2),
       discountAmount: discountAmount || "0",
       finalTotal: (amountTotalCents / 100).toFixed(2),

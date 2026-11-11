@@ -21,8 +21,10 @@ const signAccessToken = (userId, sessionId) =>
 const verifyAccessToken = (token) =>
   jwt.verify(token, process.env.JWT_KEY, { algorithms: ["HS256"] });
 
+const newRefreshToken = () => crypto.randomBytes(32).toString("base64url");
+
 const createSession = async (userId) => {
-  const refreshToken = crypto.randomBytes(32).toString("base64url");
+  const refreshToken = newRefreshToken();
   const now = Date.now();
   const session = await authSessionModel.create({
     userId,
@@ -33,26 +35,59 @@ const createSession = async (userId) => {
   return { token: signAccessToken(userId, session._id), refreshToken };
 };
 
-// Returns a new access token and pushes back the idle timeout, or null if the session is gone
+// Two tabs can refresh at the same moment with the same token; the slower one gets this long to
+// present the token the faster one just replaced
+const REUSE_GRACE_MS = 30 * 1000;
+
+// Returns a new access token and a new refresh token (the old one stops working), and pushes back
+// the idle timeout. Returns null if the session is gone. A replaced token that comes back after the
+// grace period means someone kept a copy, so the whole session is ended.
 const refreshSession = async (refreshToken) => {
-  const now = Date.now();
+  const now = new Date();
+  const presented = hashRefreshToken(refreshToken);
   const session = await authSessionModel.findOne({
-    tokenHash: hashRefreshToken(refreshToken),
-    expiresAt: { $gt: new Date(now) },
+    $or: [{ tokenHash: presented }, { previousTokenHash: presented }],
+    expiresAt: { $gt: now },
   });
   if (!session)
     return null;
 
-  session.expiresAt = new Date(Math.min(now + IDLE_TIMEOUT_MS, session.absoluteExpiresAt.getTime()));
-  await session.save();
-  return { userId: session.userId, token: signAccessToken(session.userId, session._id) };
+  const accessToken = signAccessToken(session.userId, session._id);
+  if (session.tokenHash !== presented) {
+    if (!session.rotatedAt || now - session.rotatedAt > REUSE_GRACE_MS) {
+      await authSessionModel.deleteOne({ _id: session._id });
+      return null;
+    }
+    // The other tab already stored the new refresh token in the shared localStorage
+    return { userId: session.userId, token: accessToken };
+  }
+
+  const nextRefreshToken = newRefreshToken();
+  // Conditional on the presented token, so of two simultaneous refreshes only one rotates
+  const rotated = await authSessionModel.updateOne(
+    { _id: session._id, tokenHash: presented },
+    {
+      $set: {
+        tokenHash: hashRefreshToken(nextRefreshToken),
+        previousTokenHash: presented,
+        rotatedAt: now,
+        expiresAt: new Date(Math.min(now.getTime() + IDLE_TIMEOUT_MS, session.absoluteExpiresAt.getTime())),
+      },
+    },
+  );
+  if (rotated.modifiedCount === 0)
+    return { userId: session.userId, token: accessToken };
+  return { userId: session.userId, token: accessToken, refreshToken: nextRefreshToken };
 };
 
 const isSessionActive = (sessionId, userId) =>
   authSessionModel.exists({ _id: sessionId, userId, expiresAt: { $gt: new Date() } });
 
-const revokeSession = (refreshToken) =>
-  authSessionModel.deleteOne({ tokenHash: hashRefreshToken(refreshToken) });
+// Works with the current token or the one it just replaced
+const revokeSession = (refreshToken) => {
+  const presented = hashRefreshToken(refreshToken);
+  return authSessionModel.deleteOne({ $or: [{ tokenHash: presented }, { previousTokenHash: presented }] });
+};
 
 // Logs a user out everywhere, optionally keeping the session making the request
 const revokeUserSessions = (userId, exceptSessionId) =>

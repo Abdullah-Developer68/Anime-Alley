@@ -4,6 +4,8 @@ const couponSchema = new mongoose.Schema({
   couponCode: {
     type: String,
     required: true,
+    // Not unique: older data may hold duplicates, which would make the index build fail
+    index: true,
   },
   discountPercentage: {
     type: Number,

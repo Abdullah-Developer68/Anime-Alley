@@ -4,7 +4,6 @@ const passport = require("./config/passport/passport.js");
 
 dotenv.config(); // Load environment variables from .env file
 
-const path = require("path"); // Use path module for file paths
 const port = process.env.PORT;
 const app = express();
 
@@ -43,7 +42,6 @@ require("./middlewares/index.middleware.js")(app);
 // Custom middlewares
 app.use(passport.initialize()); // Still needed for Google OAuth
 // app.use(passport.session()); // Removed - using JWT instead of sessions
-app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // Serve static files from the "uploads" directory
 
 // Import all routes
 const routes = require("./routes/index.routes.js");

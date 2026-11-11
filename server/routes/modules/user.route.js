@@ -5,7 +5,8 @@ const {
   deleteUser,
   updateUser,
 } = require("../../controllers/user.controller.js");
-const upload = require("../../middlewares/modules/multerConfig.js");
+const { singleImage } = require("../../middlewares/modules/multerConfig.js");
+const { blockDemoWrites } = require("../../middlewares/custom/demo.middleware.js");
 // Multipart bodies are parsed after the app-wide check, so they are checked again after multer
 const { rejectOperatorKeys } = require("../../middlewares/custom/rejectOperators.middleware.js");
 const {
@@ -16,12 +17,12 @@ const {
   adminWriteLimiter,
 } = require("../../middlewares/custom/rateLimiters.middleware.js");
 
-// All routes below require authentication and admin role
-router.use(verifyTokenMiddleware, requireAdmin);
+// All routes below require authentication and admin role; demo accounts may only read
+router.use(verifyTokenMiddleware, requireAdmin, blockDemoWrites);
 
 router.get("/", getUsers);
-// Limited before multer, so a blocked request never uploads its image
-router.patch("/:userId", adminWriteLimiter, upload.single("profilePic"), rejectOperatorKeys, updateUser);
+// Limited before multer, so a blocked request never gets its file parsed
+router.patch("/:userId", adminWriteLimiter, singleImage("profilePic"), rejectOperatorKeys, updateUser);
 router.delete("/:userId", adminWriteLimiter, deleteUser);
 
 module.exports = router;
