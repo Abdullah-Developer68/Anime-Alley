@@ -14,6 +14,7 @@ const { blockDemoWrites } = require("../../middlewares/custom/demo.middleware.js
 const { rejectOperatorKeys } = require("../../middlewares/custom/rejectOperators.middleware.js");
 const {
   getProducts,
+  getProductById,
   createProduct,
   deleteProduct,
   updateProduct,
@@ -21,6 +22,7 @@ const {
 
 // Public route - anyone can view products
 router.get("/", productSearchLimiter, getProducts);
+router.get("/:productId", productSearchLimiter, getProductById);
 
 // Admin-only routes. Demo accounts and rate limits are checked before multer, so a blocked request
 // never gets its file parsed.

@@ -230,6 +230,26 @@ const getProducts = async (req, res) => {
   }
 };
 
+// One product, for product pages opened from a link or a reload
+const getProductById = async (req, res) => {
+  try {
+    const _id = req.params?.productId;
+    if (!mongoose.isValidObjectId(_id))
+      return res.status(400).json({ success: false, message: "Invalid product id" });
+
+    await dbConnect();
+    const product = await productModel.findById(_id).select("-imagePublicId -__v").lean();
+    if (!product)
+      return res.status(404).json({ success: false, message: "Product not found" });
+
+    res.set("Cache-Control", "private, max-age=30");
+    res.status(200).json({ success: true, product });
+  } catch (error) {
+    console.error("Error fetching product:", error.message);
+    res.status(500).json({ success: false, message: INTERNAL_ERROR });
+  }
+};
+
 const createProduct = async (req, res) => {
   try {
     const isMultipart = Boolean(
@@ -418,6 +438,7 @@ const deleteProduct = async (req, res) => {
 
 module.exports = {
   getProducts,
+  getProductById,
   createProduct,
   deleteProduct,
   updateProduct,

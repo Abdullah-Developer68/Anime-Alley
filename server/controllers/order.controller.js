@@ -121,7 +121,7 @@ const placeOrder = async (req, res) => {
 };
 
 // Item details for orders made before orders stored their own snapshot
-const LEGACY_PRODUCT_FIELDS = "name price image";
+const LEGACY_PRODUCT_FIELDS = "name price image category";
 
 const getOrderHistory = async (req, res) => {
   try {
